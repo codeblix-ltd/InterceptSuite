@@ -13,6 +13,7 @@ CTestTestfile.cmake
 Testing/
 Makefile
 *.cmake
+!.github/workflows/*.yml
 
 # Visual Studio Code
 .vscode/*
@@ -65,3 +66,4 @@ bld/
 .Trashes
 ehthumbs.db
 Thumbs.db
+build-release/*
