@@ -1,54 +1,52 @@
-name: Build Release
+name: Build Package
 
 on:
   push:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
-  release:
-    types: [ created ]
+
+permissions:
+  contents: read
+  packages: read
 
 jobs:
   build:
     runs-on: windows-latest
-
+    
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 1
 
     - name: Setup vcpkg
-      uses: lukka/run-vcpkg@v11
-      with:
-        vcpkgGitCommitId: '501db0f17ef6df184fcdbfbe0f87cde2313b6ab1' # Known good commit
-        vcpkgJsonGlob: '**/vcpkg.json'
-
-    - name: Setup OpenSSL Dependencies
+      shell: pwsh
       run: |
-        vcpkg install openssl:x64-windows
+        git clone https://github.com/Microsoft/vcpkg.git
+        .\vcpkg\bootstrap-vcpkg.bat
+        .\vcpkg\vcpkg.exe integrate install
+        .\vcpkg\vcpkg.exe install openssl:x64-windows
         
     - name: Configure CMake
+      shell: pwsh
       run: |
         cmake -B build-release -S . -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake
 
     - name: Build
+      shell: pwsh
       run: |
         cmake --build build-release --config Release
 
     - name: Package
+      shell: pwsh
       run: |
         cd build-release
         cpack -G ZIP -C Release
 
-    - name: Upload Release Package
-      uses: actions/upload-artifact@v3
+    - name: Upload Package
+      uses: actions/upload-artifact@v4
       with:
         name: TLS-MITM-Proxy-Windows
         path: build-release/TLS-MITM-Proxy-*.zip
         if-no-files-found: error
-
-    - name: Upload to Release
-      if: github.event_name == 'release'
-      uses: softprops/action-gh-release@v1
-      with:
-        files: build-release/TLS-MITM-Proxy-*.zip
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        retention-days: 90
