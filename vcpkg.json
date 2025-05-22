@@ -1,0 +1,13 @@
+{
+  "name": "tls-project",
+  "version": "1.0.0",
+  "description": "A C project that demonstrates TLS functionality",
+  "homepage": "https://github.com/yourusername/tls-project",
+  "dependencies": [
+    {
+      "name": "openssl",
+      "default-features": true
+    }
+  ],
+  "builtin-baseline": "57fee770fd99a2c9a79ba597b6c70d09dd77f80d"
+}

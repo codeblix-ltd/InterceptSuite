@@ -1,0 +1,9 @@
+{
+    "cmake.configureSettings": {
+        // Use our new variable - CMake will handle finding the toolchain file
+        "VCPKG_INSTALLATION_ROOT": "D:/vcpkg"
+    },
+    "cmake.cmakePath": "C:\\Program Files\\CMake\\bin\\cmake.exe",
+    "cmake.configureOnOpen": true,
+    "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools"
+}
