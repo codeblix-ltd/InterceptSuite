@@ -10,11 +10,6 @@
 #include "../include/socks5.h"
 #include "../include/tls_utils.h"
 
-/* Additional Windows headers for console handling */
-#include <windows.h>
-#include <io.h>
-#include <fcntl.h>
-
 /* Winsock initialization and cleanup */
 int init_winsock(void) {
     WSADATA wsaData;
@@ -116,97 +111,33 @@ int start_proxy_server(void) {
 X509 *ca_cert = NULL;
 EVP_PKEY *ca_key = NULL;
 
-int main(int argc, char *argv[]) {
-    /* Set up console output buffering */
-    setvbuf(stdout, NULL, _IONBF, 0);
-    setvbuf(stderr, NULL, _IONBF, 0);
-
-    /* Initialize Windows Sockets */
-    printf("Initializing Winsock...\n");
-    if (!init_winsock()) {
-        fprintf(stderr, "Failed to initialize Winsock\n");
-        return 1;
-    }
-    printf("Winsock initialized successfully\n");    /* Initialize OpenSSL */
-    printf("Initializing OpenSSL...\n");
-    if (!init_openssl()) {
-        fprintf(stderr, "Failed to initialize OpenSSL\n");
-        cleanup_winsock();
-        return 1;
-    }
-    printf("OpenSSL initialized successfully\n");
-
-    /* Load or generate CA certificate */
-    printf("Loading or generating CA certificate...\n");
-    if (!load_or_generate_ca_cert()) {
-        fprintf(stderr, "Failed to load or generate CA certificate\n");
-        cleanup_openssl();
-        cleanup_winsock();
-        return 1;
-    }
-    printf("CA certificate ready\n");
-
-    /* Start the proxy server */
-    printf("Starting proxy server...\n");
-    if (!start_proxy_server()) {
-        fprintf(stderr, "Failed to start proxy server\n");
-        cleanup_openssl();
-        cleanup_winsock();
-        return 1;
-    }
-
-    /* Clean up (this code is never reached in this simple server) */
-    cleanup_openssl();
-    cleanup_winsock();
-    return 0;
-
-    /* Basic console output test */
-    fprintf(stdout, "==== Console Output Test ====\n");
-    fprintf(stderr, "==== Error Output Test ====\n");
-    fflush(stdout);
-    fflush(stderr);
-
-    /* Exit after basic test to see if we can get output */
-    printf("TLS MITM Proxy starting but exiting immediately for debugging...\n");
-    fflush(stdout);
-    return 0;
-
-    printf("TLS MITM Proxy starting...\n");
-
+int main(void) {
     // Initialize Windows Sockets
-    printf("Initializing Winsock...\n");
     if (!init_winsock()) {
-        fprintf(stderr, "Failed to initialize Winsock\n");
         return 1;
     }
-    printf("Winsock initialized successfully\n");
 
     // Initialize OpenSSL
-    printf("Initializing OpenSSL...\n");
     if (!init_openssl()) {
         fprintf(stderr, "Failed to initialize OpenSSL\n");
         cleanup_winsock();
         return 1;
     }
-    printf("OpenSSL initialized successfully\n");    // Load or generate CA certificate and key
-    printf("Loading or generating CA certificate and key...\n");
+
+    // Load or generate CA certificate and key
     if (!load_or_generate_ca_cert()) {
         fprintf(stderr, "Failed to load or generate CA certificate\n");
         cleanup_openssl();
         cleanup_winsock();
         return 1;
     }
-    printf("CA certificate and key ready\n");
 
     // Start the proxy server
-    printf("Starting proxy server...\n");
     if (!start_proxy_server()) {
-        fprintf(stderr, "Failed to start proxy server\n");
         cleanup_openssl();
         cleanup_winsock();
         return 1;
     }
-    printf("Proxy server started successfully\n");
 
     // Cleanup (this code is never reached in this simple server)
     cleanup_openssl();

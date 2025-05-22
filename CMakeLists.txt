@@ -69,6 +69,15 @@ endif()
 # Add include directories
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
+# Set build type to Debug if not set
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Debug)
+endif()
+
+# Set debug flags
+set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} /Zi /Od /MDd /D_DEBUG")
+set(CMAKE_EXE_LINKER_FLAGS_DEBUG "${CMAKE_EXE_LINKER_FLAGS_DEBUG} /DEBUG /SUBSYSTEM:CONSOLE")
+
 # Find required dependencies
 find_package(OpenSSL REQUIRED)
 message(STATUS "OpenSSL found. Version: ${OpenSSL_VERSION}")
@@ -77,14 +86,35 @@ message(STATUS "OpenSSL found. Version: ${OpenSSL_VERSION}")
 add_executable(tls_app
     src/main.c
     src/applink.c
+    src/cert_utils.c
+    src/socks5.c
+    src/tls_utils.c
     )
+
+# Ensure tls_app is built as a console application
+set_target_properties(tls_app PROPERTIES
+    LINK_FLAGS "/SUBSYSTEM:CONSOLE"
+    COMPILE_DEFINITIONS "_CONSOLE")
+
+# Add test programs for debugging console output
+add_executable(test_output src/test_output.c)
+add_executable(test_winmain src/test_winmain.c)
+set_target_properties(test_winmain PROPERTIES WIN32_EXECUTABLE TRUE)
 
 # Link against dependencies
 target_compile_definitions(tls_app PRIVATE HAVE_OPENSSL)
-target_link_libraries(tls_app PRIVATE
-    OpenSSL::SSL
-    OpenSSL::Crypto
-)
+if(WIN32)
+    target_link_libraries(tls_app PRIVATE
+        OpenSSL::SSL
+        OpenSSL::Crypto
+        ws2_32  # Windows Socket library
+    )
+else()
+    target_link_libraries(tls_app PRIVATE
+        OpenSSL::SSL
+        OpenSSL::Crypto
+    )
+endif()
 
 # Install targets
 install(TARGETS tls_app DESTINATION bin)

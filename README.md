@@ -87,7 +87,7 @@ target_link_libraries(tls_app PRIVATE [Package]::[Library])
    ```powershell
    ./tls_app
    ```
-   
+
 3. **Configure Client Applications**:
    - Set up your system or browser to use a SOCKS5 proxy at `127.0.0.1:4444`
    - You can use tools like Proxifier, ProxyCap, or browser extensions to redirect traffic
