@@ -1,13 +1,7 @@
 {
-  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
-  "name": "tls-mitm-proxy",
-  "version": "1.0.0",
-  "description": "A TLS MITM proxy for analyzing encrypted traffic",
-  "dependencies": [
-    {
-      "name": "openssl",
-      "platform": "windows"
-    }
-  ],
-  "builtin-baseline": "501db0f17ef6df184fcdbfbe0f87cde2313b6ab1"
+    "name": "tls-mitm-proxy",
+    "version-string": "0.1",
+    "dependencies": [
+        "openssl"
+    ]
 }
