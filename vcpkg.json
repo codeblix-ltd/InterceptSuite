@@ -3,20 +3,11 @@
   "name": "tls-mitm-proxy",
   "version": "1.0.0",
   "description": "A TLS MITM proxy for analyzing encrypted traffic",
-  "homepage": "https://github.com/yourusername/tls-mitm-proxy",
   "dependencies": [
     {
       "name": "openssl",
-      "default-features": true,
       "platform": "windows"
     }
   ],
-  "builtin-baseline": "501db0f17ef6df184fcdbfbe0f87cde2313b6ab1",
-  "vcpkg-configuration": {
-    "default-registry": {
-      "kind": "git",
-      "repository": "https://github.com/microsoft/vcpkg",
-      "baseline": "501db0f17ef6df184fcdbfbe0f87cde2313b6ab1"
-    }
-  }
+  "builtin-baseline": "501db0f17ef6df184fcdbfbe0f87cde2313b6ab1"
 }

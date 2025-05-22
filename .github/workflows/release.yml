@@ -14,19 +14,17 @@ jobs:
   build:
     runs-on: windows-latest
     env:
-      VCPKG_DEFAULT_TRIPLET: x64-windows
+      CMAKE_TOOLCHAIN_FILE: ${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake
       
     steps:
     - uses: actions/checkout@v4
-      with:
-        fetch-depth: 1
 
     - name: Get vcpkg
       uses: actions/checkout@v4
       with:
         repository: microsoft/vcpkg
         path: vcpkg
-        
+
     - name: Cache vcpkg
       uses: actions/cache@v4
       with:
@@ -36,27 +34,17 @@ jobs:
         key: vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
 
     - name: Bootstrap vcpkg
-      shell: pwsh
-      run: |
-        ${{ github.workspace }}/vcpkg/bootstrap-vcpkg.bat
-        
+      run: ${{ github.workspace }}/vcpkg/bootstrap-vcpkg.bat
+
     - name: Configure CMake
-      shell: pwsh
-      run: |
-        cmake -B build-release -S . `
-          -DCMAKE_BUILD_TYPE=Release `
-          -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake
+      run: cmake -B build-release -S . -DCMAKE_BUILD_TYPE=Release
 
     - name: Build
-      shell: pwsh
-      run: |
-        cmake --build build-release --config Release
+      run: cmake --build build-release --config Release
 
     - name: Package
-      shell: pwsh
-      run: |
-        cd build-release
-        cpack -G ZIP -C Release
+      working-directory: build-release
+      run: cpack -G ZIP -C Release
 
     - name: Upload Package
       uses: actions/upload-artifact@v4
