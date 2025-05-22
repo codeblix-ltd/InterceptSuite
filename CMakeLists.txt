@@ -49,6 +49,21 @@ install(TARGETS tls_app
     ARCHIVE DESTINATION ${INSTALL_ARCHIVE_DIR}
 )
 
+# Install dependencies from vcpkg
+if(WIN32)
+    # Get the vcpkg root directory
+    get_filename_component(VCPKG_ROOT "${CMAKE_TOOLCHAIN_FILE}" PATH)
+    get_filename_component(VCPKG_ROOT "${VCPKG_ROOT}" PATH)
+    get_filename_component(VCPKG_ROOT "${VCPKG_ROOT}" PATH)
+
+    # Install OpenSSL DLLs from vcpkg installed directory
+    install(FILES
+        "${VCPKG_ROOT}/installed/${VCPKG_TARGET_TRIPLET}/bin/libssl-3-x64.dll"
+        "${VCPKG_ROOT}/installed/${VCPKG_TARGET_TRIPLET}/bin/libcrypto-3-x64.dll"
+        DESTINATION ${INSTALL_RUNTIME_DIR}
+    )
+endif()
+
 # Install CA certificates
 install(FILES
     "${CMAKE_SOURCE_DIR}/myCA.pem"
@@ -63,8 +78,16 @@ set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "TLS MITM Proxy Tool")
 set(CPACK_PACKAGE_VERSION "1.0.0")
 set(CPACK_PACKAGE_INSTALL_DIRECTORY "TLS-MITM-Proxy")
 
+# Configure CPack
 if(WIN32)
     set(CPACK_GENERATOR "ZIP")
+    
+    # Make sure we install system runtime libraries
+    include(InstallRequiredSystemLibraries)
+    
+    # Set CPack variables for proper installation
+    set(CPACK_INSTALL_PREFIX "")
+    set(CPACK_PACKAGE_INSTALL_DIRECTORY "TLS-MITM-Proxy")
 endif()
 
 include(CPack)
