@@ -24,13 +24,22 @@ jobs:
       run: |
         git clone https://github.com/Microsoft/vcpkg.git
         .\vcpkg\bootstrap-vcpkg.bat
-        .\vcpkg\vcpkg.exe integrate install
-        .\vcpkg\vcpkg.exe install openssl:x64-windows
+        
+    - name: Cache vcpkg packages
+      uses: actions/cache@v4
+      with:
+        path: |
+          ${{ github.workspace }}/vcpkg/installed
+          ${{ github.workspace }}/vcpkg/packages
+        key: vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
         
     - name: Configure CMake
       shell: pwsh
       run: |
-        cmake -B build-release -S . -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake
+        $env:VCPKG_DEFAULT_TRIPLET = "x64-windows"
+        cmake -B build-release -S . `
+          -DCMAKE_BUILD_TYPE=Release `
+          -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake"
 
     - name: Build
       shell: pwsh
