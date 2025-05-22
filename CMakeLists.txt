@@ -6,7 +6,7 @@ set(CMAKE_C_STANDARD 11)
 # Always use console subsystem for this application
 if(WIN32)
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SUBSYSTEM:CONSOLE")
-    
+
     # Set install directory structure
     set(INSTALL_RUNTIME_DIR "bin")
     set(INSTALL_LIBRARY_DIR "lib")
@@ -52,7 +52,7 @@ if(WIN32)
         OpenSSL::Crypto
         ws2_32
     )
-    
+
     # Copy OpenSSL DLLs to output directory
     add_custom_command(TARGET tls_app POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:tls_app>"
@@ -69,7 +69,7 @@ else()
 endif()
 
 # Install targets
-install(TARGETS tls_app 
+install(TARGETS tls_app
     RUNTIME DESTINATION ${INSTALL_RUNTIME_DIR}
     LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR}
     ARCHIVE DESTINATION ${INSTALL_ARCHIVE_DIR}
@@ -77,7 +77,7 @@ install(TARGETS tls_app
 
 # Install OpenSSL DLLs
 if(WIN32)
-    install(FILES 
+    install(FILES
         "${OPENSSL_ROOT_DIR}/bin/libssl-3-x64.dll"
         "${OPENSSL_ROOT_DIR}/bin/libcrypto-3-x64.dll"
         DESTINATION ${INSTALL_RUNTIME_DIR}
@@ -85,7 +85,7 @@ if(WIN32)
 endif()
 
 # Install CA certificates
-install(FILES 
+install(FILES
     "${CMAKE_SOURCE_DIR}/myCA.pem"
     "${CMAKE_SOURCE_DIR}/myCA.key"
     DESTINATION ${INSTALL_DATA_DIR}
