@@ -6,20 +6,13 @@ set(CMAKE_C_STANDARD 11)
 # Always use console subsystem for this application
 if(WIN32)
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SUBSYSTEM:CONSOLE")
-
-    # Set install directory structure
-    set(INSTALL_RUNTIME_DIR "bin")
-    set(INSTALL_LIBRARY_DIR "lib")
-    set(INSTALL_ARCHIVE_DIR "lib")
-    set(INSTALL_DATA_DIR "data")
 endif()
 
-# Add OpenSSL configuration
-if(WIN32)
-    set(OPENSSL_ROOT_DIR "C:/Program Files/OpenSSL-Win64")
-    set(OPENSSL_USE_STATIC_LIBS OFF)
-    set(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_SKIP TRUE)
-endif()
+# Set installation directories
+set(INSTALL_RUNTIME_DIR "bin")
+set(INSTALL_LIBRARY_DIR "lib")
+set(INSTALL_ARCHIVE_DIR "lib")
+set(INSTALL_DATA_DIR "data")
 
 # Add include directories
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
@@ -31,9 +24,6 @@ endif()
 
 # Find required dependencies
 find_package(OpenSSL REQUIRED)
-message(STATUS "OpenSSL found. Version: ${OpenSSL_VERSION}")
-message(STATUS "OpenSSL include dir: ${OPENSSL_INCLUDE_DIR}")
-message(STATUS "OpenSSL libraries: ${OPENSSL_LIBRARIES}")
 
 # Add the executable
 add_executable(tls_app
@@ -46,27 +36,11 @@ add_executable(tls_app
 
 # Link against dependencies
 target_compile_definitions(tls_app PRIVATE HAVE_OPENSSL _CONSOLE)
-if(WIN32)
-    target_link_libraries(tls_app PRIVATE
-        OpenSSL::SSL
-        OpenSSL::Crypto
-        ws2_32
-    )
-
-    # Copy OpenSSL DLLs to output directory
-    add_custom_command(TARGET tls_app POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:tls_app>"
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${OPENSSL_ROOT_DIR}/bin/libssl-3-x64.dll"
-            "${OPENSSL_ROOT_DIR}/bin/libcrypto-3-x64.dll"
-            "$<TARGET_FILE_DIR:tls_app>"
-    )
-else()
-    target_link_libraries(tls_app PRIVATE
-        OpenSSL::SSL
-        OpenSSL::Crypto
-    )
-endif()
+target_link_libraries(tls_app PRIVATE
+    OpenSSL::SSL
+    OpenSSL::Crypto
+    $<$<PLATFORM_ID:Windows>:ws2_32>
+)
 
 # Install targets
 install(TARGETS tls_app
@@ -74,15 +48,6 @@ install(TARGETS tls_app
     LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR}
     ARCHIVE DESTINATION ${INSTALL_ARCHIVE_DIR}
 )
-
-# Install OpenSSL DLLs
-if(WIN32)
-    install(FILES
-        "${OPENSSL_ROOT_DIR}/bin/libssl-3-x64.dll"
-        "${OPENSSL_ROOT_DIR}/bin/libcrypto-3-x64.dll"
-        DESTINATION ${INSTALL_RUNTIME_DIR}
-    )
-endif()
 
 # Install CA certificates
 install(FILES
@@ -99,9 +64,7 @@ set(CPACK_PACKAGE_VERSION "1.0.0")
 set(CPACK_PACKAGE_INSTALL_DIRECTORY "TLS-MITM-Proxy")
 
 if(WIN32)
-    set(CPACK_GENERATOR "ZIP;NSIS")
-    set(CPACK_NSIS_MODIFY_PATH ON)
-    set(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL ON)
+    set(CPACK_GENERATOR "ZIP")
 endif()
 
 include(CPack)

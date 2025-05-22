@@ -15,36 +15,37 @@ jobs:
     runs-on: windows-latest
     env:
       VCPKG_DEFAULT_TRIPLET: x64-windows
-      VCPKG_INSTALLED_DIR: ${{ github.workspace }}/vcpkg_installed
-
+      
     steps:
     - uses: actions/checkout@v4
       with:
         fetch-depth: 1
 
-    - name: Setup vcpkg
-      shell: pwsh
-      run: |
-        git clone https://github.com/Microsoft/vcpkg.git
-        cd vcpkg
-        .\bootstrap-vcpkg.bat
-        cd ..
-
-    - name: Cache vcpkg packages
+    - name: Get vcpkg
+      uses: actions/checkout@v4
+      with:
+        repository: microsoft/vcpkg
+        path: vcpkg
+        
+    - name: Cache vcpkg
       uses: actions/cache@v4
       with:
         path: |
-          ${{ env.VCPKG_INSTALLED_DIR }}
+          ${{ github.workspace }}/vcpkg/installed
+          ${{ github.workspace }}/vcpkg/packages
         key: vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
 
+    - name: Bootstrap vcpkg
+      shell: pwsh
+      run: |
+        ${{ github.workspace }}/vcpkg/bootstrap-vcpkg.bat
+        
     - name: Configure CMake
       shell: pwsh
       run: |
         cmake -B build-release -S . `
           -DCMAKE_BUILD_TYPE=Release `
-          -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake" `
-          -DVCPKG_INSTALLED_DIR="${{ env.VCPKG_INSTALLED_DIR }}" `
-          -DVCPKG_MANIFEST_MODE=ON
+          -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake
 
     - name: Build
       shell: pwsh
