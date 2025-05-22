@@ -17,11 +17,6 @@ set(INSTALL_DATA_DIR "data")
 # Add include directories
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
-# Set Release build type for distribution
-if(NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE Release)
-endif()
-
 # Find required dependencies
 find_package(OpenSSL REQUIRED)
 
@@ -42,25 +37,49 @@ target_link_libraries(tls_app PRIVATE
     $<$<PLATFORM_ID:Windows>:ws2_32>
 )
 
-# Install targets
+# Get OpenSSL DLL paths
+if(WIN32)
+    get_target_property(OPENSSL_SSL_DLL_LOCATION OpenSSL::SSL IMPORTED_LOCATION_RELEASE)
+    get_target_property(OPENSSL_CRYPTO_DLL_LOCATION OpenSSL::Crypto IMPORTED_LOCATION_RELEASE)
+    get_target_property(OPENSSL_SSL_DLL_LOCATION_DEBUG OpenSSL::SSL IMPORTED_LOCATION_DEBUG)
+    get_target_property(OPENSSL_CRYPTO_DLL_LOCATION_DEBUG OpenSSL::Crypto IMPORTED_LOCATION_DEBUG)
+
+    # Copy DLLs for Debug and Release builds
+    add_custom_command(TARGET tls_app POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<$<CONFIG:Release>:${OPENSSL_SSL_DLL_LOCATION}>
+            $<$<CONFIG:Release>:${OPENSSL_CRYPTO_DLL_LOCATION}>
+            $<$<CONFIG:Debug>:${OPENSSL_SSL_DLL_LOCATION_DEBUG}>
+            $<$<CONFIG:Debug>:${OPENSSL_CRYPTO_DLL_LOCATION_DEBUG}>
+            $<TARGET_FILE_DIR:tls_app>
+        COMMAND_EXPAND_LISTS
+    )
+endif()
+
+# Install targets and dependencies
 install(TARGETS tls_app
     RUNTIME DESTINATION ${INSTALL_RUNTIME_DIR}
     LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR}
     ARCHIVE DESTINATION ${INSTALL_ARCHIVE_DIR}
 )
 
-# Install dependencies from vcpkg
+# Install DLLs and runtime dependencies
 if(WIN32)
-    # Get the vcpkg root directory
-    get_filename_component(VCPKG_ROOT "${CMAKE_TOOLCHAIN_FILE}" PATH)
-    get_filename_component(VCPKG_ROOT "${VCPKG_ROOT}" PATH)
-    get_filename_component(VCPKG_ROOT "${VCPKG_ROOT}" PATH)
-
-    # Install OpenSSL DLLs from vcpkg installed directory
+    # Install OpenSSL DLLs based on configuration
     install(FILES
-        "${VCPKG_ROOT}/installed/${VCPKG_TARGET_TRIPLET}/bin/libssl-3-x64.dll"
-        "${VCPKG_ROOT}/installed/${VCPKG_TARGET_TRIPLET}/bin/libcrypto-3-x64.dll"
+        "$<$<CONFIG:Release>:${OPENSSL_SSL_DLL_LOCATION}>"
+        "$<$<CONFIG:Release>:${OPENSSL_CRYPTO_DLL_LOCATION}>"
+        "$<$<CONFIG:Debug>:${OPENSSL_SSL_DLL_LOCATION_DEBUG}>"
+        "$<$<CONFIG:Debug>:${OPENSSL_CRYPTO_DLL_LOCATION_DEBUG}>"
         DESTINATION ${INSTALL_RUNTIME_DIR}
+    )
+
+    # Install Visual C++ Runtime Libraries
+    set(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_SKIP TRUE)
+    include(InstallRequiredSystemLibraries)
+    install(PROGRAMS ${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS}
+        DESTINATION ${INSTALL_RUNTIME_DIR}
+        COMPONENT Runtime
     )
 endif()
 
@@ -81,13 +100,9 @@ set(CPACK_PACKAGE_INSTALL_DIRECTORY "TLS-MITM-Proxy")
 # Configure CPack
 if(WIN32)
     set(CPACK_GENERATOR "ZIP")
-    
-    # Make sure we install system runtime libraries
-    include(InstallRequiredSystemLibraries)
-    
-    # Set CPack variables for proper installation
-    set(CPACK_INSTALL_PREFIX "")
-    set(CPACK_PACKAGE_INSTALL_DIRECTORY "TLS-MITM-Proxy")
+    set(CPACK_INCLUDE_TOPLEVEL_DIRECTORY OFF)
+    set(CPACK_COMPONENT_APPLICATIONS_DISPLAY_NAME "TLS MITM Proxy")
+    set(CPACK_COMPONENTS_ALL applications Runtime)
 endif()
 
 include(CPack)

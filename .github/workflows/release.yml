@@ -13,32 +13,50 @@ permissions:
 jobs:
   build:
     runs-on: windows-latest
+    strategy:
+      matrix:
+        config: [Debug, Release]
     env:
       CMAKE_TOOLCHAIN_FILE: ${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake
 
     steps:
     - uses: actions/checkout@v4
 
-    - name: Get vcpkg
+    - name: Cache vcpkg
+      uses: actions/cache@v4
+      with:
+        path: |
+          ${{ github.workspace }}/vcpkg
+          !${{ github.workspace }}/vcpkg/buildtrees
+          !${{ github.workspace }}/vcpkg/packages
+          !${{ github.workspace }}/vcpkg/downloads
+        key: vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
+
+    - name: Setup vcpkg
       uses: actions/checkout@v4
       with:
         repository: microsoft/vcpkg
         path: vcpkg
-
+        
+    - name: Bootstrap vcpkg
+      run: |
+        cd vcpkg
+        .\bootstrap-vcpkg.bat -disableMetrics
+        
     - name: Configure CMake
-      run: cmake -B build-release -S . -DCMAKE_BUILD_TYPE=Release
+      run: cmake -B build-${{ matrix.config }} -S . -DCMAKE_BUILD_TYPE=${{ matrix.config }}
 
     - name: Build
-      run: cmake --build build-release --config Release
+      run: cmake --build build-${{ matrix.config }} --config ${{ matrix.config }}
 
     - name: Package
-      working-directory: build-release
-      run: cpack -G ZIP -C Release
+      working-directory: build-${{ matrix.config }}
+      run: cpack -G ZIP -C ${{ matrix.config }}
 
     - name: Upload Package
       uses: actions/upload-artifact@v4
       with:
-        name: TLS-MITM-Proxy-Windows
-        path: build-release/TLS-MITM-Proxy-*.zip
+        name: TLS-MITM-Proxy-Windows-${{ matrix.config }}
+        path: build-${{ matrix.config }}/TLS-MITM-Proxy-*.zip
         if-no-files-found: error
         retention-days: 90
