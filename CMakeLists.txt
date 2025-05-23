@@ -42,11 +42,11 @@ if(WIN32)
     # Set fixed paths to the OpenSSL DLLs - we know these exist from our check
     set(OPENSSL_CRYPTO_DLL "C:/Program Files/OpenSSL-Win64/bin/libcrypto-3-x64.dll")
     set(OPENSSL_SSL_DLL "C:/Program Files/OpenSSL-Win64/bin/libssl-3-x64.dll")
-    
+
     # Log the paths
     message(STATUS "OpenSSL Crypto DLL: ${OPENSSL_CRYPTO_DLL}")
     message(STATUS "OpenSSL SSL DLL: ${OPENSSL_SSL_DLL}")
-    
+
     # Copy DLLs to output directory for both Debug and Release builds
     add_custom_command(TARGET tls_app POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
