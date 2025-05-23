@@ -22,11 +22,6 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Install OpenSSL
-      run: |
-        choco install openssl -y
-        echo "OPENSSL_ROOT_DIR=C:/Program Files/OpenSSL-Win64" >> $GITHUB_ENV
-
     - name: Cache vcpkg
       uses: actions/cache@v4
       with:
@@ -42,17 +37,29 @@ jobs:
       with:
         repository: microsoft/vcpkg
         path: vcpkg
-
+        
     - name: Bootstrap vcpkg
       run: |
         cd vcpkg
         .\bootstrap-vcpkg.bat -disableMetrics
-
+    
+    - name: Install OpenSSL via vcpkg
+      run: |
+        .\vcpkg\vcpkg install openssl:x64-windows
+        
     - name: Configure CMake
       run: cmake -B build-${{ matrix.config }} -S . -DCMAKE_BUILD_TYPE=${{ matrix.config }}
 
     - name: Build
       run: cmake --build build-${{ matrix.config }} --config ${{ matrix.config }}
+        
+    - name: List files to debug
+      if: ${{ matrix.config == 'Release' }}
+      run: |
+        echo "--- Output Directory Contents ---"
+        dir build-${{ matrix.config }}\${{ matrix.config }}
+        echo "--- vcpkg installed bin directory ---"
+        dir vcpkg\installed\x64-windows\bin
 
     - name: Package
       working-directory: build-${{ matrix.config }}

@@ -39,21 +39,55 @@ target_link_libraries(tls_app PRIVATE
 
 # Handle OpenSSL DLLs for Windows
 if(WIN32)
-    # Set fixed paths to the OpenSSL DLLs - we know these exist from our check
-    set(OPENSSL_CRYPTO_DLL "C:/Program Files/OpenSSL-Win64/bin/libcrypto-3-x64.dll")
-    set(OPENSSL_SSL_DLL "C:/Program Files/OpenSSL-Win64/bin/libssl-3-x64.dll")
+    # Find OpenSSL DLLs using a flexible approach for both local and CI environments
+    set(OPENSSL_CRYPTO_DLL "")
+    set(OPENSSL_SSL_DLL "")
 
-    # Log the paths
+    # Try standard installation paths
+    if(EXISTS "C:/Program Files/OpenSSL-Win64/bin/libcrypto-3-x64.dll")
+        set(OPENSSL_CRYPTO_DLL "C:/Program Files/OpenSSL-Win64/bin/libcrypto-3-x64.dll")
+        set(OPENSSL_SSL_DLL "C:/Program Files/OpenSSL-Win64/bin/libssl-3-x64.dll")
+    elseif(EXISTS "C:/Program Files (x86)/OpenSSL-Win64/bin/libcrypto-3-x64.dll")
+        set(OPENSSL_CRYPTO_DLL "C:/Program Files (x86)/OpenSSL-Win64/bin/libcrypto-3-x64.dll")
+        set(OPENSSL_SSL_DLL "C:/Program Files (x86)/OpenSSL-Win64/bin/libssl-3-x64.dll")
+    endif()
+
+    # Try to get DLLs from vcpkg if not found yet
+    if(NOT OPENSSL_CRYPTO_DLL OR NOT EXISTS "${OPENSSL_CRYPTO_DLL}")
+        if(DEFINED VCPKG_INSTALLED_DIR)
+            if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+                set(VCPKG_BIN_DIR "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/debug/bin")
+            else()
+                set(VCPKG_BIN_DIR "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/bin")
+            endif()
+            
+            if(EXISTS "${VCPKG_BIN_DIR}/libcrypto-3-x64.dll")
+                set(OPENSSL_CRYPTO_DLL "${VCPKG_BIN_DIR}/libcrypto-3-x64.dll")
+                set(OPENSSL_SSL_DLL "${VCPKG_BIN_DIR}/libssl-3-x64.dll")
+            elseif(EXISTS "${VCPKG_BIN_DIR}/libcrypto.dll")
+                set(OPENSSL_CRYPTO_DLL "${VCPKG_BIN_DIR}/libcrypto.dll")
+                set(OPENSSL_SSL_DLL "${VCPKG_BIN_DIR}/libssl.dll")
+            endif()
+        endif()
+    endif()
+
+    message(STATUS "OpenSSL found: ${OPENSSL_FOUND}")
+    message(STATUS "OpenSSL version: ${OPENSSL_VERSION}")
     message(STATUS "OpenSSL Crypto DLL: ${OPENSSL_CRYPTO_DLL}")
     message(STATUS "OpenSSL SSL DLL: ${OPENSSL_SSL_DLL}")
 
-    # Copy DLLs to output directory for both Debug and Release builds
-    add_custom_command(TARGET tls_app POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${OPENSSL_SSL_DLL}"
-            "${OPENSSL_CRYPTO_DLL}"
-            $<TARGET_FILE_DIR:tls_app>
-    )
+    # Copy DLLs to output directory if they were found
+    if(OPENSSL_CRYPTO_DLL AND EXISTS "${OPENSSL_CRYPTO_DLL}")
+        add_custom_command(TARGET tls_app POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${OPENSSL_SSL_DLL}"
+                "${OPENSSL_CRYPTO_DLL}"
+                $<TARGET_FILE_DIR:tls_app>
+        )
+    else()
+        message(WARNING "OpenSSL DLLs not found - executable might not run without them")
+    endif()
+)
 endif()
 
 # Install targets and dependencies
@@ -65,12 +99,14 @@ install(TARGETS tls_app
 
 # Install DLLs and runtime dependencies
 if(WIN32)
-    # Install OpenSSL DLLs
-    install(FILES
-        "C:/Program Files/OpenSSL-Win64/bin/libssl-3-x64.dll"
-        "C:/Program Files/OpenSSL-Win64/bin/libcrypto-3-x64.dll"
-        DESTINATION ${INSTALL_RUNTIME_DIR}
-    )
+    # Install OpenSSL DLLs if found
+    if(OPENSSL_CRYPTO_DLL AND EXISTS "${OPENSSL_CRYPTO_DLL}")
+        install(FILES
+            "${OPENSSL_SSL_DLL}"
+            "${OPENSSL_CRYPTO_DLL}"
+            DESTINATION ${INSTALL_RUNTIME_DIR}
+        )
+    endif()
 
     # Install Visual C++ Runtime Libraries
     set(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_SKIP TRUE)
