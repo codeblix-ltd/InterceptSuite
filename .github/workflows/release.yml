@@ -49,15 +49,18 @@ jobs:
       run: cmake -B build-${{ matrix.config }} -S . -DCMAKE_BUILD_TYPE=${{ matrix.config }}
 
     - name: Build
-      run: cmake --build build-${{ matrix.config }} --config ${{ matrix.config }}
-
-    - name: List files to debug
+      run: cmake --build build-${{ matrix.config }} --config ${{ matrix.config }}    - name: List files to debug
       if: ${{ matrix.config == 'Release' }}
       run: |
         echo "--- Output Directory Contents ---"
         dir build-${{ matrix.config }}\${{ matrix.config }}
-        echo "--- vcpkg installed bin directory ---"
-        dir vcpkg\installed\x64-windows\bin
+        echo "--- Check for vcpkg directory ---"
+        if (Test-Path -Path "vcpkg\installed\x64-windows\bin") {
+          echo "--- vcpkg installed bin directory ---"
+          dir vcpkg\installed\x64-windows\bin
+        } else {
+          echo "vcpkg bin directory not found - OpenSSL DLLs must be from another source"
+        }
 
     - name: Package
       working-directory: build-${{ matrix.config }}
