@@ -60,7 +60,7 @@ if(WIN32)
             else()
                 set(VCPKG_BIN_DIR "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/bin")
             endif()
-            
+
             if(EXISTS "${VCPKG_BIN_DIR}/libcrypto-3-x64.dll")
                 set(OPENSSL_CRYPTO_DLL "${VCPKG_BIN_DIR}/libcrypto-3-x64.dll")
                 set(OPENSSL_SSL_DLL "${VCPKG_BIN_DIR}/libssl-3-x64.dll")
