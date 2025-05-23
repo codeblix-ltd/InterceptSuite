@@ -49,7 +49,8 @@ jobs:
       run: cmake -B build-${{ matrix.config }} -S . -DCMAKE_BUILD_TYPE=${{ matrix.config }}
 
     - name: Build
-      run: cmake --build build-${{ matrix.config }} --config ${{ matrix.config }}    - name: List files to debug
+      run: cmake --build build-${{ matrix.config }} --config ${{ matrix.config }}
+    - name: List files to debug
       if: ${{ matrix.config == 'Release' }}
       run: |
         echo "--- Output Directory Contents ---"
