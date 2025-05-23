@@ -37,22 +37,22 @@ target_link_libraries(tls_app PRIVATE
     $<$<PLATFORM_ID:Windows>:ws2_32>
 )
 
-# Get OpenSSL DLL paths
+# Handle OpenSSL DLLs for Windows
 if(WIN32)
-    get_target_property(OPENSSL_SSL_DLL_LOCATION OpenSSL::SSL IMPORTED_LOCATION_RELEASE)
-    get_target_property(OPENSSL_CRYPTO_DLL_LOCATION OpenSSL::Crypto IMPORTED_LOCATION_RELEASE)
-    get_target_property(OPENSSL_SSL_DLL_LOCATION_DEBUG OpenSSL::SSL IMPORTED_LOCATION_DEBUG)
-    get_target_property(OPENSSL_CRYPTO_DLL_LOCATION_DEBUG OpenSSL::Crypto IMPORTED_LOCATION_DEBUG)
-
-    # Copy DLLs for Debug and Release builds
+    # Set fixed paths to the OpenSSL DLLs - we know these exist from our check
+    set(OPENSSL_CRYPTO_DLL "C:/Program Files/OpenSSL-Win64/bin/libcrypto-3-x64.dll")
+    set(OPENSSL_SSL_DLL "C:/Program Files/OpenSSL-Win64/bin/libssl-3-x64.dll")
+    
+    # Log the paths
+    message(STATUS "OpenSSL Crypto DLL: ${OPENSSL_CRYPTO_DLL}")
+    message(STATUS "OpenSSL SSL DLL: ${OPENSSL_SSL_DLL}")
+    
+    # Copy DLLs to output directory for both Debug and Release builds
     add_custom_command(TARGET tls_app POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            $<$<CONFIG:Release>:${OPENSSL_SSL_DLL_LOCATION}>
-            $<$<CONFIG:Release>:${OPENSSL_CRYPTO_DLL_LOCATION}>
-            $<$<CONFIG:Debug>:${OPENSSL_SSL_DLL_LOCATION_DEBUG}>
-            $<$<CONFIG:Debug>:${OPENSSL_CRYPTO_DLL_LOCATION_DEBUG}>
+            "${OPENSSL_SSL_DLL}"
+            "${OPENSSL_CRYPTO_DLL}"
             $<TARGET_FILE_DIR:tls_app>
-        COMMAND_EXPAND_LISTS
     )
 endif()
 
@@ -65,12 +65,10 @@ install(TARGETS tls_app
 
 # Install DLLs and runtime dependencies
 if(WIN32)
-    # Install OpenSSL DLLs based on configuration
+    # Install OpenSSL DLLs
     install(FILES
-        "$<$<CONFIG:Release>:${OPENSSL_SSL_DLL_LOCATION}>"
-        "$<$<CONFIG:Release>:${OPENSSL_CRYPTO_DLL_LOCATION}>"
-        "$<$<CONFIG:Debug>:${OPENSSL_SSL_DLL_LOCATION_DEBUG}>"
-        "$<$<CONFIG:Debug>:${OPENSSL_CRYPTO_DLL_LOCATION_DEBUG}>"
+        "C:/Program Files/OpenSSL-Win64/bin/libssl-3-x64.dll"
+        "C:/Program Files/OpenSSL-Win64/bin/libcrypto-3-x64.dll"
         DESTINATION ${INSTALL_RUNTIME_DIR}
     )
 
