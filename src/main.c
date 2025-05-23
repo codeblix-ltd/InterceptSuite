@@ -101,23 +101,7 @@ int start_proxy_server(void) {
 
 
     if (config.verbose) {
-        printf("\nTLS MITM Proxy - Intercepts TLS traffic and displays it in plaintext\n");
-        fflush(stdout);
-        printf("===========================================================================\n");
-        fflush(stdout);
-        printf("1. Ensure the CA certificate has been added to your system/browser trust store\n");
-        fflush(stdout);
-        printf("   - CA Certificate: %s\n", CA_CERT_FILE);
-        fflush(stdout);
-        printf("2. Configure your system to use this proxy:\n");
-        fflush(stdout);
         printf("   - SOCKS5 Proxy: %s:%d\n", config.bind_addr, config.port);
-        fflush(stdout);
-        printf("   - Use a tool like ProxyCap, Proxifier, etc. to redirect traffic\n");
-        fflush(stdout);
-        printf("3. All intercepted traffic will be displayed in tabular format\n");
-        fflush(stdout);
-        printf("   - Verbose mode: ON (showing detailed connection information)\n");
         fflush(stdout);
     }    if (config.verbose && config.log_fp) {
         printf("   - Log file: %s\n", config.log_file);
