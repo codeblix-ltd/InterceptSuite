@@ -87,7 +87,7 @@ if(WIN32)
     else()
         message(WARNING "OpenSSL DLLs not found - executable might not run without them")
     endif()
-)
+
 endif()
 
 # Install targets and dependencies
