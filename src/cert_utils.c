@@ -183,7 +183,9 @@ int generate_cert_for_host(const char *hostname, X509 **cert_out, EVP_PKEY **key
     EVP_PKEY *key;
     X509_NAME *name;
 
-    printf("Generating certificate for %s\n", hostname);
+    if (config.verbose) {
+        printf("Generating certificate for %s\n", hostname);
+    }
 
     // Generate key
     key = EVP_PKEY_new();

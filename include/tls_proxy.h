@@ -17,6 +17,7 @@
 #include <ws2tcpip.h>
 #include <windows.h>
 #include <process.h>
+#include <iphlpapi.h>  /* For IP address validation */
 
 #include <openssl/ssl.h>
 #include <openssl/err.h>
@@ -29,17 +30,27 @@
 /* OpenSSL Applink reference */
 void **__cdecl OPENSSL_Applink(void);
 
-/* Constants */
-#define PROXY_PORT 4444
+/* Default Constants */
+#define DEFAULT_PROXY_PORT 4444
+#define DEFAULT_BIND_ADDR "127.0.0.1"
+#define DEFAULT_LOGFILE "tls_proxy.log"
 #define BUFFER_SIZE 16384
+/* Only define MAX_HOSTNAME_LEN if not already defined */
+#ifndef MAX_HOSTNAME_LEN
 #define MAX_HOSTNAME_LEN 256
+#endif
+#define MAX_FILEPATH_LEN 512
+#define MAX_IP_ADDR_LEN 46  /* Max length for IPv6 addresses */
 #define CERT_EXPIRY_DAYS 365
 #define CA_CERT_FILE "myCA.pem"
 #define CA_KEY_FILE "myCA.key"
 
 /* Windows-specific defines and typedefs */
 typedef SOCKET socket_t;
+/* Only define socklen_t if not already defined in system headers */
+#ifndef _SOCKLEN_T_DEFINED
 typedef unsigned int socklen_t;
+#endif
 #define THREAD_RETURN_TYPE unsigned __stdcall
 #define THREAD_RETURN return 0
 #define close_socket(s) closesocket(s)
@@ -71,16 +82,37 @@ typedef struct {
 typedef struct {
     SSL *src;
     SSL *dst;
-    const char *direction;
+    char direction[32]; /* Use a char array instead of string pointer */
+    char src_ip[MAX_IP_ADDR_LEN];
+    char dst_ip[MAX_IP_ADDR_LEN];
+    int dst_port;
 } forward_info;
+
+/* Configuration structure */
+typedef struct {
+    int port;                       /* Port to listen on */
+    char bind_addr[MAX_IP_ADDR_LEN];/* IP address to bind to */
+    char log_file[MAX_FILEPATH_LEN];/* Path to log file */
+    FILE *log_fp;                   /* Log file pointer */
+    int help_requested;             /* Flag for help display */
+    int verbose;                    /* Flag for verbose output */
+} proxy_config;
 
 /* Global certificate references */
 extern X509 *ca_cert;
 extern EVP_PKEY *ca_key;
 
+/* Global configuration */
+extern proxy_config config;
+
 /* Function prototypes */
 int init_winsock(void);
 void cleanup_winsock(void);
 int start_proxy_server(void);
+void print_usage(const char *program_name);
+int parse_arguments(int argc, char *argv[]);
+int validate_ip_address(const char *ip_addr);
+void log_message(const char *format, ...);
+void close_log_file(void);
 
 #endif /* TLS_PROXY_H */

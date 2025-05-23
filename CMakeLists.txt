@@ -27,6 +27,7 @@ add_executable(tls_app
     src/cert_utils.c
     src/socks5.c
     src/tls_utils.c
+    src/utils.c
 )
 
 # Link against dependencies

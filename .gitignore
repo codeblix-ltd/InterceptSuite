@@ -67,3 +67,4 @@ bld/
 ehthumbs.db
 Thumbs.db
 build-release/*
+tls_proxy.log
