@@ -4,6 +4,48 @@
 
 #include "../include/cert_utils.h"
 
+/* Helper function to read file contents into memory buffer */
+static char* read_file_to_memory(const char* filename, long* file_size) {
+    FILE* file = fopen(filename, "rb");
+    if (!file) {
+        return NULL;
+    }
+    
+    fseek(file, 0, SEEK_END);
+    *file_size = ftell(file);
+    fseek(file, 0, SEEK_SET);
+    
+    char* buffer = malloc(*file_size + 1);
+    if (!buffer) {
+        fclose(file);
+        return NULL;
+    }
+    
+    size_t read_size = fread(buffer, 1, *file_size, file);
+    fclose(file);
+    
+    if (read_size != *file_size) {
+        free(buffer);
+        return NULL;
+    }
+    
+    buffer[*file_size] = '\0';
+    return buffer;
+}
+
+/* Helper function to write buffer to file */
+static int write_memory_to_file(const char* filename, const char* data, size_t size) {
+    FILE* file = fopen(filename, "wb");
+    if (!file) {
+        return 0;
+    }
+    
+    size_t written = fwrite(data, 1, size, file);
+    fclose(file);
+    
+    return (written == size) ? 1 : 0;
+}
+
 int init_openssl(void) {
     printf("Initializing OpenSSL libraries...\n");
 
@@ -13,15 +55,13 @@ int init_openssl(void) {
     OpenSSL_add_all_algorithms();
     printf("Using older OpenSSL API (pre-1.1.0)\n");
 #else
-    OPENSSL_init_ssl(0, NULL);
+    // For DLL builds, use explicit initialization flags
+    OPENSSL_init_ssl(OPENSSL_INIT_LOAD_SSL_STRINGS | OPENSSL_INIT_LOAD_CRYPTO_STRINGS, NULL);
+    OPENSSL_init_crypto(OPENSSL_INIT_ADD_ALL_CIPHERS | OPENSSL_INIT_ADD_ALL_DIGESTS, NULL);
     printf("Using newer OpenSSL API (1.1.0+)\n");
 #endif
 
-    // Initialize the OPENSSL_Applink functionality (defined in applink.c)
-    printf("Initializing OPENSSL_Applink...\n");
-    OPENSSL_Applink();
-    printf("OPENSSL_Applink initialized\n");
-
+    printf("OpenSSL initialized successfully with applink support\n");
     return 1;
 }
 
@@ -45,21 +85,32 @@ void print_openssl_error(void) {
 
 int load_or_generate_ca_cert(void) {
     printf("Checking for CA certificate and key files: %s and %s\n", CA_CERT_FILE, CA_KEY_FILE);
-    FILE *cert_file = fopen(CA_CERT_FILE, "r");
-    FILE *key_file = fopen(CA_KEY_FILE, "r");
+    
+    // Try to read files into memory
+    long cert_size = 0, key_size = 0;
+    char* cert_data = read_file_to_memory(CA_CERT_FILE, &cert_size);
+    char* key_data = read_file_to_memory(CA_KEY_FILE, &key_size);
 
-    if (!cert_file || !key_file) {
+    if (!cert_data || !key_data) {
         printf("Certificate or key file not found. Will generate new ones.\n");
-    }
-
-    if (cert_file && key_file) {
-        // Load existing CA cert and key
+        if (cert_data) free(cert_data);
+        if (key_data) free(key_data);
+    } else {
+        // Load existing CA cert and key using memory BIOs
         printf("Loading existing CA cert and key from %s and %s\n", CA_CERT_FILE, CA_KEY_FILE);
-        ca_cert = PEM_read_X509(cert_file, NULL, NULL, NULL);
-        fclose(cert_file);
-
-        ca_key = PEM_read_PrivateKey(key_file, NULL, NULL, NULL);
-        fclose(key_file);
+        
+        BIO* cert_bio = BIO_new_mem_buf(cert_data, cert_size);
+        BIO* key_bio = BIO_new_mem_buf(key_data, key_size);
+        
+        if (cert_bio && key_bio) {
+            ca_cert = PEM_read_bio_X509(cert_bio, NULL, NULL, NULL);
+            ca_key = PEM_read_bio_PrivateKey(key_bio, NULL, NULL, NULL);
+        }
+        
+        if (cert_bio) BIO_free(cert_bio);
+        if (key_bio) BIO_free(key_bio);
+        free(cert_data);
+        free(key_data);
 
         if (ca_cert && ca_key) {
             return 1; // Successfully loaded
@@ -146,30 +197,52 @@ int load_or_generate_ca_cert(void) {
         EVP_PKEY_free(ca_key);
         ca_cert = NULL;
         ca_key = NULL;
+        return 0;    }
+
+    // Write to files using memory BIOs
+    BIO* cert_bio = BIO_new(BIO_s_mem());
+    BIO* key_bio = BIO_new(BIO_s_mem());
+    
+    if (!cert_bio || !key_bio) {
+        if (cert_bio) BIO_free(cert_bio);
+        if (key_bio) BIO_free(key_bio);
+        X509_free(ca_cert);
+        EVP_PKEY_free(ca_key);
+        ca_cert = NULL;
+        ca_key = NULL;
         return 0;
     }
 
+    // Write certificate and key to memory BIOs
+    if (PEM_write_bio_X509(cert_bio, ca_cert) != 1 ||
+        PEM_write_bio_PrivateKey(key_bio, ca_key, NULL, NULL, 0, NULL, NULL) != 1) {
+        BIO_free(cert_bio);
+        BIO_free(key_bio);
+        X509_free(ca_cert);
+        EVP_PKEY_free(ca_key);
+        ca_cert = NULL;
+        ca_key = NULL;
+        return 0;
+    }    // Get data from BIOs
+    char* pem_cert_data;
+    char* pem_key_data;
+    long cert_len = BIO_get_mem_data(cert_bio, &pem_cert_data);
+    long key_len = BIO_get_mem_data(key_bio, &pem_key_data);
+
     // Write to files
-    cert_file = fopen(CA_CERT_FILE, "w");
-    key_file = fopen(CA_KEY_FILE, "w");
+    int success = write_memory_to_file(CA_CERT_FILE, pem_cert_data, cert_len) &&
+                  write_memory_to_file(CA_KEY_FILE, pem_key_data, key_len);
 
-    if (cert_file && key_file) {
-        PEM_write_X509(cert_file, ca_cert);
-        PEM_write_PrivateKey(key_file, ca_key, NULL, NULL, 0, NULL, NULL);
+    BIO_free(cert_bio);
+    BIO_free(key_bio);
 
-        fclose(cert_file);
-        fclose(key_file);
-
+    if (success) {
         printf("CA cert and key written to %s and %s\n", CA_CERT_FILE, CA_KEY_FILE);
         printf("IMPORTANT: Install this CA cert in your system/browser certificate store!\n");
-
         return 1;
     }
 
     fprintf(stderr, "Failed to write CA cert and key to files\n");
-    if (cert_file) fclose(cert_file);
-    if (key_file) fclose(key_file);
-
     X509_free(ca_cert);
     EVP_PKEY_free(ca_key);
     ca_cert = NULL;

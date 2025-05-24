@@ -1,0 +1,8 @@
+EXPORTS
+init_proxy
+start_proxy
+stop_proxy
+set_config
+enable_windivert
+disable_windivert
+OPENSSL_Applink

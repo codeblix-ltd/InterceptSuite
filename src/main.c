@@ -1,8 +1,7 @@
 /*
- * TLS MITM Proxy - Main Entry Point
+ * TLS MITM Proxy - DLL Interface
  *
- * This is the main entry point for the TLS MITM proxy application.
- * It initializes the necessary components and starts the proxy server.
+ * Provides DLL exports for controlling the TLS MITM proxy functionality.
  */
 
 #include "../include/tls_proxy.h"
@@ -10,24 +9,213 @@
 #include "../include/socks5.h"
 #include "../include/tls_utils.h"
 #include "../include/utils.h"
+#include "../include/process_divert.h"
+#include "../include/tls_proxy_dll.h"
 
-/* Additional Windows headers for console handling */
-#include <windows.h>
-#include <io.h>
-#include <fcntl.h>
+#ifdef _WIN32
 #include <iphlpapi.h>
+#include <time.h>
+#include <tlhelp32.h>
 #pragma comment(lib, "iphlpapi.lib")
+#endif
 
-/* Function prototypes */
-int init_winsock(void);
-void cleanup_winsock(void);
-int start_proxy_server(void);
+/* Global server instance */
+server_thread_t g_server = {0};
+
+/* Global CA certificate and key */
+X509 *ca_cert = NULL;
+EVP_PKEY *ca_key = NULL;
+
+/* Global callback functions */
+static log_callback_t g_log_callback = NULL;
+static status_callback_t g_status_callback = NULL;
+
+/* Statistics */
+static int g_total_connections = 0;
+static int g_total_bytes = 0;
+
+/* DLL entry point */
+BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved) {
+    switch (fdwReason) {
+        case DLL_PROCESS_ATTACH:
+            /* Initialize with default settings */
+            init_config();
+            break;
+            
+        case DLL_PROCESS_DETACH:
+            /* Clean up */
+            cleanup_winsock();
+            cleanup_openssl();
+            break;
+    }
+    return TRUE;
+}
+
+/* Exported functions */
+
+__declspec(dllexport) BOOL init_proxy(void) {
+    send_status_update("Starting proxy initialization...");
+    
+    /* Initialize Winsock */
+    send_status_update("Initializing Winsock...");
+    if (!init_winsock()) {
+        send_status_update("ERROR: Failed to initialize Winsock");
+        return FALSE;
+    }
+    send_status_update("Winsock initialized successfully");
+    
+    /* Initialize OpenSSL */
+    send_status_update("Initializing OpenSSL...");
+    if (!init_openssl()) {
+        send_status_update("ERROR: Failed to initialize OpenSSL");
+        cleanup_winsock();
+        return FALSE;
+    }
+    send_status_update("OpenSSL initialized successfully");
+    
+    /* Load or generate CA certificate */
+    send_status_update("Loading or generating CA certificate...");
+    if (!load_or_generate_ca_cert()) {
+        send_status_update("ERROR: Failed to load or generate CA certificate");
+        cleanup_openssl();
+        cleanup_winsock();
+        return FALSE;
+    }
+    send_status_update("CA certificate loaded/generated successfully");
+    
+    send_status_update("Proxy initialization completed successfully");
+    return TRUE;
+}
+
+__declspec(dllexport) BOOL start_proxy(void) {
+    /* Initialize critical section */
+    InitializeCriticalSection(&g_server.cs);
+    g_server.should_stop = 0;
+    g_server.thread_handle = NULL;
+    
+    /* Create server socket */
+    socket_t server_sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (server_sock == INVALID_SOCKET) {
+        DeleteCriticalSection(&g_server.cs);
+        return FALSE;
+    }
+    
+    /* Allow socket reuse */
+    int opt = 1;
+    if (setsockopt(server_sock, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(opt)) == SOCKET_ERROR) {
+        close_socket(server_sock);
+        DeleteCriticalSection(&g_server.cs);
+        return FALSE;
+    }
+    
+    /* Bind socket */
+    struct sockaddr_in server_addr = {0};
+    server_addr.sin_family = AF_INET;
+    if (inet_pton(AF_INET, config.bind_addr, &(server_addr.sin_addr)) != 1) {
+        close_socket(server_sock);
+        DeleteCriticalSection(&g_server.cs);
+        return FALSE;
+    }
+    server_addr.sin_port = htons(config.port);
+    
+    if (bind(server_sock, (struct sockaddr*)&server_addr, sizeof(server_addr)) == SOCKET_ERROR) {
+        close_socket(server_sock);
+        DeleteCriticalSection(&g_server.cs);
+        return FALSE;
+    }
+    
+    /* Start listening */
+    if (listen(server_sock, SOMAXCONN) == SOCKET_ERROR) {
+        close_socket(server_sock);
+        DeleteCriticalSection(&g_server.cs);
+        return FALSE;
+    }
+    
+    /* Set socket to non-blocking mode */
+    unsigned long nonBlocking = 1;
+    if (ioctlsocket(server_sock, FIONBIO, &nonBlocking) != 0) {
+        close_socket(server_sock);
+        DeleteCriticalSection(&g_server.cs);
+        return FALSE;
+    }
+    
+    /* Store server socket in global state */
+    g_server.server_sock = server_sock;
+    
+    /* Start server thread */
+    g_server.thread_handle = (HANDLE)_beginthreadex(NULL, 0, run_server_thread, NULL, 0, NULL);
+    if (g_server.thread_handle == NULL) {
+        close_socket(server_sock);
+        DeleteCriticalSection(&g_server.cs);
+        return FALSE;
+    }
+    
+    return TRUE;
+}
+
+__declspec(dllexport) void stop_proxy(void) {
+    /* Signal thread to stop */
+    EnterCriticalSection(&g_server.cs);
+    g_server.should_stop = 1;
+    LeaveCriticalSection(&g_server.cs);
+    
+    /* Close socket to break accept() */
+    if (g_server.server_sock != INVALID_SOCKET) {
+        shutdown(g_server.server_sock, SD_BOTH);
+        close_socket(g_server.server_sock);
+        g_server.server_sock = INVALID_SOCKET;
+    }
+    
+    /* Wait for thread to finish */
+    if (g_server.thread_handle) {
+        WaitForSingleObject(g_server.thread_handle, 5000);
+        CloseHandle(g_server.thread_handle);
+        g_server.thread_handle = NULL;
+    }
+    
+    /* Delete critical section */
+    DeleteCriticalSection(&g_server.cs);
+}
+
+__declspec(dllexport) BOOL set_config(const char* bind_addr, int port, const char* log_file) {
+    if (!bind_addr || port <= 0 || port > 65535 || !log_file) {
+        return FALSE;
+    }
+    
+    /* Validate IP address */
+    if (!validate_ip_address(bind_addr)) {
+        return FALSE;
+    }
+    
+    /* Update configuration */
+    strncpy(config.bind_addr, bind_addr, sizeof(config.bind_addr) - 1);
+    config.port = port;
+    strncpy(config.log_file, log_file, sizeof(config.log_file) - 1);
+    
+    return TRUE;
+}
+
+__declspec(dllexport) BOOL enable_windivert(void) {
+    if (!config.windivert_enabled) {
+        if (init_process_diversion()) {
+            config.windivert_enabled = 1;
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
+__declspec(dllexport) void disable_windivert(void) {
+    if (config.windivert_enabled) {
+        cleanup_process_diversion();
+        config.windivert_enabled = 0;
+    }
+}
 
 /* Winsock initialization and cleanup */
 int init_winsock(void) {
     WSADATA wsaData;
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
-        fprintf(stderr, "Failed to initialize Winsock\n");
         return 0;
     }
     return 1;
@@ -37,291 +225,252 @@ void cleanup_winsock(void) {
     WSACleanup();
 }
 
-/* Start the proxy server */
-int start_proxy_server(void) {
-    socket_t server_sock;
-    struct sockaddr_in server_addr;
-    client_info *client;
+/* Server thread function */
+THREAD_RETURN_TYPE WINAPI run_server_thread(void* arg) {
+    socket_t server_sock = g_server.server_sock;
+    client_info* client;
     THREAD_HANDLE thread_id;
-    int ret;    // Create the server socket
-    server_sock = socket(AF_INET, SOCK_STREAM, 0);
-    if (server_sock == INVALID_SOCKET) {
-        fprintf(stderr, "Failed to create socket: %d\n", WSAGetLastError());
-        return 0;
-    }
-
-    // Allow socket reuse
-    int opt = 1;
-    if (setsockopt(server_sock, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(opt)) != 0) {
-        fprintf(stderr, "Failed to set SO_REUSEADDR: %d\n", WSAGetLastError());
-        // Continue anyway, not critical
-    }
-
-    // Set TCP keepalive to detect dead connections
-    DWORD keepAlive = 1;
-    if (setsockopt(server_sock, SOL_SOCKET, SO_KEEPALIVE, (const char*)&keepAlive, sizeof(keepAlive)) != 0) {
-        fprintf(stderr, "Failed to set SO_KEEPALIVE: %d\n", WSAGetLastError());
-        // Continue anyway, not critical
-    }
-
-    // Set a reasonable timeout
-    DWORD timeout = 60000;  // 60 seconds
-    if (setsockopt(server_sock, SOL_SOCKET, SO_RCVTIMEO, (const char*)&timeout, sizeof(timeout)) != 0 ||
-        setsockopt(server_sock, SOL_SOCKET, SO_SNDTIMEO, (const char*)&timeout, sizeof(timeout)) != 0) {
-        fprintf(stderr, "Failed to set socket timeout: %d\n", WSAGetLastError());
-        // Continue anyway, not critical
-    }    // Bind the socket
-    memset(&server_addr, 0, sizeof(server_addr));
-    server_addr.sin_family = AF_INET;
-
-    // Convert IP string to binary representation
-    if (inet_pton(AF_INET, config.bind_addr, &(server_addr.sin_addr)) != 1) {
-        fprintf(stderr, "Failed to convert bind address: %s\n", config.bind_addr);
-        close_socket(server_sock);
-        return 0;
-    }
-    server_addr.sin_port = htons(config.port);
-
-    ret = bind(server_sock, (struct sockaddr*)&server_addr, sizeof(server_addr));
-    if (ret == SOCKET_ERROR) {
-        fprintf(stderr, "Failed to bind socket to %s:%d: %d\n",
-                config.bind_addr, config.port, WSAGetLastError());
-        close_socket(server_sock);
-        return 0;
-    }
-
-    // Log successful bind
-    log_message("Successfully bound to %s:%d", config.bind_addr, config.port);// Listen for connections
-    ret = listen(server_sock, SOMAXCONN);
-    if (ret == SOCKET_ERROR) {
-        fprintf(stderr, "Failed to listen on socket: %d\n", WSAGetLastError());
-        close_socket(server_sock);
-        return 0;
-    }
-
-
-    if (config.verbose) {
-        printf("   - SOCKS5 Proxy: %s:%d\n", config.bind_addr, config.port);
-        fflush(stdout);
-    }    if (config.verbose && config.log_fp) {
-        printf("   - Log file: %s\n", config.log_file);
-        fflush(stdout);
-    }    if (config.verbose) {
-        printf("===========================================================================\n");
-        fflush(stdout);
-        printf("[*] MITM proxy listening on %s:%d\n", config.bind_addr, config.port);
-        fflush(stdout);
-    }
-
-    // Set socket to non-blocking mode
-    unsigned long nonBlocking = 1;
-    if (ioctlsocket(server_sock, FIONBIO, &nonBlocking) != 0) {
-        fprintf(stderr, "Failed to set socket to non-blocking mode\n");
-        close_socket(server_sock);
-        return 0;
-    }
-
-    // Main server loop
-    while (1) {
-        // Prepare for select() call
+    
+    while (!g_server.should_stop) {
+        /* Prepare for select() */
         fd_set readfds;
         struct timeval tv;
         FD_ZERO(&readfds);
         FD_SET(server_sock, &readfds);
-
-        // Wait for 1 second
-        tv.tv_sec = 1;
+        
+        /* Set timeout for select */
+        tv.tv_sec = 1;  /* Check should_stop flag every second */
         tv.tv_usec = 0;
-
-        // Check if socket is ready for reading (connection available)
-        int ready = select((int)server_sock + 1, &readfds, NULL, NULL, &tv);
-
-        if (ready < 0) {
-            // Error in select()
-            fprintf(stderr, "Select error: %d\n", WSAGetLastError());
-            SLEEP(1000);
+        
+        /* Wait for connection with timeout */
+        int ret = select(server_sock + 1, &readfds, NULL, NULL, &tv);
+        if (ret == SOCKET_ERROR) {
+            if (WSAGetLastError() != WSAEINTR) {
+                fprintf(stderr, "Select failed: %d\n", WSAGetLastError());
+            }
             continue;
         }
-
-        if (ready == 0) {
-            // Timeout (no connection available)
+        
+        if (ret == 0) {
+            /* Timeout - check should_stop flag */
             continue;
         }
-
-        // Connection available, allocate client info
+        
+        /* Accept connection */
         client = (client_info*)malloc(sizeof(client_info));
         if (!client) {
-            fprintf(stderr, "Memory allocation failed\n");
-            SLEEP(1000);
             continue;
-        }        // Accept the connection
-        socklen_t addr_len = sizeof(client->client_addr);
-        client->client_sock = accept(server_sock, (struct sockaddr*)&client->client_addr, &addr_len);
-
+        }
+        
+        socklen_t client_len = sizeof(client->client_addr);
+        client->client_sock = accept(server_sock, (struct sockaddr*)&client->client_addr, &client_len);
         if (client->client_sock == INVALID_SOCKET) {
-            int error = WSAGetLastError();
-            if (error != WSAEWOULDBLOCK) {
-                if (config.verbose) {
-                    fprintf(stderr, "Failed to accept connection: %d\n", error);
-                }
-            }
             free(client);
+            if (WSAGetLastError() != WSAEWOULDBLOCK) {
+                fprintf(stderr, "Failed to accept connection: %d\n", WSAGetLastError());
+            }
             continue;
         }
 
-        // Set client socket back to blocking mode for normal operation
-        nonBlocking = 0;
+        /* Set client socket to blocking mode for normal operation */
+        unsigned long nonBlocking = 0;
         if (ioctlsocket(client->client_sock, FIONBIO, &nonBlocking) != 0) {
-            if (config.verbose) {
-                fprintf(stderr, "Failed to set socket to blocking mode: %d\n", WSAGetLastError());
-            }
-            // This is important so we'll close the socket if we can't set to blocking mode
             close_socket(client->client_sock);
             free(client);
             continue;
         }
 
-        // Set TCP_NODELAY to improve performance (disable Nagle's algorithm)
-        DWORD nodelay = 1;
-        if (setsockopt(client->client_sock, IPPROTO_TCP, TCP_NODELAY, (const char*)&nodelay, sizeof(nodelay)) != 0) {
-            if (config.verbose) {
-                fprintf(stderr, "Failed to set TCP_NODELAY: %d\n", WSAGetLastError());
-            }
-            // Continue anyway, not critical
-        }
-
-        // Set reasonable buffer sizes
-        int recvBufSize = 65536;  // 64KB
-        int sendBufSize = 65536;  // 64KB
-        setsockopt(client->client_sock, SOL_SOCKET, SO_RCVBUF, (const char*)&recvBufSize, sizeof(recvBufSize));
-        setsockopt(client->client_sock, SOL_SOCKET, SO_SNDBUF, (const char*)&sendBufSize, sizeof(sendBufSize));
-
-        if (config.verbose) {
-            char ip_str[INET_ADDRSTRLEN];
-            inet_ntop(AF_INET, &(client->client_addr.sin_addr), ip_str, INET_ADDRSTRLEN);
-            printf("\n[*] Accepted connection from %s:%d\n",
-                   ip_str,
-                   ntohs(client->client_addr.sin_port));
-        }        // Create a thread to handle the client
+        /* Create thread to handle client */
         CREATE_THREAD(thread_id, handle_client, client);
-        // Detach thread for better performance - thread will clean up its own resources
         if (thread_id != NULL) {
             CloseHandle(thread_id);
         } else {
-            // Thread creation failed, clean up client
-            if (config.verbose) {
-                fprintf(stderr, "Failed to create thread for client\n");
-            }
             close_socket(client->client_sock);
             free(client);
         }
     }
 
-    // Cleanup (this code is never reached in this simple server)
-    close_socket(server_sock);
-    return 1;
+    THREAD_RETURN;
 }
 
-/* Global CA certificate and key */
-X509 *ca_cert = NULL;
-EVP_PKEY *ca_key = NULL;
+/* Helper function to send status updates */
+void send_status_update(const char* message) {
+    if (g_status_callback && message) {
+        g_status_callback(message);
+    }
+}
 
-/* Main entry point */
-int main(int argc, char *argv[]) {
-    /* Parse command line arguments */
-    if (!parse_arguments(argc, argv)) {
-        print_usage(argv[0]);
-        return 1;
+/* Helper function to send log entries */
+void send_log_entry(const char* src_ip, const char* dst_ip, int dst_port, const char* msg_type, const char* data) {
+    if (g_log_callback && src_ip && dst_ip && msg_type && data) {
+        char timestamp[64];
+        time_t now = time(NULL);
+        struct tm* tm_info = localtime(&now);
+        strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", tm_info);
+        
+        g_log_callback(timestamp, src_ip, dst_ip, dst_port, msg_type, data);
     }
+}
 
-    /* Check if help was requested */
-    if (config.help_requested) {
-        print_usage(argv[0]);
-        return 0;
-    }
+/* Set callback functions */
+__declspec(dllexport) void set_log_callback(log_callback_t callback) {
+    g_log_callback = callback;
+}
 
-    /* Validate the provided IP address */
-    if (!validate_ip_address(config.bind_addr)) {
-        fprintf(stderr, "Error: '%s' is not a valid IP address on this system.\n", config.bind_addr);
-        fprintf(stderr, "Use --help to see usage information.\n");
-        return 1;
-    }
+__declspec(dllexport) void set_status_callback(status_callback_t callback) {
+    g_status_callback = callback;
+}
 
-    /* Initialize Windows Sockets */
-    if (config.verbose) {
-        printf("Initializing Winsock...\n");
-        fflush(stdout);
-    }
-    if (!init_winsock()) {
-        fprintf(stderr, "Failed to initialize Winsock\n");
-        fflush(stderr);
-        return 1;
-    }
-    if (config.verbose) {
-        printf("Winsock initialized successfully\n");
-        fflush(stdout);
-    }
-
-    /* Initialize OpenSSL */
-    if (config.verbose) {
-        printf("Initializing OpenSSL...\n");
-        fflush(stdout);
-    }
-    if (!init_openssl()) {
-        fprintf(stderr, "Failed to initialize OpenSSL\n");
-        cleanup_winsock();
-        return 1;
-    }
-    if (config.verbose) {
-        printf("OpenSSL initialized successfully\n");
-        fflush(stdout);
-    }
-
-    /* Load or generate CA certificate */
-    if (config.verbose) {
-        printf("Loading or generating CA certificate...\n");
-        fflush(stdout);
-    }
-    if (!load_or_generate_ca_cert()) {
-        fprintf(stderr, "Failed to load or generate CA certificate\n");
-        cleanup_openssl();
-        cleanup_winsock();
-        return 1;
-    }
-    if (config.verbose) {
-        printf("CA certificate ready\n");
-        fflush(stdout);
-    }    /* Open the log file if specified */
-    if (strlen(config.log_file) > 0) {
-        if (!open_log_file()) {
-            fprintf(stderr, "Warning: Failed to open log file, continuing without logging\n");
-        } else if (config.verbose) {
-            printf("Logging to file: %s\n", config.log_file);
+/* Get system IP addresses */
+__declspec(dllexport) int get_system_ips(char* buffer, int buffer_size) {
+    if (!buffer || buffer_size <= 0) return 0;
+    
+    buffer[0] = '\0';
+    int offset = 0;
+    
+    // Add localhost
+    offset += snprintf(buffer + offset, buffer_size - offset, "127.0.0.1;");
+    
+    // Get adapter info
+    ULONG adapter_info_size = 0;
+    if (GetAdaptersInfo(NULL, &adapter_info_size) == ERROR_BUFFER_OVERFLOW) {
+        PIP_ADAPTER_INFO adapter_info = (PIP_ADAPTER_INFO)malloc(adapter_info_size);
+        if (adapter_info && GetAdaptersInfo(adapter_info, &adapter_info_size) == NO_ERROR) {
+            PIP_ADAPTER_INFO adapter = adapter_info;
+            while (adapter && offset < buffer_size - 20) {
+                if (adapter->Type == MIB_IF_TYPE_ETHERNET || adapter->Type == IF_TYPE_IEEE80211) {
+                    PIP_ADDR_STRING addr = &adapter->IpAddressList;
+                    while (addr && offset < buffer_size - 20) {
+                        if (strcmp(addr->IpAddress.String, "0.0.0.0") != 0) {
+                            offset += snprintf(buffer + offset, buffer_size - offset, "%s;", addr->IpAddress.String);
+                        }
+                        addr = addr->Next;
+                    }
+                }
+                adapter = adapter->Next;
+            }
+            free(adapter_info);
         }
     }
+    
+    return offset;
+}
 
-    /* Print table header immediately in non-verbose mode */
-    if (!config.verbose) {
-        printf("\n%-15s | %-15s | %-5s | %s\n", "Source IP", "Dest IP", "Port", "Message");
-        printf("---------------|----------------|-------|---------------------------\n");
-    }
+/* Get current proxy configuration */
+__declspec(dllexport) BOOL get_proxy_config(char* bind_addr, int* port, char* log_file) {
+    if (!bind_addr || !port || !log_file) return FALSE;
+      strcpy(bind_addr, config.bind_addr);
+    *port = config.port;
+    strcpy(log_file, config.log_file);
+    
+    return TRUE;
+}
 
-    /* Start the proxy server */
-    if (config.verbose) {
-        printf("Starting proxy server...\n");
-        fflush(stdout);
-    }
-    if (!start_proxy_server()) {
-        fprintf(stderr, "Failed to start proxy server\n");
-        close_log_file();
-        cleanup_openssl();
-        cleanup_winsock();
-        return 1;
-    }
+/* Get proxy statistics */
+__declspec(dllexport) BOOL get_proxy_stats(int* connections, int* bytes_transferred) {
+    if (!connections || !bytes_transferred) return FALSE;
+    
+    *connections = g_total_connections;
+    *bytes_transferred = g_total_bytes;
+    
+    return TRUE;
+}
 
-    /* This is reached when Ctrl+C is pressed or server is stopped */
-    close_log_file();
-    cleanup_openssl();
-    cleanup_winsock();
-    return 0;
+/* Process enumeration and WinDivert process filtering */
+
+/* Global variables for process filtering */
+static int* g_filtered_pids = NULL;
+static int g_filtered_pid_count = 0;
+static CRITICAL_SECTION g_pid_filter_cs;
+static BOOL g_pid_filter_initialized = FALSE;
+
+static void init_pid_filter() {
+    if (!g_pid_filter_initialized) {
+        InitializeCriticalSection(&g_pid_filter_cs);
+        g_pid_filter_initialized = TRUE;
+    }
+}
+
+__declspec(dllexport) int get_running_processes(char* buffer, int buffer_size) {
+    if (!buffer || buffer_size <= 0) return 0;
+    
+    buffer[0] = '\0';
+    int offset = 0;
+    
+#ifdef _WIN32
+    HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+    if (snapshot == INVALID_HANDLE_VALUE) {
+        return 0;
+    }
+    
+    PROCESSENTRY32 process_entry;
+    process_entry.dwSize = sizeof(PROCESSENTRY32);
+    
+    if (Process32First(snapshot, &process_entry)) {
+        do {
+            if (offset < buffer_size - 100) { // Leave space for one more entry
+                offset += snprintf(buffer + offset, buffer_size - offset, 
+                    "%lu|%s;", process_entry.th32ProcessID, process_entry.szExeFile);
+            }
+        } while (Process32Next(snapshot, &process_entry) && offset < buffer_size - 100);
+    }
+    
+    CloseHandle(snapshot);
+#endif
+    
+    return offset;
+}
+
+__declspec(dllexport) BOOL set_windivert_process_filter(int* pids, int pid_count) {
+    if (!pids || pid_count <= 0) return FALSE;
+    
+    init_pid_filter();
+    
+    EnterCriticalSection(&g_pid_filter_cs);
+    
+    // Free existing filter
+    if (g_filtered_pids) {
+        free(g_filtered_pids);
+        g_filtered_pids = NULL;
+        g_filtered_pid_count = 0;
+    }
+    
+    // Allocate new filter
+    g_filtered_pids = malloc(pid_count * sizeof(int));
+    if (!g_filtered_pids) {
+        LeaveCriticalSection(&g_pid_filter_cs);
+        return FALSE;
+    }
+    
+    // Copy PIDs
+    memcpy(g_filtered_pids, pids, pid_count * sizeof(int));
+    g_filtered_pid_count = pid_count;
+    
+    LeaveCriticalSection(&g_pid_filter_cs);
+    
+    // Apply filter to WinDivert if available
+    if (config.windivert_enabled) {
+        apply_process_filter(g_filtered_pids, g_filtered_pid_count);
+    }
+    
+    return TRUE;
+}
+
+__declspec(dllexport) void clear_windivert_process_filter(void) {
+    init_pid_filter();
+    
+    EnterCriticalSection(&g_pid_filter_cs);
+    
+    if (g_filtered_pids) {
+        free(g_filtered_pids);
+        g_filtered_pids = NULL;
+        g_filtered_pid_count = 0;
+    }
+    
+    LeaveCriticalSection(&g_pid_filter_cs);
+    
+    // Clear filter from WinDivert if available
+    if (config.windivert_enabled) {
+        clear_process_filter();
+    }
 }

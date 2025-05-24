@@ -96,7 +96,16 @@ typedef struct {
     FILE *log_fp;                   /* Log file pointer */
     int help_requested;             /* Flag for help display */
     int verbose;                    /* Flag for verbose output */
+    int windivert_enabled;          /* Flag for WinDivert status */
 } proxy_config;
+
+/* Server thread control */
+typedef struct {
+    int should_stop;              /* Flag to signal server thread to stop */
+    HANDLE thread_handle;         /* Server thread handle */
+    CRITICAL_SECTION cs;         /* Critical section for thread safety */
+    socket_t server_sock;        /* Server socket */
+} server_thread_t;
 
 /* Global certificate references */
 extern X509 *ca_cert;
@@ -104,6 +113,7 @@ extern EVP_PKEY *ca_key;
 
 /* Global configuration */
 extern proxy_config config;
+extern server_thread_t g_server;
 
 /* Function prototypes */
 int init_winsock(void);
@@ -114,5 +124,8 @@ int parse_arguments(int argc, char *argv[]);
 int validate_ip_address(const char *ip_addr);
 void log_message(const char *format, ...);
 void close_log_file(void);
+
+/* Server thread function prototypes */
+THREAD_RETURN_TYPE WINAPI run_server_thread(void* arg);
 
 #endif /* TLS_PROXY_H */

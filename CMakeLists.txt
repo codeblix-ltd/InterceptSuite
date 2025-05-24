@@ -3,10 +3,9 @@ project(tls_project C)
 
 set(CMAKE_C_STANDARD 11)
 
-# Always use console subsystem for this application
-if(WIN32)
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SUBSYSTEM:CONSOLE")
-endif()
+# Build as a DLL
+set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
+set(BUILD_SHARED_LIBS ON)
 
 # Set installation directories
 set(INSTALL_RUNTIME_DIR "bin")
@@ -14,28 +13,39 @@ set(INSTALL_LIBRARY_DIR "lib")
 set(INSTALL_ARCHIVE_DIR "lib")
 set(INSTALL_DATA_DIR "data")
 
+# Set WinDivert paths
+set(WINDIVERT_INCLUDE_DIR "D:/vcpkg/packages/WinDivert-2.2.2-A/include")
+set(WINDIVERT_LIB_DIR "D:/vcpkg/packages/WinDivert-2.2.2-A/x64")
+set(WINDIVERT_DLL "${WINDIVERT_LIB_DIR}/WinDivert.dll")
+set(WINDIVERT_SYS "${WINDIVERT_LIB_DIR}/WinDivert64.sys")
+
 # Add include directories
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
+include_directories(
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${WINDIVERT_INCLUDE_DIR}
+)
 
 # Find required dependencies
 find_package(OpenSSL REQUIRED)
 
-# Add the executable
-add_executable(tls_app
+# Add library
+add_library(tls_proxy SHARED
     src/main.c
-    src/applink.c
     src/cert_utils.c
     src/socks5.c
     src/tls_utils.c
     src/utils.c
+    src/process_divert.c
 )
 
 # Link against dependencies
-target_compile_definitions(tls_app PRIVATE HAVE_OPENSSL _CONSOLE)
-target_link_libraries(tls_app PRIVATE
+target_compile_definitions(tls_proxy PRIVATE HAVE_OPENSSL _UNICODE UNICODE)
+target_link_libraries(tls_proxy PRIVATE
     OpenSSL::SSL
     OpenSSL::Crypto
     $<$<PLATFORM_ID:Windows>:ws2_32>
+    $<$<PLATFORM_ID:Windows>:iphlpapi>
+    "${WINDIVERT_LIB_DIR}/WinDivert.lib"
 )
 
 # Handle OpenSSL DLLs for Windows
@@ -76,68 +86,43 @@ if(WIN32)
     message(STATUS "OpenSSL version: ${OPENSSL_VERSION}")
     message(STATUS "OpenSSL Crypto DLL: ${OPENSSL_CRYPTO_DLL}")
     message(STATUS "OpenSSL SSL DLL: ${OPENSSL_SSL_DLL}")
-
-    # Copy DLLs to output directory if they were found
+    message(STATUS "WinDivert DLL: ${WINDIVERT_DLL}")
+    message(STATUS "WinDivert SYS: ${WINDIVERT_SYS}")    # Copy DLLs to output directory if they were found
     if(OPENSSL_CRYPTO_DLL AND EXISTS "${OPENSSL_CRYPTO_DLL}")
-        add_custom_command(TARGET tls_app POST_BUILD
+        add_custom_command(TARGET tls_proxy POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
                 "${OPENSSL_SSL_DLL}"
                 "${OPENSSL_CRYPTO_DLL}"
-                $<TARGET_FILE_DIR:tls_app>
+                $<TARGET_FILE_DIR:tls_proxy>
         )
     else()
-        message(WARNING "OpenSSL DLLs not found - executable might not run without them")
+        message(WARNING "OpenSSL DLLs not found - DLL might not run without them")
     endif()
+
+    # Copy WinDivert DLL and driver to output directory
+    add_custom_command(TARGET tls_proxy POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${WINDIVERT_DLL}"
+            "${WINDIVERT_SYS}"
+            $<TARGET_FILE_DIR:tls_proxy>
+    )
 
 endif()
 
 # Install targets and dependencies
-install(TARGETS tls_app
+install(TARGETS tls_proxy
     RUNTIME DESTINATION ${INSTALL_RUNTIME_DIR}
     LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR}
     ARCHIVE DESTINATION ${INSTALL_ARCHIVE_DIR}
 )
 
-# Install DLLs and runtime dependencies
-if(WIN32)
-    # Install OpenSSL DLLs if found
-    if(OPENSSL_CRYPTO_DLL AND EXISTS "${OPENSSL_CRYPTO_DLL}")
-        install(FILES
-            "${OPENSSL_SSL_DLL}"
-            "${OPENSSL_CRYPTO_DLL}"
-            DESTINATION ${INSTALL_RUNTIME_DIR}
-        )
-    endif()
-
-    # Install Visual C++ Runtime Libraries
-    set(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_SKIP TRUE)
-    include(InstallRequiredSystemLibraries)
-    install(PROGRAMS ${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS}
-        DESTINATION ${INSTALL_RUNTIME_DIR}
-        COMPONENT Runtime
-    )
-endif()
-
-# Install CA certificates
+# Install WinDivert files and headers
 install(FILES
-    "${CMAKE_SOURCE_DIR}/myCA.pem"
-    "${CMAKE_SOURCE_DIR}/myCA.key"
-    DESTINATION ${INSTALL_DATA_DIR}
+    "${WINDIVERT_DLL}" 
+    "${WINDIVERT_SYS}"
+    DESTINATION ${INSTALL_RUNTIME_DIR}
 )
 
-# Enable CPack for creating distributable packages
-set(CPACK_PACKAGE_NAME "TLS-MITM-Proxy")
-set(CPACK_PACKAGE_VENDOR "Your Organization")
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "TLS MITM Proxy Tool")
-set(CPACK_PACKAGE_VERSION "1.0.0")
-set(CPACK_PACKAGE_INSTALL_DIRECTORY "TLS-MITM-Proxy")
-
-# Configure CPack
-if(WIN32)
-    set(CPACK_GENERATOR "ZIP")
-    set(CPACK_INCLUDE_TOPLEVEL_DIRECTORY OFF)
-    set(CPACK_COMPONENT_APPLICATIONS_DISPLAY_NAME "TLS MITM Proxy")
-    set(CPACK_COMPONENTS_ALL applications Runtime)
-endif()
-
-include(CPack)
+install(FILES
+    include/tls_proxy_dll.h
+    DESTINATION include)

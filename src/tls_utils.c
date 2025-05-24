@@ -8,6 +8,10 @@
 #include "../include/utils.h"
 #include <ctype.h>  /* For isprint() */
 
+/* External callback functions from main.c */
+extern void send_log_entry(const char* src_ip, const char* dst_ip, int dst_port, const char* message_type, const char* data);
+extern void send_status_update(const char* message);
+
 /*
  * Print OpenSSL error messages
  */
@@ -23,22 +27,42 @@ static void print_openssl_error(void) {
  * Pretty print intercepted data in table format
  */
 void pretty_print_data(const char *direction, const unsigned char *data, int len,
-                     const char *src_ip, const char *dst_ip, int dst_port) {    char message[BUFFER_SIZE] = {0};
-
-    // In non-verbose mode, filter protocol handshake messages
+                     const char *src_ip, const char *dst_ip, int dst_port) {    char message[BUFFER_SIZE] = {0};    // In non-verbose mode, filter protocol handshake messages more intelligently
     if (!config.verbose) {
-        // Only display data that appears to be actual content
-        // Skip TLS protocol messages which are typically small
-        if (len < 5) {
-            // Skip very small protocol messages in non-verbose mode
+        // Skip very small messages that are likely TLS protocol overhead
+        if (len < 3) {
             return;
-        }
-
-        // Check if the data appears to be TLS handshake or protocol messages
-        // Most application data is either text or larger binary chunks
-        if (len < 20 && !isprint(data[0])) {
-            // Likely a TLS protocol message, skip in non-verbose mode
-            return;
+        }        // For messages between 3-10 bytes, check if they look like TLS protocol messages
+        // TLS protocol messages typically have specific patterns
+        if (len <= 10) {
+            // Check for common TLS record type markers (should be filtered)
+            if (len >= 1 && (data[0] == 0x14 || data[0] == 0x15 || data[0] == 0x16 || data[0] == 0x17)) {
+                // This looks like a TLS record header, skip it
+                if (config.verbose) {
+                    char debug_msg[256];
+                    snprintf(debug_msg, sizeof(debug_msg), "[DEBUG] Filtered TLS protocol message (%s): len=%d, type=0x%02x", direction, len, data[0]);
+                    send_status_update(debug_msg);
+                }
+                return;
+            }
+            
+            // For very short messages, be more permissive with text content
+            int printable_chars = 0;
+            for (int i = 0; i < len; i++) {
+                if (isprint(data[i]) || data[i] == '\r' || data[i] == '\n' || data[i] == '\t') {
+                    printable_chars++;
+                }
+            }
+            
+            // If less than 70% of characters are printable, it's likely protocol data
+            if (printable_chars < (len * 0.7)) {
+                if (config.verbose) {
+                    char debug_msg[256];
+                    snprintf(debug_msg, sizeof(debug_msg), "[DEBUG] Filtered low-printable message (%s): len=%d, printable=%d/%d", direction, len, printable_chars, len);
+                    send_status_update(debug_msg);
+                }
+                return;
+            }
         }
     }
 
@@ -80,17 +104,30 @@ void pretty_print_data(const char *direction, const unsigned char *data, int len
             }
         }
     } else {
-        strncpy(message, "[Empty]", sizeof(message) - 1);
+        strncpy(message, "[Empty]", sizeof(message) - 1);    }
+    
+    // Determine message type for the callback
+    const char* message_type;
+    if (len == 0) {
+        message_type = "Empty";
+    } else {
+        // Check if the data appears to be text
+        int is_text = 1;
+        for (int i = 0; i < len && i < 100; i++) {
+            if (data[i] != 0 && (data[i] < 32 || data[i] > 126)) {
+                // ASCII control characters or non-ASCII characters
+                // that are not space, newline, tab, etc.
+                if (data[i] != '\r' && data[i] != '\n' && data[i] != '\t') {
+                    is_text = 0;
+                    break;
+                }
+            }
+        }
+        message_type = is_text ? "Text" : "Binary";
     }
-      // Print table header occasionally (only in verbose mode)
-    // In non-verbose mode, the header is printed once at startup
-    static int counter = 0;
-    if (config.verbose && counter++ % 20 == 0) {
-        printf("\n%-15s | %-15s | %-5s | %s\n", "Source IP", "Dest IP", "Port", "Message");
-        printf("---------------|----------------|-------|---------------------------\n");
-    }
-      // Print the message in table format
-    printf("%-15s | %-15s | %-5d | %s\n", src_ip, dst_ip, dst_port, message);
+
+    // Send to callback instead of printf
+    send_log_entry(src_ip, dst_ip, dst_port, message_type, message);
 
     // Log to file if configured
     if (config.log_fp) {
@@ -110,28 +147,24 @@ void forward_data(SSL *src, SSL *dst, const char *direction, const char *src_ip,
     fd_set readfds;
     struct timeval tv;
     int ret;
-    int activity_timeout = 0;
-
-    // Validate parameters
+    int activity_timeout = 0;    // Validate parameters
     if (!src || !dst || !direction || !src_ip || !dst_ip) {
-        fprintf(stderr, "Invalid parameters passed to forward_data\n");
+        send_status_update("Error: Invalid parameters passed to forward_data");
         return;
     }
 
     // Add exception handling with OpenSSL's error queue
-    ERR_clear_error(); // Clear any previous errors
-
-    // Get the socket file descriptor from the SSL
+    ERR_clear_error(); // Clear any previous errors    // Get the socket file descriptor from the SSL
     fd = SSL_get_fd(src);
     if (fd < 0) {
-        fprintf(stderr, "Error getting socket fd from SSL\n");
+        send_status_update("Error: Failed to get socket fd from SSL");
         print_openssl_error();
         return;
-    }
-
-    // Log start of data forwarding
+    }    // Log start of data forwarding
     if (config.verbose) {
-        printf("Starting data forwarding: %s -> %s:%d\n", src_ip, dst_ip, dst_port);
+        char status_msg[256];
+        snprintf(status_msg, sizeof(status_msg), "Starting data forwarding: %s -> %s:%d", src_ip, dst_ip, dst_port);
+        send_status_update(status_msg);
     }
 
     while (1) {
@@ -141,21 +174,19 @@ void forward_data(SSL *src, SSL *dst, const char *direction, const char *src_ip,
 
         // Set a 1 second timeout to allow for more responsive termination
         tv.tv_sec = 1;
-        tv.tv_usec = 0;
-
-        ret = select(fd + 1, &readfds, NULL, NULL, &tv);
+        tv.tv_usec = 0;        ret = select(fd + 1, &readfds, NULL, NULL, &tv);
         if (ret < 0) {
-            fprintf(stderr, "select() error\n");
+            send_status_update("Error: select() failed in data forwarding");
             break;
         } else if (ret == 0) {
             // Timeout occurred, continue waiting but increment timeout counter
-            activity_timeout++;
-
-            // If we've been idle for over 60 seconds in non-verbose mode, exit
+            activity_timeout++;            // If we've been idle for over 60 seconds in non-verbose mode, exit
             // In verbose mode, we might want to wait longer
             if (!config.verbose && activity_timeout > 60) {
                 if (config.verbose) {
-                    printf("Connection idle timeout (%s)\n", direction);
+                    char status_msg[256];
+                    snprintf(status_msg, sizeof(status_msg), "Connection idle timeout (%s)", direction);
+                    send_status_update(status_msg);
                 }
                 break;
             }
@@ -168,29 +199,36 @@ void forward_data(SSL *src, SSL *dst, const char *direction, const char *src_ip,
         // Data is available to read
         len = SSL_read(src, buffer, sizeof(buffer));
         if (len <= 0) {
-            int error = SSL_get_error(src, len);
-            if (error == SSL_ERROR_ZERO_RETURN) {
+            int error = SSL_get_error(src, len);            if (error == SSL_ERROR_ZERO_RETURN) {
                 // Connection closed cleanly
                 if (config.verbose) {
-                    printf("Connection closed by peer (%s)\n", direction);
+                    char status_msg[256];
+                    snprintf(status_msg, sizeof(status_msg), "Connection closed by peer (%s)", direction);
+                    send_status_update(status_msg);
                 }
             }
             else if (error == SSL_ERROR_SYSCALL && ERR_peek_error() == 0) {
                 // This is usually just the client closing the connection abruptly
                 if (config.verbose) {
-                    printf("Connection closed abruptly (%s)\n", direction);
+                    char status_msg[256];
+                    snprintf(status_msg, sizeof(status_msg), "Connection closed abruptly (%s)", direction);
+                    send_status_update(status_msg);
                 }
             }
             else if (error == SSL_ERROR_SSL &&
                     ERR_GET_REASON(ERR_peek_error()) == SSL_R_UNEXPECTED_EOF_WHILE_READING) {
                 // Common case: unexpected EOF (client closed connection)
                 if (config.verbose) {
-                    printf("Connection closed by peer with unexpected EOF (%s)\n", direction);
+                    char status_msg[256];
+                    snprintf(status_msg, sizeof(status_msg), "Connection closed by peer with unexpected EOF (%s)", direction);
+                    send_status_update(status_msg);
                 }
                 ERR_clear_error(); // Clear the error queue
             }
             else {
-                fprintf(stderr, "SSL_read error in %s: %d\n", direction, error);
+                char error_msg[256];
+                snprintf(error_msg, sizeof(error_msg), "SSL_read error in %s: %d", direction, error);
+                send_status_update(error_msg);
                 print_openssl_error();
             }
             break;
@@ -200,12 +238,15 @@ void forward_data(SSL *src, SSL *dst, const char *direction, const char *src_ip,
         // Forward to the destination
         int written = SSL_write(dst, buffer, len);
         if (written <= 0) {
-            int error = SSL_get_error(dst, written);
-            if (error == SSL_ERROR_ZERO_RETURN ||
+            int error = SSL_get_error(dst, written);            if (error == SSL_ERROR_ZERO_RETURN ||
                (error == SSL_ERROR_SYSCALL && ERR_peek_error() == 0)) {
-                printf("Peer closed connection while writing (%s)\n", direction);
+                char status_msg[256];
+                snprintf(status_msg, sizeof(status_msg), "Peer closed connection while writing (%s)", direction);
+                send_status_update(status_msg);
             } else {
-                fprintf(stderr, "SSL_write error in %s\n", direction);
+                char error_msg[256];
+                snprintf(error_msg, sizeof(error_msg), "SSL_write error in %s", direction);
+                send_status_update(error_msg);
                 print_openssl_error();
             }
             break;

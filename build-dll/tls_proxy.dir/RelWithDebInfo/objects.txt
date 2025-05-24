@@ -1,0 +1,6 @@
+D:/Windows TLS/build-dll/tls_proxy.dir/RelWithDebInfo/main.obj
+D:/Windows TLS/build-dll/tls_proxy.dir/RelWithDebInfo/cert_utils.obj
+D:/Windows TLS/build-dll/tls_proxy.dir/RelWithDebInfo/socks5.obj
+D:/Windows TLS/build-dll/tls_proxy.dir/RelWithDebInfo/tls_utils.obj
+D:/Windows TLS/build-dll/tls_proxy.dir/RelWithDebInfo/utils.obj
+D:/Windows TLS/build-dll/tls_proxy.dir/RelWithDebInfo/process_divert.obj
