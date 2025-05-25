@@ -299,7 +299,7 @@ void forward_tcp_data(socket_t src, socket_t dst, const char *direction, const c
         } else if (ret == 0) {
             // Timeout occurred
             activity_timeout++;
-            
+
             // If idle for too long, exit
             if (!config.verbose && activity_timeout > 60) {
                 if (config.verbose) {
@@ -366,7 +366,7 @@ int detect_protocol(socket_t sock) {
 
     // Peek at the first few bytes without removing them from the buffer
     bytes_peeked = recv(sock, (char*)peek_buffer, sizeof(peek_buffer), MSG_PEEK);
-    
+
     if (bytes_peeked <= 0) {
         // Error or connection closed
         return PROTOCOL_PLAIN_TCP; // Default to plain TCP
@@ -374,7 +374,7 @@ int detect_protocol(socket_t sock) {
 
     // Check for TLS handshake
     // TLS handshake starts with 0x16 (handshake message) followed by 0x03 (SSL/TLS version)
-    if (bytes_peeked >= 3 && peek_buffer[0] == 0x16 && 
+    if (bytes_peeked >= 3 && peek_buffer[0] == 0x16 &&
         (peek_buffer[1] == 0x03 || peek_buffer[1] == 0x02 || peek_buffer[1] == 0x01)) {
         return PROTOCOL_TLS;
     }
@@ -389,7 +389,7 @@ int detect_protocol(socket_t sock) {
             (peek_buffer[0] == 'D' && peek_buffer[1] == 'E' && peek_buffer[2] == 'L' && peek_buffer[3] == 'E')) {
             return PROTOCOL_HTTP;
         }
-        
+
         // Check for HTTP response
         if ((peek_buffer[0] == 'H' && peek_buffer[1] == 'T' && peek_buffer[2] == 'T' && peek_buffer[3] == 'P')) {
             return PROTOCOL_HTTP;
@@ -726,10 +726,10 @@ THREAD_RETURN_TYPE handle_client(void *arg) {
     }    // Set TCP_NODELAY for better performance
     int nodelay = 1;
     setsockopt(server_sock, IPPROTO_TCP, TCP_NODELAY, (const char*)&nodelay, sizeof(nodelay));
-    
+
     // Detect protocol type (TLS or non-TLS)
     protocol_type = detect_protocol(client_sock);
-    
+
     if (protocol_type == PROTOCOL_TLS) {
         // TLS handling path
         if (config.verbose) {
@@ -752,7 +752,7 @@ THREAD_RETURN_TYPE handle_client(void *arg) {
 
         // Use the generated certificate and key
         if (SSL_CTX_use_certificate(server_ctx, cert) != 1 ||
-            SSL_CTX_use_PrivateKey(server_ctx, key) != 1 || 
+            SSL_CTX_use_PrivateKey(server_ctx, key) != 1 ||
             SSL_CTX_check_private_key(server_ctx) != 1) {
             fprintf(stderr, "Failed to set up SSL certificate\n");
             print_openssl_error();
@@ -856,7 +856,7 @@ THREAD_RETURN_TYPE handle_client(void *arg) {
     if (config.verbose) {
         printf("Connection to %s:%d closed\n", target_host, target_port);
     }
-    } 
+    }
     else {
         // Non-TLS handling path (HTTP or plain TCP)
         if (protocol_type == PROTOCOL_HTTP) {
@@ -870,18 +870,18 @@ THREAD_RETURN_TYPE handle_client(void *arg) {
             }
             send_status_update("Forwarding plain TCP traffic");
         }
-        
+
         if (config.verbose) {
             printf("Setting up direct TCP forwarding between client and %s:%d\n", target_host, target_port);
         }
-        
+
         // Create TCP forwarding info structs
         forward_tcp_info *client_to_server = (forward_tcp_info*)malloc(sizeof(forward_tcp_info));
         if (!client_to_server) {
             fprintf(stderr, "Memory allocation failed\n");
             goto cleanup;
         }
-        
+
         client_to_server->src = client_sock;
         client_to_server->dst = server_sock;
         strncpy(client_to_server->direction, "client->server", sizeof(client_to_server->direction)-1);
@@ -890,7 +890,7 @@ THREAD_RETURN_TYPE handle_client(void *arg) {
         strncpy(client_to_server->dst_ip, server_ip, MAX_IP_ADDR_LEN-1);
         client_to_server->dst_port = target_port;
         client_to_server->connection_id = connection_id;
-        
+
         // Create a second TCP info struct for server->client direction
         forward_tcp_info *server_to_client = (forward_tcp_info*)malloc(sizeof(forward_tcp_info));
         if (!server_to_client) {
@@ -898,7 +898,7 @@ THREAD_RETURN_TYPE handle_client(void *arg) {
             free(client_to_server); // Don't leak memory
             goto cleanup;
         }
-        
+
         server_to_client->src = server_sock;
         server_to_client->dst = client_sock;
         strncpy(server_to_client->direction, "server->client", sizeof(server_to_client->direction)-1);
@@ -907,25 +907,25 @@ THREAD_RETURN_TYPE handle_client(void *arg) {
         strncpy(server_to_client->dst_ip, client_ip, MAX_IP_ADDR_LEN-1);
         server_to_client->dst_port = ntohs(client->client_addr.sin_port);
         server_to_client->connection_id = connection_id;
-        
+
         // Make sure strings are null-terminated
         client_to_server->src_ip[MAX_IP_ADDR_LEN-1] = '\0';
         client_to_server->dst_ip[MAX_IP_ADDR_LEN-1] = '\0';
         server_to_client->src_ip[MAX_IP_ADDR_LEN-1] = '\0';
         server_to_client->dst_ip[MAX_IP_ADDR_LEN-1] = '\0';
-        
+
         // Log connection info
         log_message("Established direct TCP connection: %s -> %s:%d", client_ip, server_ip, target_port);
-        
+
         // Start TCP forwarding threads
         THREAD_HANDLE thread_id2;
         CREATE_THREAD(thread_id, forward_tcp_thread, client_to_server);
         CREATE_THREAD(thread_id2, forward_tcp_thread, server_to_client);
-        
+
         // Wait for both threads to finish
         if (thread_id != NULL) JOIN_THREAD(thread_id);
         if (thread_id2 != NULL) JOIN_THREAD(thread_id2);
-        
+
         if (config.verbose) {
             printf("TCP connection to %s:%d closed\n", target_host, target_port);
         }

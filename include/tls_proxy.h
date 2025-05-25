@@ -92,7 +92,7 @@ typedef struct {
 /* TCP forwarding info without SSL */
 typedef struct {
     socket_t src;
-    socket_t dst; 
+    socket_t dst;
     char direction[32];
     char src_ip[MAX_IP_ADDR_LEN];
     char dst_ip[MAX_IP_ADDR_LEN];
