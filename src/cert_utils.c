@@ -10,25 +10,25 @@ static char* read_file_to_memory(const char* filename, long* file_size) {
     if (!file) {
         return NULL;
     }
-    
+
     fseek(file, 0, SEEK_END);
     *file_size = ftell(file);
     fseek(file, 0, SEEK_SET);
-    
+
     char* buffer = malloc(*file_size + 1);
     if (!buffer) {
         fclose(file);
         return NULL;
     }
-    
+
     size_t read_size = fread(buffer, 1, *file_size, file);
     fclose(file);
-    
+
     if (read_size != *file_size) {
         free(buffer);
         return NULL;
     }
-    
+
     buffer[*file_size] = '\0';
     return buffer;
 }
@@ -39,10 +39,10 @@ static int write_memory_to_file(const char* filename, const char* data, size_t s
     if (!file) {
         return 0;
     }
-    
+
     size_t written = fwrite(data, 1, size, file);
     fclose(file);
-    
+
     return (written == size) ? 1 : 0;
 }
 
@@ -85,7 +85,7 @@ void print_openssl_error(void) {
 
 int load_or_generate_ca_cert(void) {
     printf("Checking for CA certificate and key files: %s and %s\n", CA_CERT_FILE, CA_KEY_FILE);
-    
+
     // Try to read files into memory
     long cert_size = 0, key_size = 0;
     char* cert_data = read_file_to_memory(CA_CERT_FILE, &cert_size);
@@ -98,15 +98,15 @@ int load_or_generate_ca_cert(void) {
     } else {
         // Load existing CA cert and key using memory BIOs
         printf("Loading existing CA cert and key from %s and %s\n", CA_CERT_FILE, CA_KEY_FILE);
-        
+
         BIO* cert_bio = BIO_new_mem_buf(cert_data, cert_size);
         BIO* key_bio = BIO_new_mem_buf(key_data, key_size);
-        
+
         if (cert_bio && key_bio) {
             ca_cert = PEM_read_bio_X509(cert_bio, NULL, NULL, NULL);
             ca_key = PEM_read_bio_PrivateKey(key_bio, NULL, NULL, NULL);
         }
-        
+
         if (cert_bio) BIO_free(cert_bio);
         if (key_bio) BIO_free(key_bio);
         free(cert_data);
@@ -202,7 +202,7 @@ int load_or_generate_ca_cert(void) {
     // Write to files using memory BIOs
     BIO* cert_bio = BIO_new(BIO_s_mem());
     BIO* key_bio = BIO_new(BIO_s_mem());
-    
+
     if (!cert_bio || !key_bio) {
         if (cert_bio) BIO_free(cert_bio);
         if (key_bio) BIO_free(key_bio);

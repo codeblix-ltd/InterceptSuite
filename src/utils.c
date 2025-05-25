@@ -22,7 +22,6 @@ void init_config(void) {
     config.log_fp = NULL;
     config.help_requested = 0;
     config.verbose = 0;
-    config.windivert_enabled = 0;  /* WinDivert disabled by default */
 }
 
 /* Validate that the IP address exists on the system */
@@ -135,7 +134,7 @@ void log_message(const char *format, ...) {
         printf("[%s] %s\n", timestamp, message);
         fflush(stdout);
     }
-    
+
     // Always send status updates to callback if available
     char status_msg[2048];
     snprintf(status_msg, sizeof(status_msg), "[%s] %s", timestamp, message);

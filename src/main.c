@@ -9,13 +9,11 @@
 #include "../include/socks5.h"
 #include "../include/tls_utils.h"
 #include "../include/utils.h"
-#include "../include/process_divert.h"
 #include "../include/tls_proxy_dll.h"
 
 #ifdef _WIN32
 #include <iphlpapi.h>
 #include <time.h>
-#include <tlhelp32.h>
 #pragma comment(lib, "iphlpapi.lib")
 #endif
 
@@ -29,6 +27,10 @@ EVP_PKEY *ca_key = NULL;
 /* Global callback functions */
 static log_callback_t g_log_callback = NULL;
 static status_callback_t g_status_callback = NULL;
+static connection_callback_t g_connection_callback = NULL;
+static data_callback_t g_data_callback = NULL;
+static stats_callback_t g_stats_callback = NULL;
+static disconnect_callback_t g_disconnect_callback = NULL;
 
 /* Statistics */
 static int g_total_connections = 0;
@@ -41,7 +43,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved) {
             /* Initialize with default settings */
             init_config();
             break;
-            
+
         case DLL_PROCESS_DETACH:
             /* Clean up */
             cleanup_winsock();
@@ -55,7 +57,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved) {
 
 __declspec(dllexport) BOOL init_proxy(void) {
     send_status_update("Starting proxy initialization...");
-    
+
     /* Initialize Winsock */
     send_status_update("Initializing Winsock...");
     if (!init_winsock()) {
@@ -63,7 +65,7 @@ __declspec(dllexport) BOOL init_proxy(void) {
         return FALSE;
     }
     send_status_update("Winsock initialized successfully");
-    
+
     /* Initialize OpenSSL */
     send_status_update("Initializing OpenSSL...");
     if (!init_openssl()) {
@@ -72,7 +74,7 @@ __declspec(dllexport) BOOL init_proxy(void) {
         return FALSE;
     }
     send_status_update("OpenSSL initialized successfully");
-    
+
     /* Load or generate CA certificate */
     send_status_update("Loading or generating CA certificate...");
     if (!load_or_generate_ca_cert()) {
@@ -82,7 +84,7 @@ __declspec(dllexport) BOOL init_proxy(void) {
         return FALSE;
     }
     send_status_update("CA certificate loaded/generated successfully");
-    
+
     send_status_update("Proxy initialization completed successfully");
     return TRUE;
 }
@@ -92,14 +94,14 @@ __declspec(dllexport) BOOL start_proxy(void) {
     InitializeCriticalSection(&g_server.cs);
     g_server.should_stop = 0;
     g_server.thread_handle = NULL;
-    
+
     /* Create server socket */
     socket_t server_sock = socket(AF_INET, SOCK_STREAM, 0);
     if (server_sock == INVALID_SOCKET) {
         DeleteCriticalSection(&g_server.cs);
         return FALSE;
     }
-    
+
     /* Allow socket reuse */
     int opt = 1;
     if (setsockopt(server_sock, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(opt)) == SOCKET_ERROR) {
@@ -107,7 +109,7 @@ __declspec(dllexport) BOOL start_proxy(void) {
         DeleteCriticalSection(&g_server.cs);
         return FALSE;
     }
-    
+
     /* Bind socket */
     struct sockaddr_in server_addr = {0};
     server_addr.sin_family = AF_INET;
@@ -117,20 +119,20 @@ __declspec(dllexport) BOOL start_proxy(void) {
         return FALSE;
     }
     server_addr.sin_port = htons(config.port);
-    
+
     if (bind(server_sock, (struct sockaddr*)&server_addr, sizeof(server_addr)) == SOCKET_ERROR) {
         close_socket(server_sock);
         DeleteCriticalSection(&g_server.cs);
         return FALSE;
     }
-    
+
     /* Start listening */
     if (listen(server_sock, SOMAXCONN) == SOCKET_ERROR) {
         close_socket(server_sock);
         DeleteCriticalSection(&g_server.cs);
         return FALSE;
     }
-    
+
     /* Set socket to non-blocking mode */
     unsigned long nonBlocking = 1;
     if (ioctlsocket(server_sock, FIONBIO, &nonBlocking) != 0) {
@@ -138,10 +140,10 @@ __declspec(dllexport) BOOL start_proxy(void) {
         DeleteCriticalSection(&g_server.cs);
         return FALSE;
     }
-    
+
     /* Store server socket in global state */
     g_server.server_sock = server_sock;
-    
+
     /* Start server thread */
     g_server.thread_handle = (HANDLE)_beginthreadex(NULL, 0, run_server_thread, NULL, 0, NULL);
     if (g_server.thread_handle == NULL) {
@@ -149,7 +151,7 @@ __declspec(dllexport) BOOL start_proxy(void) {
         DeleteCriticalSection(&g_server.cs);
         return FALSE;
     }
-    
+
     return TRUE;
 }
 
@@ -158,21 +160,21 @@ __declspec(dllexport) void stop_proxy(void) {
     EnterCriticalSection(&g_server.cs);
     g_server.should_stop = 1;
     LeaveCriticalSection(&g_server.cs);
-    
+
     /* Close socket to break accept() */
     if (g_server.server_sock != INVALID_SOCKET) {
         shutdown(g_server.server_sock, SD_BOTH);
         close_socket(g_server.server_sock);
         g_server.server_sock = INVALID_SOCKET;
     }
-    
+
     /* Wait for thread to finish */
     if (g_server.thread_handle) {
         WaitForSingleObject(g_server.thread_handle, 5000);
         CloseHandle(g_server.thread_handle);
         g_server.thread_handle = NULL;
     }
-    
+
     /* Delete critical section */
     DeleteCriticalSection(&g_server.cs);
 }
@@ -181,35 +183,18 @@ __declspec(dllexport) BOOL set_config(const char* bind_addr, int port, const cha
     if (!bind_addr || port <= 0 || port > 65535 || !log_file) {
         return FALSE;
     }
-    
+
     /* Validate IP address */
     if (!validate_ip_address(bind_addr)) {
         return FALSE;
     }
-    
+
     /* Update configuration */
     strncpy(config.bind_addr, bind_addr, sizeof(config.bind_addr) - 1);
     config.port = port;
     strncpy(config.log_file, log_file, sizeof(config.log_file) - 1);
-    
+
     return TRUE;
-}
-
-__declspec(dllexport) BOOL enable_windivert(void) {
-    if (!config.windivert_enabled) {
-        if (init_process_diversion()) {
-            config.windivert_enabled = 1;
-            return TRUE;
-        }
-    }
-    return FALSE;
-}
-
-__declspec(dllexport) void disable_windivert(void) {
-    if (config.windivert_enabled) {
-        cleanup_process_diversion();
-        config.windivert_enabled = 0;
-    }
 }
 
 /* Winsock initialization and cleanup */
@@ -230,38 +215,36 @@ THREAD_RETURN_TYPE WINAPI run_server_thread(void* arg) {
     socket_t server_sock = g_server.server_sock;
     client_info* client;
     THREAD_HANDLE thread_id;
-    
+
     while (!g_server.should_stop) {
         /* Prepare for select() */
         fd_set readfds;
         struct timeval tv;
         FD_ZERO(&readfds);
-        FD_SET(server_sock, &readfds);
-        
-        /* Set timeout for select */
+        FD_SET(server_sock, &readfds);        /* Set timeout for select */
         tv.tv_sec = 1;  /* Check should_stop flag every second */
         tv.tv_usec = 0;
-        
+
         /* Wait for connection with timeout */
-        int ret = select(server_sock + 1, &readfds, NULL, NULL, &tv);
+        int ret = select(0, &readfds, NULL, NULL, &tv);
         if (ret == SOCKET_ERROR) {
             if (WSAGetLastError() != WSAEINTR) {
                 fprintf(stderr, "Select failed: %d\n", WSAGetLastError());
             }
             continue;
         }
-        
+
         if (ret == 0) {
             /* Timeout - check should_stop flag */
             continue;
         }
-        
+
         /* Accept connection */
         client = (client_info*)malloc(sizeof(client_info));
         if (!client) {
             continue;
         }
-        
+
         socklen_t client_len = sizeof(client->client_addr);
         client->client_sock = accept(server_sock, (struct sockaddr*)&client->client_addr, &client_len);
         if (client->client_sock == INVALID_SOCKET) {
@@ -307,8 +290,41 @@ void send_log_entry(const char* src_ip, const char* dst_ip, int dst_port, const 
         time_t now = time(NULL);
         struct tm* tm_info = localtime(&now);
         strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", tm_info);
-        
+
         g_log_callback(timestamp, src_ip, dst_ip, dst_port, msg_type, data);
+    }
+}
+
+/* Helper function to send connection notifications */
+void send_connection_notification(const char* client_ip, int client_port, const char* target_host, int target_port, int connection_id) {
+    g_total_connections++;
+    if (g_connection_callback && client_ip && target_host) {
+        g_connection_callback(client_ip, client_port, target_host, target_port, connection_id);
+    }
+    
+    /* Update statistics callback */
+    if (g_stats_callback) {
+        g_stats_callback(g_total_connections, 0, g_total_bytes); /* active_connections = 0 for now */
+    }
+}
+
+/* Helper function to send data interception notifications */
+void send_data_notification(int connection_id, const char* direction, const void* data, int data_length) {
+    g_total_bytes += data_length;
+    if (g_data_callback && direction && data && data_length > 0) {
+        g_data_callback(connection_id, direction, data, data_length);
+    }
+    
+    /* Update statistics callback */
+    if (g_stats_callback) {
+        g_stats_callback(g_total_connections, 0, g_total_bytes); /* active_connections = 0 for now */
+    }
+}
+
+/* Helper function to send disconnect notifications */
+void send_disconnect_notification(int connection_id, const char* reason) {
+    if (g_disconnect_callback && reason) {
+        g_disconnect_callback(connection_id, reason);
     }
 }
 
@@ -321,16 +337,32 @@ __declspec(dllexport) void set_status_callback(status_callback_t callback) {
     g_status_callback = callback;
 }
 
+__declspec(dllexport) void set_connection_callback(connection_callback_t callback) {
+    g_connection_callback = callback;
+}
+
+__declspec(dllexport) void set_data_callback(data_callback_t callback) {
+    g_data_callback = callback;
+}
+
+__declspec(dllexport) void set_stats_callback(stats_callback_t callback) {
+    g_stats_callback = callback;
+}
+
+__declspec(dllexport) void set_disconnect_callback(disconnect_callback_t callback) {
+    g_disconnect_callback = callback;
+}
+
 /* Get system IP addresses */
 __declspec(dllexport) int get_system_ips(char* buffer, int buffer_size) {
     if (!buffer || buffer_size <= 0) return 0;
-    
+
     buffer[0] = '\0';
     int offset = 0;
-    
+
     // Add localhost
     offset += snprintf(buffer + offset, buffer_size - offset, "127.0.0.1;");
-    
+
     // Get adapter info
     ULONG adapter_info_size = 0;
     if (GetAdaptersInfo(NULL, &adapter_info_size) == ERROR_BUFFER_OVERFLOW) {
@@ -352,125 +384,28 @@ __declspec(dllexport) int get_system_ips(char* buffer, int buffer_size) {
             free(adapter_info);
         }
     }
-    
+
     return offset;
 }
 
 /* Get current proxy configuration */
 __declspec(dllexport) BOOL get_proxy_config(char* bind_addr, int* port, char* log_file) {
     if (!bind_addr || !port || !log_file) return FALSE;
-      strcpy(bind_addr, config.bind_addr);
+    strcpy(bind_addr, config.bind_addr);
     *port = config.port;
     strcpy(log_file, config.log_file);
-    
+
     return TRUE;
 }
 
 /* Get proxy statistics */
 __declspec(dllexport) BOOL get_proxy_stats(int* connections, int* bytes_transferred) {
     if (!connections || !bytes_transferred) return FALSE;
-    
+
     *connections = g_total_connections;
     *bytes_transferred = g_total_bytes;
-    
+
     return TRUE;
 }
 
-/* Process enumeration and WinDivert process filtering */
-
-/* Global variables for process filtering */
-static int* g_filtered_pids = NULL;
-static int g_filtered_pid_count = 0;
-static CRITICAL_SECTION g_pid_filter_cs;
-static BOOL g_pid_filter_initialized = FALSE;
-
-static void init_pid_filter() {
-    if (!g_pid_filter_initialized) {
-        InitializeCriticalSection(&g_pid_filter_cs);
-        g_pid_filter_initialized = TRUE;
-    }
-}
-
-__declspec(dllexport) int get_running_processes(char* buffer, int buffer_size) {
-    if (!buffer || buffer_size <= 0) return 0;
-    
-    buffer[0] = '\0';
-    int offset = 0;
-    
-#ifdef _WIN32
-    HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-    if (snapshot == INVALID_HANDLE_VALUE) {
-        return 0;
-    }
-    
-    PROCESSENTRY32 process_entry;
-    process_entry.dwSize = sizeof(PROCESSENTRY32);
-    
-    if (Process32First(snapshot, &process_entry)) {
-        do {
-            if (offset < buffer_size - 100) { // Leave space for one more entry
-                offset += snprintf(buffer + offset, buffer_size - offset, 
-                    "%lu|%s;", process_entry.th32ProcessID, process_entry.szExeFile);
-            }
-        } while (Process32Next(snapshot, &process_entry) && offset < buffer_size - 100);
-    }
-    
-    CloseHandle(snapshot);
-#endif
-    
-    return offset;
-}
-
-__declspec(dllexport) BOOL set_windivert_process_filter(int* pids, int pid_count) {
-    if (!pids || pid_count <= 0) return FALSE;
-    
-    init_pid_filter();
-    
-    EnterCriticalSection(&g_pid_filter_cs);
-    
-    // Free existing filter
-    if (g_filtered_pids) {
-        free(g_filtered_pids);
-        g_filtered_pids = NULL;
-        g_filtered_pid_count = 0;
-    }
-    
-    // Allocate new filter
-    g_filtered_pids = malloc(pid_count * sizeof(int));
-    if (!g_filtered_pids) {
-        LeaveCriticalSection(&g_pid_filter_cs);
-        return FALSE;
-    }
-    
-    // Copy PIDs
-    memcpy(g_filtered_pids, pids, pid_count * sizeof(int));
-    g_filtered_pid_count = pid_count;
-    
-    LeaveCriticalSection(&g_pid_filter_cs);
-    
-    // Apply filter to WinDivert if available
-    if (config.windivert_enabled) {
-        apply_process_filter(g_filtered_pids, g_filtered_pid_count);
-    }
-    
-    return TRUE;
-}
-
-__declspec(dllexport) void clear_windivert_process_filter(void) {
-    init_pid_filter();
-    
-    EnterCriticalSection(&g_pid_filter_cs);
-    
-    if (g_filtered_pids) {
-        free(g_filtered_pids);
-        g_filtered_pids = NULL;
-        g_filtered_pid_count = 0;
-    }
-    
-    LeaveCriticalSection(&g_pid_filter_cs);
-    
-    // Clear filter from WinDivert if available
-    if (config.windivert_enabled) {
-        clear_process_filter();
-    }
-}
+/* Process enumeration functionality has been removed as it was only needed for WinDivert */

@@ -86,6 +86,7 @@ typedef struct {
     char src_ip[MAX_IP_ADDR_LEN];
     char dst_ip[MAX_IP_ADDR_LEN];
     int dst_port;
+    int connection_id;
 } forward_info;
 
 /* Configuration structure */
@@ -96,7 +97,6 @@ typedef struct {
     FILE *log_fp;                   /* Log file pointer */
     int help_requested;             /* Flag for help display */
     int verbose;                    /* Flag for verbose output */
-    int windivert_enabled;          /* Flag for WinDivert status */
 } proxy_config;
 
 /* Server thread control */

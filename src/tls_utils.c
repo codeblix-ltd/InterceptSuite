@@ -11,6 +11,12 @@
 /* External callback functions from main.c */
 extern void send_log_entry(const char* src_ip, const char* dst_ip, int dst_port, const char* message_type, const char* data);
 extern void send_status_update(const char* message);
+extern void send_connection_notification(const char* client_ip, int client_port, const char* target_host, int target_port, int connection_id);
+extern void send_data_notification(int connection_id, const char* direction, const void* data, int data_length);
+extern void send_disconnect_notification(int connection_id, const char* reason);
+
+/* Global connection ID counter */
+static int g_connection_id_counter = 0;
 
 /*
  * Print OpenSSL error messages
@@ -45,7 +51,7 @@ void pretty_print_data(const char *direction, const unsigned char *data, int len
                 }
                 return;
             }
-            
+
             // For very short messages, be more permissive with text content
             int printable_chars = 0;
             for (int i = 0; i < len; i++) {
@@ -53,7 +59,7 @@ void pretty_print_data(const char *direction, const unsigned char *data, int len
                     printable_chars++;
                 }
             }
-            
+
             // If less than 70% of characters are printable, it's likely protocol data
             if (printable_chars < (len * 0.7)) {
                 if (config.verbose) {
@@ -105,7 +111,7 @@ void pretty_print_data(const char *direction, const unsigned char *data, int len
         }
     } else {
         strncpy(message, "[Empty]", sizeof(message) - 1);    }
-    
+
     // Determine message type for the callback
     const char* message_type;
     if (len == 0) {
@@ -140,7 +146,7 @@ void pretty_print_data(const char *direction, const unsigned char *data, int len
 /*
  * Forward data between SSL connections
  */
-void forward_data(SSL *src, SSL *dst, const char *direction, const char *src_ip, const char *dst_ip, int dst_port) {
+void forward_data(SSL *src, SSL *dst, const char *direction, const char *src_ip, const char *dst_ip, int dst_port, int connection_id) {
     unsigned char buffer[BUFFER_SIZE];
     int len;
     int fd;
@@ -235,6 +241,9 @@ void forward_data(SSL *src, SSL *dst, const char *direction, const char *src_ip,
         }        // Print the intercepted data
         pretty_print_data(direction, buffer, len, src_ip, dst_ip, dst_port);
 
+        // Send data callback notification
+        send_data_notification(connection_id, direction, buffer, len);
+
         // Forward to the destination
         int written = SSL_write(dst, buffer, len);
         if (written <= 0) {
@@ -263,15 +272,13 @@ THREAD_RETURN_TYPE forward_data_thread(void *arg) {
         THREAD_RETURN;
     }
 
-    forward_info *info = (forward_info *)arg;
-
-    // Validate all pointers and parameters before using them
+    forward_info *info = (forward_info *)arg;    // Validate all pointers and parameters before using them
     if (info->src && info->dst &&
         info->direction && strlen(info->direction) > 0 &&
         info->src_ip && strlen(info->src_ip) > 0 &&
         info->dst_ip && strlen(info->dst_ip) > 0) {
 
-        forward_data(info->src, info->dst, info->direction, info->src_ip, info->dst_ip, info->dst_port);
+        forward_data(info->src, info->dst, info->direction, info->src_ip, info->dst_ip, info->dst_port, info->connection_id);
     } else {
         fprintf(stderr, "Error: Invalid parameters in forward_data_thread\n");
     }
@@ -299,15 +306,18 @@ THREAD_RETURN_TYPE handle_client(void *arg) {
     SSL *client_ssl = NULL;
     X509 *cert = NULL;
     EVP_PKEY *key = NULL;
-    THREAD_HANDLE thread_id;
-    char target_host[MAX_HOSTNAME_LEN];
+    THREAD_HANDLE thread_id;    char target_host[MAX_HOSTNAME_LEN];
     char client_ip[MAX_IP_ADDR_LEN];
     char server_ip[MAX_IP_ADDR_LEN];
     int target_port;
     int ret;
+    int connection_id;
+
+    // Generate unique connection ID
+    connection_id = ++g_connection_id_counter;
 
     // Get client IP address as string
-    inet_ntop(AF_INET, &(client->client_addr.sin_addr), client_ip, MAX_IP_ADDR_LEN);    // Set socket options for better compatibility
+    inet_ntop(AF_INET, &(client->client_addr.sin_addr), client_ip, MAX_IP_ADDR_LEN);// Set socket options for better compatibility
     DWORD timeout = 120000;  // 120 seconds timeout
     setsockopt(client_sock, SOL_SOCKET, SO_RCVTIMEO, (const char*)&timeout, sizeof(timeout));
     setsockopt(client_sock, SOL_SOCKET, SO_SNDTIMEO, (const char*)&timeout, sizeof(timeout));
@@ -317,17 +327,20 @@ THREAD_RETURN_TYPE handle_client(void *arg) {
     setsockopt(client_sock, SOL_SOCKET, SO_KEEPALIVE, (const char*)&keepAlive, sizeof(keepAlive));
 
     // Handle the SOCKS5 handshake
-    memset(target_host, 0, sizeof(target_host));
-    if (!handle_socks5_handshake(client_sock, target_host, &target_port)) {
+    memset(target_host, 0, sizeof(target_host));    if (!handle_socks5_handshake(client_sock, target_host, &target_port)) {
         if (config.verbose) {
             fprintf(stderr, "Failed to handle SOCKS5 handshake\n");
         }
+        send_disconnect_notification(connection_id, "SOCKS5 handshake failed");
         goto cleanup;
     }
 
+    // Notify about new connection
+    send_connection_notification(client_ip, ntohs(client->client_addr.sin_port), target_host, target_port, connection_id);
+
     if (config.verbose) {
         printf("\nIntercepting connection to %s:%d\n", target_host, target_port);
-    }    // Generate certificate for the target host
+    }// Generate certificate for the target host
     if (!generate_cert_for_host(target_host, &cert, &key)) {
         fprintf(stderr, "Failed to generate certificate for %s\n", target_host);
         goto cleanup;
@@ -470,6 +483,7 @@ THREAD_RETURN_TYPE handle_client(void *arg) {
     strncpy(client_to_server->src_ip, client_ip, MAX_IP_ADDR_LEN-1);
     strncpy(client_to_server->dst_ip, server_ip, MAX_IP_ADDR_LEN-1);
     client_to_server->dst_port = target_port;
+    client_to_server->connection_id = connection_id;
 
     // Log connection info
     log_message("Established connection: %s -> %s:%d", client_ip, server_ip, target_port);    // Create a second thread for server->client direction
@@ -485,6 +499,7 @@ THREAD_RETURN_TYPE handle_client(void *arg) {
     strncpy(server_to_client->src_ip, server_ip, MAX_IP_ADDR_LEN-1);
     strncpy(server_to_client->dst_ip, client_ip, MAX_IP_ADDR_LEN-1);
     server_to_client->dst_port = ntohs(client->client_addr.sin_port);
+    server_to_client->connection_id = connection_id;
 
     // Make sure strings are null-terminated
     client_to_server->src_ip[MAX_IP_ADDR_LEN-1] = '\0';
@@ -506,6 +521,9 @@ THREAD_RETURN_TYPE handle_client(void *arg) {
     }
 
 cleanup:
+    // Send disconnect notification
+    send_disconnect_notification(connection_id, "Connection closed");
+    
     // Log connection closure
     if (target_host[0] != '\0') {
         log_message("Closing connection to %s:%d", target_host, target_port);

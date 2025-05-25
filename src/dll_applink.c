@@ -2,9 +2,9 @@
  * OpenSSL AppLink integration for Windows DLL
  * This file ensures that OpenSSL's file I/O operations work correctly
  * when OpenSSL is used from within a Windows DLL.
- * 
+ *
  * Based on OpenSSL documentation and Stack Overflow solution:
- * https://stackoverflow.com/questions/46637193/openssl-uplink-error-when-called-from-shared-library
+ * https://stackoverflow.com/questions/76621500/openssl-fatal-openssl-uplink5c149000-08-no-openssl-applink-in-c-sharp-wrap
  */
 
 #ifdef _WIN32

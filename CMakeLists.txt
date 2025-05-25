@@ -13,16 +13,10 @@ set(INSTALL_LIBRARY_DIR "lib")
 set(INSTALL_ARCHIVE_DIR "lib")
 set(INSTALL_DATA_DIR "data")
 
-# Set WinDivert paths
-set(WINDIVERT_INCLUDE_DIR "D:/vcpkg/packages/WinDivert-2.2.2-A/include")
-set(WINDIVERT_LIB_DIR "D:/vcpkg/packages/WinDivert-2.2.2-A/x64")
-set(WINDIVERT_DLL "${WINDIVERT_LIB_DIR}/WinDivert.dll")
-set(WINDIVERT_SYS "${WINDIVERT_LIB_DIR}/WinDivert64.sys")
 
 # Add include directories
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${WINDIVERT_INCLUDE_DIR}
 )
 
 # Find required dependencies
@@ -35,7 +29,6 @@ add_library(tls_proxy SHARED
     src/socks5.c
     src/tls_utils.c
     src/utils.c
-    src/process_divert.c
 )
 
 # Link against dependencies
@@ -45,7 +38,7 @@ target_link_libraries(tls_proxy PRIVATE
     OpenSSL::Crypto
     $<$<PLATFORM_ID:Windows>:ws2_32>
     $<$<PLATFORM_ID:Windows>:iphlpapi>
-    "${WINDIVERT_LIB_DIR}/WinDivert.lib"
+    $<$<PLATFORM_ID:Windows>:psapi>
 )
 
 # Handle OpenSSL DLLs for Windows
@@ -85,9 +78,7 @@ if(WIN32)
     message(STATUS "OpenSSL found: ${OPENSSL_FOUND}")
     message(STATUS "OpenSSL version: ${OPENSSL_VERSION}")
     message(STATUS "OpenSSL Crypto DLL: ${OPENSSL_CRYPTO_DLL}")
-    message(STATUS "OpenSSL SSL DLL: ${OPENSSL_SSL_DLL}")
-    message(STATUS "WinDivert DLL: ${WINDIVERT_DLL}")
-    message(STATUS "WinDivert SYS: ${WINDIVERT_SYS}")    # Copy DLLs to output directory if they were found
+    message(STATUS "OpenSSL SSL DLL: ${OPENSSL_SSL_DLL}")# Copy DLLs to output directory if they were found
     if(OPENSSL_CRYPTO_DLL AND EXISTS "${OPENSSL_CRYPTO_DLL}")
         add_custom_command(TARGET tls_proxy POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
@@ -99,14 +90,6 @@ if(WIN32)
         message(WARNING "OpenSSL DLLs not found - DLL might not run without them")
     endif()
 
-    # Copy WinDivert DLL and driver to output directory
-    add_custom_command(TARGET tls_proxy POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${WINDIVERT_DLL}"
-            "${WINDIVERT_SYS}"
-            $<TARGET_FILE_DIR:tls_proxy>
-    )
-
 endif()
 
 # Install targets and dependencies
@@ -114,13 +97,6 @@ install(TARGETS tls_proxy
     RUNTIME DESTINATION ${INSTALL_RUNTIME_DIR}
     LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR}
     ARCHIVE DESTINATION ${INSTALL_ARCHIVE_DIR}
-)
-
-# Install WinDivert files and headers
-install(FILES
-    "${WINDIVERT_DLL}" 
-    "${WINDIVERT_SYS}"
-    DESTINATION ${INSTALL_RUNTIME_DIR}
 )
 
 install(FILES

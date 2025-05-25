@@ -3,6 +3,13 @@ init_proxy
 start_proxy
 stop_proxy
 set_config
-enable_windivert
-disable_windivert
+set_log_callback
+set_status_callback
+set_connection_callback
+set_data_callback
+set_stats_callback
+set_disconnect_callback
+get_system_ips
+get_proxy_config
+get_proxy_stats
 OPENSSL_Applink

@@ -2,6 +2,13 @@
 
 A TLS/SSL Man-in-the-Middle proxy written in C that intercepts and displays encrypted HTTPS traffic in plaintext. This tool allows you to inspect encrypted communications between clients and servers by acting as a transparent proxy.
 
+## Key Features
+
+- **TLS Interception**: Decrypt and inspect HTTPS/TLS traffic
+- **Automatic Certificate Generation**: Creates certificates on-the-fly for visited domains
+- **SOCKS5 Proxy**: Standard proxy protocol for client applications
+- **DLL Interface**: Available as both standalone application and DLL for integration
+
 ## Prerequisites
 
 - CMake (3.14 or higher)
@@ -89,8 +96,9 @@ target_link_libraries(tls_app PRIVATE [Package]::[Library])
    ```
 
 3. **Configure Client Applications**:
-   - Set up your system or browser to use a SOCKS5 proxy at `127.0.0.1:4444`
+   - Set up your system or browser to use a SOCKS5 proxy at `127.0.0.1:4433` (default port)
    - You can use tools like Proxifier, ProxyCap, or browser extensions to redirect traffic
+   - Alternatively, configure individual applications to use the proxy
 
 4. **View Decrypted Traffic**:
    - All intercepted TLS/SSL traffic will be displayed in the console in plaintext
@@ -101,7 +109,7 @@ target_link_libraries(tls_app PRIVATE [Package]::[Library])
 - SOCKS5 proxy implementation for transparent interception
 - Dynamic SSL/TLS certificate generation for any domain
 - Support for both plaintext and binary data visualization
-- Cross-platform compatibility (Windows, Linux, macOS)
+- Available as both a standalone app and a DLL for integration
 - Minimal dependencies (OpenSSL and standard libraries)
 
 ## Security Notice

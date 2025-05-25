@@ -11,7 +11,7 @@
 #include "tls_proxy.h"
 
 /* Function prototypes */
-void forward_data(SSL *src, SSL *dst, const char *direction, const char *src_ip, const char *dst_ip, int dst_port);
+void forward_data(SSL *src, SSL *dst, const char *direction, const char *src_ip, const char *dst_ip, int dst_port, int connection_id);
 THREAD_RETURN_TYPE forward_data_thread(void *arg);
 void pretty_print_data(const char *direction, const unsigned char *data, int len, const char *src_ip, const char *dst_ip, int dst_port);
 THREAD_RETURN_TYPE handle_client(void *arg);
