@@ -76,9 +76,6 @@ class TLSProxyDLL:
             print("DLL loaded, setting up function prototypes...")
 
             # Set up function prototypes
-            self.dll.init_proxy.restype = c_bool
-            self.dll.init_proxy.argtypes = []
-
             self.dll.start_proxy.restype = c_bool
             self.dll.start_proxy.argtypes = []
 
@@ -158,16 +155,6 @@ class TLSProxyDLL:
             traceback.print_exc()
             return False
 
-    def init_proxy(self):
-        """Initialize the proxy"""
-        if not self.is_loaded:
-            return False
-        try:
-            return self.dll.init_proxy()
-        except Exception as e:
-            print(f"Error initializing proxy: {e}")
-            return False
-
     def start_proxy(self):
         """Start the proxy server"""
         if not self.is_loaded:
@@ -210,7 +197,8 @@ class TLSProxyDLL:
             count = self.dll.get_system_ips(buffer, 4096)
             if count > 0:
                 ip_string = buffer.value.decode('utf-8')
-                return [ip.strip() for ip in ip_string.split(',') if ip.strip()]
+                # Split by semicolon as the DLL returns '127.0.0.1;172.29.240.1;192.168.1.4;'
+                return [ip.strip() for ip in ip_string.split(';') if ip.strip()]
             return []
         except Exception as e:
             print(f"Error getting system IPs: {e}")
@@ -297,9 +285,7 @@ class TLSProxyGUI:
 
         # Create GUI
         self.create_widgets()
-        self.setup_callbacks()
-
-        # Start update timer
+        self.setup_callbacks()        # Start update timer
         self.update_display()
 
         # Try to load DLL on startup
@@ -308,77 +294,25 @@ class TLSProxyGUI:
     def create_widgets(self):
         """Create all GUI widgets"""
 
-        # Main toolbar
-        toolbar = ttk.Frame(self.root)
-        toolbar.pack(fill=tk.X, padx=5, pady=5)
-
-        # DLL Status
-        self.dll_status_var = tk.StringVar(value="DLL: Not Loaded")
-        ttk.Label(toolbar, textvariable=self.dll_status_var).pack(side=tk.LEFT, padx=5)
-
-        # Load DLL Button
-        ttk.Button(toolbar, text="Load DLL", command=self.load_dll).pack(side=tk.LEFT, padx=5)
-
-        # Proxy Status
-        self.proxy_status_var = tk.StringVar(value="Proxy: Stopped")
-        ttk.Label(toolbar, textvariable=self.proxy_status_var).pack(side=tk.LEFT, padx=10)
-
         # Main notebook for tabs
         self.notebook = ttk.Notebook(self.root)
         self.notebook.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
         # Create tabs
         self.create_proxy_tab()
+        self.create_config_tab()
         self.create_connections_tab()
         self.create_logs_tab()
-        self.create_config_tab()
+        self.create_proxy_history_tab()
 
     def create_proxy_tab(self):
         """Create the proxy control and monitoring tab"""
         proxy_frame = ttk.Frame(self.notebook)
         self.notebook.add(proxy_frame, text="Proxy Control")
 
-        # Control panel
-        control_frame = ttk.LabelFrame(proxy_frame, text="Proxy Control")
-        control_frame.pack(fill=tk.X, padx=5, pady=5)
-
-        control_buttons = ttk.Frame(control_frame)
-        control_buttons.pack(pady=10)
-
-        self.init_btn = ttk.Button(control_buttons, text="Initialize", command=self.init_proxy)
-        self.init_btn.pack(side=tk.LEFT, padx=5)
-
-        self.start_btn = ttk.Button(control_buttons, text="Start Proxy", command=self.start_proxy)
-        self.start_btn.pack(side=tk.LEFT, padx=5)
-
-        self.stop_btn = ttk.Button(control_buttons, text="Stop Proxy", command=self.stop_proxy)
-        self.stop_btn.pack(side=tk.LEFT, padx=5)
-
-        # Configuration panel
-        config_frame = ttk.LabelFrame(proxy_frame, text="Quick Configuration")
-        config_frame.pack(fill=tk.X, padx=5, pady=5)
-
-        # Bind Address
-        addr_frame = ttk.Frame(config_frame)
-        addr_frame.pack(fill=tk.X, pady=5)
-        ttk.Label(addr_frame, text="Bind Address:").pack(side=tk.LEFT)
-        self.bind_addr_var = tk.StringVar(value="127.0.0.1")
-        self.bind_addr_combo = ttk.Combobox(addr_frame, textvariable=self.bind_addr_var, width=20)
-        self.bind_addr_combo.pack(side=tk.LEFT, padx=5)
-
-        # Port
-        port_frame = ttk.Frame(config_frame)
-        port_frame.pack(fill=tk.X, pady=5)
-        ttk.Label(port_frame, text="Port:").pack(side=tk.LEFT)
-        self.port_var = tk.StringVar(value="4444")
-        ttk.Entry(port_frame, textvariable=self.port_var, width=10).pack(side=tk.LEFT, padx=5)
-
-        # Apply config button
-        ttk.Button(config_frame, text="Apply Configuration", command=self.apply_config).pack(pady=5)
-
         # Real-time Statistics panel
         stats_frame = ttk.LabelFrame(proxy_frame, text="Real-time Statistics")
-        stats_frame.pack(fill=tk.X, padx=5, pady=5)
+        stats_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
         stats_grid = ttk.Frame(stats_frame)
         stats_grid.pack(pady=5)
@@ -391,13 +325,6 @@ class TLSProxyGUI:
 
         self.bytes_var = tk.StringVar(value="Bytes Transferred: 0")
         ttk.Label(stats_grid, textvariable=self.bytes_var).grid(row=1, column=0, columnspan=2, padx=10, pady=2, sticky="w")
-
-        # Status indicator
-        status_frame = ttk.LabelFrame(proxy_frame, text="Status")
-        status_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-
-        self.status_display = scrolledtext.ScrolledText(status_frame, height=10)
-        self.status_display.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
     def create_connections_tab(self):
         """Create the connections monitoring tab"""
@@ -486,27 +413,112 @@ class TLSProxyGUI:
         # Scrollbars
         logs_v_scroll = ttk.Scrollbar(logs_frame, orient=tk.VERTICAL, command=self.logs_tree.yview)
         logs_h_scroll = ttk.Scrollbar(logs_frame, orient=tk.HORIZONTAL, command=self.logs_tree.xview)
-        self.logs_tree.configure(yscrollcommand=logs_v_scroll.set, xscrollcommand=logs_h_scroll.set)
-
-        # Pack
+        self.logs_tree.configure(yscrollcommand=logs_v_scroll.set, xscrollcommand=logs_h_scroll.set)        # Pack
         self.logs_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         logs_v_scroll.pack(side=tk.RIGHT, fill=tk.Y)
         logs_h_scroll.pack(side=tk.BOTTOM, fill=tk.X)
 
+    def create_logs_tab(self):
+        """Create the status logs tab"""
+        logs_frame = ttk.Frame(self.notebook)
+        self.notebook.add(logs_frame, text="Logs")
+
+        # Control buttons
+        log_control = ttk.Frame(logs_frame)
+        log_control.pack(fill=tk.X, padx=5, pady=5)
+
+        ttk.Button(log_control, text="Clear Logs", command=self.clear_logs).pack(side=tk.LEFT, padx=5)
+        ttk.Button(log_control, text="Save Logs", command=self.save_logs).pack(side=tk.LEFT, padx=5)
+
+        # Status indicator
+        status_frame = ttk.LabelFrame(logs_frame, text="Status Messages")
+        status_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+        self.status_display = scrolledtext.ScrolledText(status_frame, height=10)
+        self.status_display.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+    def create_proxy_history_tab(self):
+        """Create the proxy history tab (system logs)"""
+        logs_frame = ttk.Frame(self.notebook)
+        self.notebook.add(logs_frame, text="Proxy History")
+
+        # Control buttons
+        log_control = ttk.Frame(logs_frame)
+        log_control.pack(fill=tk.X, padx=5, pady=5)
+
+        ttk.Button(log_control, text="Clear Logs", command=self.clear_logs).pack(side=tk.LEFT, padx=5)
+        ttk.Button(log_control, text="Save Logs", command=self.save_logs).pack(side=tk.LEFT, padx=5)
+
+        # Auto-scroll checkbox
+        self.auto_scroll_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(log_control, text="Auto-scroll", variable=self.auto_scroll_var).pack(side=tk.LEFT, padx=10)
+
+        # Log table
+        self.logs_tree = ttk.Treeview(logs_frame,
+                                     columns=("timestamp", "src_ip", "dst_ip", "port", "type", "data"),
+                                     show="headings")
+
+        self.logs_tree.heading("timestamp", text="Timestamp")
+        self.logs_tree.heading("src_ip", text="Source IP")
+        self.logs_tree.heading("dst_ip", text="Destination IP")
+        self.logs_tree.heading("port", text="Port")
+        self.logs_tree.heading("type", text="Type")
+        self.logs_tree.heading("data", text="Data")
+
+        # Column widths
+        self.logs_tree.column("timestamp", width=150)
+        self.logs_tree.column("src_ip", width=120)
+        self.logs_tree.column("dst_ip", width=120)
+        self.logs_tree.column("port", width=80)
+        self.logs_tree.column("type", width=80)
+        self.logs_tree.column("data", width=400)
+
+        # Scrollbars
+        logs_v_scroll = ttk.Scrollbar(logs_frame, orient=tk.VERTICAL, command=self.logs_tree.yview)
+        logs_h_scroll = ttk.Scrollbar(logs_frame, orient=tk.HORIZONTAL, command=self.logs_tree.xview)
+        self.logs_tree.configure(yscrollcommand=logs_v_scroll.set, xscrollcommand=logs_h_scroll.set)        # Pack
+        self.logs_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        logs_v_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+
     def create_config_tab(self):
         """Create the configuration tab"""
         config_frame = ttk.Frame(self.notebook)
-        self.notebook.add(config_frame, text="Configuration")
+        self.notebook.add(config_frame, text="Configuration")        # Proxy Settings
+        proxy_settings_frame = ttk.LabelFrame(config_frame, text="Proxy Settings")
+        proxy_settings_frame.pack(fill=tk.X, padx=5, pady=5)
 
-        # Network interfaces
-        interfaces_frame = ttk.LabelFrame(config_frame, text="Network Interfaces")
-        interfaces_frame.pack(fill=tk.X, padx=5, pady=5)
+        # Bind address
+        bind_frame = ttk.Frame(proxy_settings_frame)
+        bind_frame.pack(fill=tk.X, pady=5)
 
-        ttk.Button(interfaces_frame, text="Refresh Interfaces", command=self.refresh_interfaces).pack(pady=5)
+        ttk.Label(bind_frame, text="Bind Address:").pack(side=tk.LEFT)
+        self.bind_addr_var = tk.StringVar(value="127.0.0.1")
+        self.bind_addr_combo = ttk.Combobox(bind_frame, textvariable=self.bind_addr_var, width=20, state="readonly")
+        self.bind_addr_combo.pack(side=tk.LEFT, padx=5)
 
-        self.interfaces_tree = ttk.Treeview(interfaces_frame, columns=("ip",), show="headings", height=6)
-        self.interfaces_tree.heading("ip", text="Available IP Addresses")
-        self.interfaces_tree.pack(fill=tk.X, padx=5, pady=5)
+        # Refresh interfaces button next to bind address
+        ttk.Button(bind_frame, text="Refresh Interfaces", command=self.refresh_interfaces).pack(side=tk.LEFT, padx=5)
+
+        # Port
+        ttk.Label(bind_frame, text="Port:").pack(side=tk.LEFT, padx=(20, 0))
+        self.port_var = tk.StringVar(value="4444")
+        ttk.Entry(bind_frame, textvariable=self.port_var, width=10).pack(side=tk.LEFT, padx=5)
+
+        # Apply config button
+        ttk.Button(proxy_settings_frame, text="Apply Configuration", command=self.apply_config).pack(pady=10)
+
+        # Proxy Control Buttons
+        control_frame = ttk.LabelFrame(config_frame, text="Proxy Control")
+        control_frame.pack(fill=tk.X, padx=5, pady=5)
+
+        control_buttons = ttk.Frame(control_frame)
+        control_buttons.pack(pady=10)
+
+        self.start_btn = ttk.Button(control_buttons, text="Start Proxy", command=self.start_proxy)
+        self.start_btn.pack(side=tk.LEFT, padx=5)
+
+        self.stop_btn = ttk.Button(control_buttons, text="Stop Proxy", command=self.stop_proxy)
+        self.stop_btn.pack(side=tk.LEFT, padx=5)
 
         # Log file settings
         log_frame = ttk.LabelFrame(config_frame, text="Log File Settings")
@@ -611,9 +623,7 @@ class TLSProxyGUI:
                     'reason': reason_str
                 })
             except Exception as e:
-                print(f"Error in disconnect callback: {e}")
-
-        # Store callback functions to prevent garbage collection
+                print(f"Error in disconnect callback: {e}")        # Store callback functions to prevent garbage collection
         self.log_callback_func = log_callback
         self.status_callback_func = status_callback
         self.connection_callback_func = connection_callback
@@ -626,7 +636,6 @@ class TLSProxyGUI:
             print("Attempting to load DLL...")
             if self.proxy_dll.load_dll():
                 print("DLL loaded successfully, setting up callbacks...")
-                self.dll_status_var.set("DLL: Loaded")
 
                 # Set up all callbacks (no data_callback)
                 if self.proxy_dll.set_callbacks(
@@ -646,36 +655,22 @@ class TLSProxyGUI:
                 self.refresh_interfaces()
             else:
                 print("DLL loading failed")
-                self.dll_status_var.set("DLL: Load Failed")
+                self.status_queue.put("[SYSTEM] DLL loading failed")
         except Exception as e:
             print(f"Exception during DLL loading: {e}")
             import traceback
             traceback.print_exc()
             messagebox.showerror("DLL Load Error", f"Exception during DLL loading: {str(e)}")
-            self.dll_status_var.set("DLL: Load Failed")
-
-    def init_proxy(self):
-        """Initialize the proxy"""
-        if not self.proxy_dll.is_loaded:
-            messagebox.showerror("Error", "DLL not loaded")
-            return
-
-        if self.proxy_dll.init_proxy():
-            self.status_queue.put("[SYSTEM] Proxy initialized successfully")
-        else:
-            messagebox.showerror("Error", "Failed to initialize proxy")
+            self.status_queue.put("[SYSTEM] DLL loading exception")
 
     def start_proxy(self):
         """Start the proxy server"""
         if not self.proxy_dll.is_loaded:
             messagebox.showerror("Error", "DLL not loaded")
-            return
-
-        # Start in a separate thread to avoid blocking the GUI
+            return        # Start in a separate thread to avoid blocking the GUI
         def start_thread():
             if self.proxy_dll.start_proxy():
                 self.proxy_running = True
-                self.root.after(0, lambda: self.proxy_status_var.set("Proxy: Running"))
                 self.status_queue.put("[SYSTEM] Proxy started successfully")
             else:
                 self.root.after(0, lambda: messagebox.showerror("Error", "Failed to start proxy"))
@@ -685,11 +680,8 @@ class TLSProxyGUI:
     def stop_proxy(self):
         """Stop the proxy server"""
         if not self.proxy_dll.is_loaded:
-            return
-
-        self.proxy_dll.stop_proxy()
+            return        self.proxy_dll.stop_proxy()
         self.proxy_running = False
-        self.proxy_status_var.set("Proxy: Stopped")
         self.status_queue.put("[SYSTEM] Proxy stopped")
 
     def apply_config(self):
@@ -705,8 +697,7 @@ class TLSProxyGUI:
 
             if self.proxy_dll.set_config(bind_addr, port, log_file):
                 self.status_queue.put(f"[CONFIG] Configuration applied: {bind_addr}:{port}")
-            else:
-                messagebox.showerror("Error", "Failed to apply configuration")
+            else:            messagebox.showerror("Error", "Failed to apply configuration")
         except ValueError:
             messagebox.showerror("Error", "Invalid port number")
 
@@ -715,20 +706,16 @@ class TLSProxyGUI:
         if not self.proxy_dll.is_loaded:
             return
 
-        # Clear existing items
-        for item in self.interfaces_tree.get_children():
-            self.interfaces_tree.delete(item)
-
         # Get system IPs
-        ip_addresses = self.proxy_dll.get_system_ips()
+        ip_addresses_str = self.proxy_dll.get_system_ips()
+        print(ip_addresses_str)
 
-        # Update combo box and tree
-        self.bind_addr_combo['values'] = ['127.0.0.1', '0.0.0.0'] + ip_addresses
 
-        for ip in ip_addresses:
-            self.interfaces_tree.insert('', 'end', values=(ip,))
 
-        self.status_queue.put(f"[SYSTEM] Found {len(ip_addresses)} network interfaces")
+        # Update combo box values
+        self.bind_addr_combo['values'] = ip_addresses_str
+
+        self.status_queue.put(f"[SYSTEM] Found {len(ip_addresses_str)} network interfaces")
 
     def clear_connections(self):
         """Clear connection history"""

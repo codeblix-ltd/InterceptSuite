@@ -10,9 +10,17 @@
 
 #include "tls_proxy.h"
 
+/* Protocol type detection */
+#define PROTOCOL_TLS       1
+#define PROTOCOL_HTTP      2
+#define PROTOCOL_PLAIN_TCP 3
+
 /* Function prototypes */
+int detect_protocol(socket_t sock);
 void forward_data(SSL *src, SSL *dst, const char *direction, const char *src_ip, const char *dst_ip, int dst_port, int connection_id);
+void forward_tcp_data(socket_t src, socket_t dst, const char *direction, const char *src_ip, const char *dst_ip, int dst_port, int connection_id);
 THREAD_RETURN_TYPE forward_data_thread(void *arg);
+THREAD_RETURN_TYPE forward_tcp_thread(void *arg);
 void pretty_print_data(const char *direction, const unsigned char *data, int len, const char *src_ip, const char *dst_ip, int dst_port);
 THREAD_RETURN_TYPE handle_client(void *arg);
 

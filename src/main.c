@@ -54,7 +54,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved) {
 
 /* Exported functions */
 
-__declspec(dllexport) BOOL init_proxy(void) {
+__declspec(dllexport) BOOL start_proxy(void) {
     send_status_update("Starting proxy initialization...");
 
     /* Initialize Winsock */
@@ -82,13 +82,9 @@ __declspec(dllexport) BOOL init_proxy(void) {
         cleanup_winsock();
         return FALSE;
     }
-    send_status_update("CA certificate loaded/generated successfully");
-
     send_status_update("Proxy initialization completed successfully");
-    return TRUE;
-}
 
-__declspec(dllexport) BOOL start_proxy(void) {
+    /* Start proxy server */
     /* Initialize critical section */
     InitializeCriticalSection(&g_server.cs);
     g_server.should_stop = 0;
@@ -300,7 +296,7 @@ void send_connection_notification(const char* client_ip, int client_port, const 
     if (g_connection_callback && client_ip && target_host) {
         g_connection_callback(client_ip, client_port, target_host, target_port, connection_id);
     }
-    
+
     /* Update statistics callback */
     if (g_stats_callback) {
         g_stats_callback(g_total_connections, 0, g_total_bytes); /* active_connections = 0 for now */
@@ -342,8 +338,8 @@ __declspec(dllexport) int get_system_ips(char* buffer, int buffer_size) {
     buffer[0] = '\0';
     int offset = 0;
 
-    // Add localhost
-    offset += snprintf(buffer + offset, buffer_size - offset, "127.0.0.1;");
+    // Add localhost and 0.0.0.0 (any interface)
+    offset += snprintf(buffer + offset, buffer_size - offset, "127.0.0.1;0.0.0.0;");
 
     // Get adapter info
     ULONG adapter_info_size = 0;

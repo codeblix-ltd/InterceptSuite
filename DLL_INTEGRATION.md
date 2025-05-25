@@ -37,12 +37,6 @@ void status_callback(const char* message) {
 }
 
 int main() {
-    // Initialize the proxy
-    if (!init_proxy()) {
-        printf("Failed to initialize proxy\n");
-        return 1;
-    }
-
     // Set callbacks
     set_log_callback(log_callback);
     set_status_callback(status_callback);
@@ -53,7 +47,7 @@ int main() {
         return 1;
     }
 
-    // Start the proxy
+    // Initialize and start the proxy
     if (!start_proxy()) {
         printf("Failed to start proxy\n");
         return 1;

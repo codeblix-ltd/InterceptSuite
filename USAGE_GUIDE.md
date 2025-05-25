@@ -25,19 +25,8 @@ For development, the DLL can be found at:
 
 ### Initialization and Cleanup
 
-#### `BOOL init_proxy(void)`
-Initializes the TLS proxy subsystem. This must be called before any other functions.
-
-```c
-// Example:
-if (!init_proxy()) {
-    printf("Failed to initialize TLS proxy\n");
-    return 1;
-}
-```
-
 #### `BOOL start_proxy(void)`
-Starts the TLS proxy server based on the current configuration.
+Initializes the TLS proxy subsystem and starts the proxy server based on the current configuration.
 
 ```c
 // Example:
@@ -186,9 +175,9 @@ Sets a callback function that is called when a new connection is established.
 
 ```c
 // Example connection callback
-void on_connection(const char* client_ip, int client_port, 
+void on_connection(const char* client_ip, int client_port,
                    const char* target_host, int target_port, int connection_id) {
-    printf("New connection %d: %s:%d -> %s:%d\n", 
+    printf("New connection %d: %s:%d -> %s:%d\n",
            connection_id, client_ip, client_port, target_host, target_port);
 }
 
@@ -208,7 +197,7 @@ Sets a callback function that is called when statistics are updated.
 ```c
 // Example stats callback
 void on_stats_update(int total_connections, int active_connections, int total_bytes_transferred) {
-    printf("Stats: %d total, %d active, %d bytes transferred\n", 
+    printf("Stats: %d total, %d active, %d bytes transferred\n",
            total_connections, active_connections, total_bytes_transferred);
 }
 
@@ -242,14 +231,14 @@ set_disconnect_callback(on_disconnect);
 #include "tls_proxy_dll.h"
 
 // Callback functions
-void on_connection(const char* client_ip, int client_port, 
+void on_connection(const char* client_ip, int client_port,
                    const char* target_host, int target_port, int connection_id) {
-    printf("[CONNECT] %d: %s:%d -> %s:%d\n", 
+    printf("[CONNECT] %d: %s:%d -> %s:%d\n",
            connection_id, client_ip, client_port, target_host, target_port);
 }
 
 void on_stats_update(int total_connections, int active_connections, int total_bytes_transferred) {
-    printf("[STATS] Total: %d, Active: %d, Bytes: %d\n", 
+    printf("[STATS] Total: %d, Active: %d, Bytes: %d\n",
            total_connections, active_connections, total_bytes_transferred);
 }
 

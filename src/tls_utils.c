@@ -260,7 +260,148 @@ void forward_data(SSL *src, SSL *dst, const char *direction, const char *src_ip,
 }
 
 /*
- * Thread function for forwarding data
+ * Forward data between plain TCP sockets (non-TLS)
+ */
+void forward_tcp_data(socket_t src, socket_t dst, const char *direction, const char *src_ip, const char *dst_ip, int dst_port, int connection_id) {
+    unsigned char buffer[BUFFER_SIZE];
+    int len;
+    fd_set readfds;
+    struct timeval tv;
+    int ret;
+    int activity_timeout = 0;
+
+    // Validate parameters
+    if (src == INVALID_SOCKET || dst == INVALID_SOCKET || !direction || !src_ip || !dst_ip) {
+        send_status_update("Error: Invalid parameters passed to forward_tcp_data");
+        return;
+    }
+
+    // Log start of TCP data forwarding
+    if (config.verbose) {
+        char status_msg[256];
+        snprintf(status_msg, sizeof(status_msg), "Starting TCP data forwarding: %s -> %s:%d", src_ip, dst_ip, dst_port);
+        send_status_update(status_msg);
+    }
+
+    while (1) {
+        // Set up the select() call with a timeout
+        FD_ZERO(&readfds);
+        FD_SET(src, &readfds);
+
+        // Set a 1 second timeout
+        tv.tv_sec = 1;
+        tv.tv_usec = 0;
+
+        ret = select(src + 1, &readfds, NULL, NULL, &tv);
+        if (ret < 0) {
+            send_status_update("Error: select() failed in TCP data forwarding");
+            break;
+        } else if (ret == 0) {
+            // Timeout occurred
+            activity_timeout++;
+            
+            // If idle for too long, exit
+            if (!config.verbose && activity_timeout > 60) {
+                if (config.verbose) {
+                    char status_msg[256];
+                    snprintf(status_msg, sizeof(status_msg), "TCP connection idle timeout (%s)", direction);
+                    send_status_update(status_msg);
+                }
+                break;
+            }
+            continue;
+        }
+
+        // Reset timeout counter when there's activity
+        activity_timeout = 0;
+
+        // Data is available to read
+        len = recv(src, (char*)buffer, sizeof(buffer), 0);
+        if (len <= 0) {
+            if (len == 0) {
+                // Connection closed cleanly
+                if (config.verbose) {
+                    char status_msg[256];
+                    snprintf(status_msg, sizeof(status_msg), "TCP connection closed by peer (%s)", direction);
+                    send_status_update(status_msg);
+                }
+            } else {
+                // Error
+                if (config.verbose) {
+                    char status_msg[256];
+                    snprintf(status_msg, sizeof(status_msg), "TCP recv error (%s): %d", direction, WSAGetLastError());
+                    send_status_update(status_msg);
+                }
+            }
+            break;
+        }
+
+        // Print the intercepted data
+        pretty_print_data(direction, buffer, len, src_ip, dst_ip, dst_port);
+
+        // Forward to the destination
+        int sent = 0;
+        while (sent < len) {
+            int written = send(dst, (char*)buffer + sent, len - sent, 0);
+            if (written <= 0) {
+                if (config.verbose) {
+                    char status_msg[256];
+                    snprintf(status_msg, sizeof(status_msg), "TCP send error (%s): %d", direction, WSAGetLastError());
+                    send_status_update(status_msg);
+                }
+                return;
+            }
+            sent += written;
+        }
+    }
+}
+
+/*
+ * Detect protocol type (TLS, HTTP, or other TCP)
+ * Returns PROTOCOL_TLS, PROTOCOL_HTTP, or PROTOCOL_PLAIN_TCP
+ */
+int detect_protocol(socket_t sock) {
+    unsigned char peek_buffer[8] = {0};
+    int bytes_peeked;
+
+    // Peek at the first few bytes without removing them from the buffer
+    bytes_peeked = recv(sock, (char*)peek_buffer, sizeof(peek_buffer), MSG_PEEK);
+    
+    if (bytes_peeked <= 0) {
+        // Error or connection closed
+        return PROTOCOL_PLAIN_TCP; // Default to plain TCP
+    }
+
+    // Check for TLS handshake
+    // TLS handshake starts with 0x16 (handshake message) followed by 0x03 (SSL/TLS version)
+    if (bytes_peeked >= 3 && peek_buffer[0] == 0x16 && 
+        (peek_buffer[1] == 0x03 || peek_buffer[1] == 0x02 || peek_buffer[1] == 0x01)) {
+        return PROTOCOL_TLS;
+    }
+
+    // Check for HTTP
+    if (bytes_peeked >= 4) {
+        // Check for common HTTP methods at the start
+        if ((peek_buffer[0] == 'G' && peek_buffer[1] == 'E' && peek_buffer[2] == 'T' && peek_buffer[3] == ' ') ||
+            (peek_buffer[0] == 'P' && peek_buffer[1] == 'O' && peek_buffer[2] == 'S' && peek_buffer[3] == 'T') ||
+            (peek_buffer[0] == 'H' && peek_buffer[1] == 'E' && peek_buffer[2] == 'A' && peek_buffer[3] == 'D') ||
+            (peek_buffer[0] == 'P' && peek_buffer[1] == 'U' && peek_buffer[2] == 'T' && peek_buffer[3] == ' ') ||
+            (peek_buffer[0] == 'D' && peek_buffer[1] == 'E' && peek_buffer[2] == 'L' && peek_buffer[3] == 'E')) {
+            return PROTOCOL_HTTP;
+        }
+        
+        // Check for HTTP response
+        if ((peek_buffer[0] == 'H' && peek_buffer[1] == 'T' && peek_buffer[2] == 'T' && peek_buffer[3] == 'P')) {
+            return PROTOCOL_HTTP;
+        }
+    }
+
+    // Otherwise assume plain TCP
+    return PROTOCOL_PLAIN_TCP;
+}
+
+/*
+ * Thread function for forwarding SSL data
  */
 THREAD_RETURN_TYPE forward_data_thread(void *arg) {
     if (arg == NULL) {
@@ -268,7 +409,9 @@ THREAD_RETURN_TYPE forward_data_thread(void *arg) {
         THREAD_RETURN;
     }
 
-    forward_info *info = (forward_info *)arg;    // Validate all pointers and parameters before using them
+    forward_info *info = (forward_info *)arg;
+
+    // Validate all pointers and parameters
     if (info->src && info->dst &&
         info->direction && strlen(info->direction) > 0 &&
         info->src_ip && strlen(info->src_ip) > 0 &&
@@ -277,6 +420,197 @@ THREAD_RETURN_TYPE forward_data_thread(void *arg) {
         forward_data(info->src, info->dst, info->direction, info->src_ip, info->dst_ip, info->dst_port, info->connection_id);
     } else {
         fprintf(stderr, "Error: Invalid parameters in forward_data_thread\n");
+    }
+
+    // Free the allocated structure
+    free(info);
+    THREAD_RETURN;
+}
+
+/*
+ * Thread function for forwarding TCP data
+ */
+THREAD_RETURN_TYPE forward_tcp_thread(void *arg) {
+    if (arg == NULL) {
+        fprintf(stderr, "Error: NULL argument passed to forward_tcp_thread\n");
+        THREAD_RETURN;
+    }
+
+    forward_tcp_info *info = (forward_tcp_info *)arg;
+
+    // Validate all parameters
+    if (info->src != INVALID_SOCKET && info->dst != INVALID_SOCKET &&
+        info->direction && strlen(info->direction) > 0 &&
+        info->src_ip && strlen(info->src_ip) > 0 &&
+        info->dst_ip && strlen(info->dst_ip) > 0) {
+
+        forward_tcp_data(info->src, info->dst, info->direction, info->src_ip, info->dst_ip, info->dst_port, info->connection_id);
+    } else {
+        fprintf(stderr, "Error: Invalid parameters in forward_tcp_thread\n");
+    }
+
+    // Free the allocated structure
+    free(info);
+    THREAD_RETURN;
+}
+
+/*
+ * Forward data between SSL connections (with protocol detection)
+ */
+void forward_data_with_detection(SSL *src, SSL *dst, const char *src_ip, const char *dst_ip, int dst_port, int connection_id) {
+    unsigned char buffer[BUFFER_SIZE];
+    int len;
+    int fd;
+    fd_set readfds;
+    struct timeval tv;
+    int ret;
+    int activity_timeout = 0;
+
+    // Validate parameters
+    if (!src || !dst || !src_ip || !dst_ip) {
+        send_status_update("Error: Invalid parameters passed to forward_data_with_detection");
+        return;
+    }
+
+    // Get the socket file descriptor from the SSL
+    fd = SSL_get_fd(src);
+    if (fd < 0) {
+        send_status_update("Error: Failed to get socket fd from SSL");
+        print_openssl_error();
+        return;
+    }
+
+    // Log start of data forwarding
+    if (config.verbose) {
+        char status_msg[256];
+        snprintf(status_msg, sizeof(status_msg), "Starting data forwarding with detection: %s -> %s:%d", src_ip, dst_ip, dst_port);
+        send_status_update(status_msg);
+    }
+
+    while (1) {
+        // Set up the select() call with a timeout
+        FD_ZERO(&readfds);
+        FD_SET(fd, &readfds);
+
+        // Set a 1 second timeout to allow for more responsive termination
+        tv.tv_sec = 1;
+        tv.tv_usec = 0;
+
+        ret = select(fd + 1, &readfds, NULL, NULL, &tv);
+        if (ret < 0) {
+            send_status_update("Error: select() failed in data forwarding with detection");
+            break;
+        } else if (ret == 0) {
+            // Timeout occurred, continue waiting but increment timeout counter
+            activity_timeout++;
+
+            // If we've been idle for over 60 seconds in non-verbose mode, exit
+            // In verbose mode, we might want to wait longer
+            if (!config.verbose && activity_timeout > 60) {
+                if (config.verbose) {
+                    char status_msg[256];
+                    snprintf(status_msg, sizeof(status_msg), "Connection idle timeout (with detection)");
+                    send_status_update(status_msg);
+                }
+                break;
+            }
+            continue;
+        }
+
+        // Reset timeout counter when there's activity
+        activity_timeout = 0;
+
+        // Data is available to read
+        len = SSL_read(src, buffer, sizeof(buffer));
+        if (len <= 0) {
+            int error = SSL_get_error(src, len);
+            if (error == SSL_ERROR_ZERO_RETURN) {
+                // Connection closed cleanly
+                if (config.verbose) {
+                    char status_msg[256];
+                    snprintf(status_msg, sizeof(status_msg), "Connection closed by peer (with detection)");
+                    send_status_update(status_msg);
+                }
+            }
+            else if (error == SSL_ERROR_SYSCALL && ERR_peek_error() == 0) {
+                // This is usually just the client closing the connection abruptly
+                if (config.verbose) {
+                    char status_msg[256];
+                    snprintf(status_msg, sizeof(status_msg), "Connection closed abruptly (with detection)");
+                    send_status_update(status_msg);
+                }
+            }
+            else if (error == SSL_ERROR_SSL &&
+                    ERR_GET_REASON(ERR_peek_error()) == SSL_R_UNEXPECTED_EOF_WHILE_READING) {
+                // Common case: unexpected EOF (client closed connection)
+                if (config.verbose) {
+                    char status_msg[256];
+                    snprintf(status_msg, sizeof(status_msg), "Connection closed by peer with unexpected EOF (with detection)");
+                    send_status_update(status_msg);
+                }
+                ERR_clear_error(); // Clear the error queue
+            }            else {
+                char error_msg[256];
+                snprintf(error_msg, sizeof(error_msg), "SSL_read error in data forwarding with detection: %d", error);
+                send_status_update(error_msg);
+                print_openssl_error();
+            }
+            break;
+        }
+
+        // Print the intercepted data
+        pretty_print_data("??", buffer, len, src_ip, dst_ip, dst_port);
+
+        // Detect protocol and handle accordingly
+        int protocol = detect_protocol(fd);
+        if (protocol == PROTOCOL_TLS) {
+            // Forward as TLS
+            int written = SSL_write(dst, buffer, len);
+            if (written <= 0) {
+                int error = SSL_get_error(dst, written);
+                if (error == SSL_ERROR_ZERO_RETURN ||
+                   (error == SSL_ERROR_SYSCALL && ERR_peek_error() == 0)) {
+                    char status_msg[256];
+                    snprintf(status_msg, sizeof(status_msg), "Peer closed connection while writing (with detection)");
+                    send_status_update(status_msg);
+                } else {                    char error_msg[256];
+                    snprintf(error_msg, sizeof(error_msg), "SSL_write error in data forwarding with detection");
+                    send_status_update(error_msg);
+                    print_openssl_error();
+                }
+                break;
+            }
+        } else if (protocol == PROTOCOL_HTTP) {
+            // For HTTP, we might want to handle differently in the future
+            // For now, just forward as TCP
+            forward_tcp_data(fd, SSL_get_fd(dst), "??", src_ip, dst_ip, dst_port, connection_id);
+        } else {
+            // Plain TCP, forward directly
+            forward_tcp_data(fd, SSL_get_fd(dst), "??", src_ip, dst_ip, dst_port, connection_id);
+        }
+    }
+}
+
+/*
+ * Thread function for forwarding data with protocol detection
+ */
+THREAD_RETURN_TYPE forward_data_with_detection_thread(void *arg) {
+    if (arg == NULL) {
+        fprintf(stderr, "Error: NULL argument passed to forward_data_with_detection_thread\n");
+        THREAD_RETURN;
+    }
+
+    forward_info *info = (forward_info *)arg;
+
+    // Validate all pointers and parameters before using them
+    if (info->src && info->dst &&
+        info->direction && strlen(info->direction) > 0 &&
+        info->src_ip && strlen(info->src_ip) > 0 &&
+        info->dst_ip && strlen(info->dst_ip) > 0) {
+
+        forward_data_with_detection(info->src, info->dst, info->src_ip, info->dst_ip, info->dst_port, info->connection_id);
+    } else {
+        fprintf(stderr, "Error: Invalid parameters in forward_data_with_detection_thread\n");
     }
 
     // Free the allocated structure
@@ -302,18 +636,22 @@ THREAD_RETURN_TYPE handle_client(void *arg) {
     SSL *client_ssl = NULL;
     X509 *cert = NULL;
     EVP_PKEY *key = NULL;
-    THREAD_HANDLE thread_id;    char target_host[MAX_HOSTNAME_LEN];
+    THREAD_HANDLE thread_id;
+    char target_host[MAX_HOSTNAME_LEN];
     char client_ip[MAX_IP_ADDR_LEN];
     char server_ip[MAX_IP_ADDR_LEN];
     int target_port;
     int ret;
     int connection_id;
+    int protocol_type;
 
     // Generate unique connection ID
     connection_id = ++g_connection_id_counter;
 
     // Get client IP address as string
-    inet_ntop(AF_INET, &(client->client_addr.sin_addr), client_ip, MAX_IP_ADDR_LEN);// Set socket options for better compatibility
+    inet_ntop(AF_INET, &(client->client_addr.sin_addr), client_ip, MAX_IP_ADDR_LEN);
+
+    // Set socket options for better compatibility
     DWORD timeout = 120000;  // 120 seconds timeout
     setsockopt(client_sock, SOL_SOCKET, SO_RCVTIMEO, (const char*)&timeout, sizeof(timeout));
     setsockopt(client_sock, SOL_SOCKET, SO_SNDTIMEO, (const char*)&timeout, sizeof(timeout));
@@ -323,7 +661,8 @@ THREAD_RETURN_TYPE handle_client(void *arg) {
     setsockopt(client_sock, SOL_SOCKET, SO_KEEPALIVE, (const char*)&keepAlive, sizeof(keepAlive));
 
     // Handle the SOCKS5 handshake
-    memset(target_host, 0, sizeof(target_host));    if (!handle_socks5_handshake(client_sock, target_host, &target_port)) {
+    memset(target_host, 0, sizeof(target_host));
+    if (!handle_socks5_handshake(client_sock, target_host, &target_port)) {
         if (config.verbose) {
             fprintf(stderr, "Failed to handle SOCKS5 handshake\n");
         }
@@ -336,62 +675,16 @@ THREAD_RETURN_TYPE handle_client(void *arg) {
 
     if (config.verbose) {
         printf("\nIntercepting connection to %s:%d\n", target_host, target_port);
-    }// Generate certificate for the target host
-    if (!generate_cert_for_host(target_host, &cert, &key)) {
-        fprintf(stderr, "Failed to generate certificate for %s\n", target_host);
-        goto cleanup;
     }
 
-    // Create server context (for client -> proxy)
-    server_ctx = create_server_ssl_context();
-    if (!server_ctx) {
-        fprintf(stderr, "Failed to create server SSL context\n");
-        goto cleanup;
-    }
-
-    // Use the generated certificate and key
-    if (SSL_CTX_use_certificate(server_ctx, cert) != 1) {
-        fprintf(stderr, "Failed to use certificate\n");
-        print_openssl_error();
-        goto cleanup;
-    }
-
-    if (SSL_CTX_use_PrivateKey(server_ctx, key) != 1) {
-        fprintf(stderr, "Failed to use private key\n");
-        print_openssl_error();
-        goto cleanup;
-    }
-
-    if (SSL_CTX_check_private_key(server_ctx) != 1) {
-        fprintf(stderr, "Private key does not match certificate\n");
-        print_openssl_error();
-        goto cleanup;
-    }    // Create server SSL object and attach to client socket
-    if (config.verbose) {
-        printf("Performing TLS handshake with client...\n");
-    }
-    server_ssl = SSL_new(server_ctx);
-    if (!server_ssl) {
-        fprintf(stderr, "Failed to create server SSL object\n");
-        print_openssl_error();
-        goto cleanup;
-    }
-
-    SSL_set_fd(server_ssl, (int)client_sock);
-
-    ret = SSL_accept(server_ssl);
-    if (ret != 1) {
-        fprintf(stderr, "Failed to perform TLS handshake with client: %d\n",
-                SSL_get_error(server_ssl, ret));
-        print_openssl_error();
-        goto cleanup;
-    }    // Connect to the real server
+    // Connect to the real server before deciding protocol type
     server_sock = socket(AF_INET, SOCK_STREAM, 0);
     if (server_sock == INVALID_SOCKET) {
         fprintf(stderr, "Failed to create socket for server connection: %d\n", WSAGetLastError());
         goto cleanup;
     }
-      // Set server socket options
+
+    // Set server socket options
     DWORD server_timeout = 60000;  // 60 seconds timeout
     if (setsockopt(server_sock, SOL_SOCKET, SO_RCVTIMEO, (const char*)&server_timeout, sizeof(server_timeout)) != 0 ||
         setsockopt(server_sock, SOL_SOCKET, SO_SNDTIMEO, (const char*)&server_timeout, sizeof(server_timeout)) != 0) {
@@ -430,11 +723,60 @@ THREAD_RETURN_TYPE handle_client(void *arg) {
                 target_host, target_port, error);
         log_message("Connection to %s:%d failed with error %d", target_host, target_port, error);
         goto cleanup;
-    }
-
-    // Set TCP_NODELAY for better performance
+    }    // Set TCP_NODELAY for better performance
     int nodelay = 1;
     setsockopt(server_sock, IPPROTO_TCP, TCP_NODELAY, (const char*)&nodelay, sizeof(nodelay));
+    
+    // Detect protocol type (TLS or non-TLS)
+    protocol_type = detect_protocol(client_sock);
+    
+    if (protocol_type == PROTOCOL_TLS) {
+        // TLS handling path
+        if (config.verbose) {
+            printf("Detected TLS protocol, proceeding with TLS interception\n");
+        }
+        send_status_update("Proceeding with TLS interception");
+
+        // Generate certificate for the target host
+        if (!generate_cert_for_host(target_host, &cert, &key)) {
+            fprintf(stderr, "Failed to generate certificate for %s\n", target_host);
+            goto cleanup;
+        }
+
+        // Create server context (for client -> proxy)
+        server_ctx = create_server_ssl_context();
+        if (!server_ctx) {
+            fprintf(stderr, "Failed to create server SSL context\n");
+            goto cleanup;
+        }
+
+        // Use the generated certificate and key
+        if (SSL_CTX_use_certificate(server_ctx, cert) != 1 ||
+            SSL_CTX_use_PrivateKey(server_ctx, key) != 1 || 
+            SSL_CTX_check_private_key(server_ctx) != 1) {
+            fprintf(stderr, "Failed to set up SSL certificate\n");
+            print_openssl_error();
+            goto cleanup;
+        }
+
+        // Create server SSL object and attach to client socket
+        if (config.verbose) {
+            printf("Performing TLS handshake with client...\n");
+        }
+        server_ssl = SSL_new(server_ctx);
+        if (!server_ssl) {
+            fprintf(stderr, "Failed to create server SSL object\n");
+            print_openssl_error();
+            goto cleanup;
+        }
+
+        SSL_set_fd(server_ssl, (int)client_sock);        ret = SSL_accept(server_ssl);
+        if (ret != 1) {
+            fprintf(stderr, "Failed to perform TLS handshake with client: %d\n",
+                    SSL_get_error(server_ssl, ret));
+            print_openssl_error();
+            goto cleanup;
+        }
 
     // Create client context (for proxy -> server)
     client_ctx = create_client_ssl_context();
@@ -508,18 +850,91 @@ THREAD_RETURN_TYPE handle_client(void *arg) {
     CREATE_THREAD(thread_id, forward_data_thread, client_to_server);
     CREATE_THREAD(thread_id2, forward_data_thread, server_to_client);
 
-    // Wait for both threads to finish
-    if (thread_id != NULL) JOIN_THREAD(thread_id);
+    // Wait for both threads to finish    if (thread_id != NULL) JOIN_THREAD(thread_id);
     if (thread_id2 != NULL) JOIN_THREAD(thread_id2);
 
     if (config.verbose) {
         printf("Connection to %s:%d closed\n", target_host, target_port);
     }
+    } 
+    else {
+        // Non-TLS handling path (HTTP or plain TCP)
+        if (protocol_type == PROTOCOL_HTTP) {
+            if (config.verbose) {
+                printf("Detected HTTP protocol, forwarding as plain TCP\n");
+            }
+            send_status_update("Forwarding HTTP traffic");
+        } else {
+            if (config.verbose) {
+                printf("Detected plain TCP protocol\n");
+            }
+            send_status_update("Forwarding plain TCP traffic");
+        }
+        
+        if (config.verbose) {
+            printf("Setting up direct TCP forwarding between client and %s:%d\n", target_host, target_port);
+        }
+        
+        // Create TCP forwarding info structs
+        forward_tcp_info *client_to_server = (forward_tcp_info*)malloc(sizeof(forward_tcp_info));
+        if (!client_to_server) {
+            fprintf(stderr, "Memory allocation failed\n");
+            goto cleanup;
+        }
+        
+        client_to_server->src = client_sock;
+        client_to_server->dst = server_sock;
+        strncpy(client_to_server->direction, "client->server", sizeof(client_to_server->direction)-1);
+        client_to_server->direction[sizeof(client_to_server->direction)-1] = '\0';
+        strncpy(client_to_server->src_ip, client_ip, MAX_IP_ADDR_LEN-1);
+        strncpy(client_to_server->dst_ip, server_ip, MAX_IP_ADDR_LEN-1);
+        client_to_server->dst_port = target_port;
+        client_to_server->connection_id = connection_id;
+        
+        // Create a second TCP info struct for server->client direction
+        forward_tcp_info *server_to_client = (forward_tcp_info*)malloc(sizeof(forward_tcp_info));
+        if (!server_to_client) {
+            fprintf(stderr, "Memory allocation failed\n");
+            free(client_to_server); // Don't leak memory
+            goto cleanup;
+        }
+        
+        server_to_client->src = server_sock;
+        server_to_client->dst = client_sock;
+        strncpy(server_to_client->direction, "server->client", sizeof(server_to_client->direction)-1);
+        server_to_client->direction[sizeof(server_to_client->direction)-1] = '\0';
+        strncpy(server_to_client->src_ip, server_ip, MAX_IP_ADDR_LEN-1);
+        strncpy(server_to_client->dst_ip, client_ip, MAX_IP_ADDR_LEN-1);
+        server_to_client->dst_port = ntohs(client->client_addr.sin_port);
+        server_to_client->connection_id = connection_id;
+        
+        // Make sure strings are null-terminated
+        client_to_server->src_ip[MAX_IP_ADDR_LEN-1] = '\0';
+        client_to_server->dst_ip[MAX_IP_ADDR_LEN-1] = '\0';
+        server_to_client->src_ip[MAX_IP_ADDR_LEN-1] = '\0';
+        server_to_client->dst_ip[MAX_IP_ADDR_LEN-1] = '\0';
+        
+        // Log connection info
+        log_message("Established direct TCP connection: %s -> %s:%d", client_ip, server_ip, target_port);
+        
+        // Start TCP forwarding threads
+        THREAD_HANDLE thread_id2;
+        CREATE_THREAD(thread_id, forward_tcp_thread, client_to_server);
+        CREATE_THREAD(thread_id2, forward_tcp_thread, server_to_client);
+        
+        // Wait for both threads to finish
+        if (thread_id != NULL) JOIN_THREAD(thread_id);
+        if (thread_id2 != NULL) JOIN_THREAD(thread_id2);
+        
+        if (config.verbose) {
+            printf("TCP connection to %s:%d closed\n", target_host, target_port);
+        }
+    }
 
 cleanup:
     // Send disconnect notification
     send_disconnect_notification(connection_id, "Connection closed");
-    
+
     // Log connection closure
     if (target_host[0] != '\0') {
         log_message("Closing connection to %s:%d", target_host, target_port);

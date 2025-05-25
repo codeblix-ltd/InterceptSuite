@@ -20,10 +20,7 @@ typedef void (*connection_callback_t)(const char* client_ip, int client_port, co
 typedef void (*stats_callback_t)(int total_connections, int active_connections, int total_bytes_transferred);
 typedef void (*disconnect_callback_t)(int connection_id, const char* reason);
 
-/* Initialize the proxy subsystems (Winsock, OpenSSL, etc.) */
-__declspec(dllexport) BOOL init_proxy(void);
-
-/* Start the proxy server */
+/* Start the proxy server (also initializes proxy subsystems) */
 __declspec(dllexport) BOOL start_proxy(void);
 
 /* Stop the proxy server */

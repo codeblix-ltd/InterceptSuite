@@ -89,6 +89,17 @@ typedef struct {
     int connection_id;
 } forward_info;
 
+/* TCP forwarding info without SSL */
+typedef struct {
+    socket_t src;
+    socket_t dst; 
+    char direction[32];
+    char src_ip[MAX_IP_ADDR_LEN];
+    char dst_ip[MAX_IP_ADDR_LEN];
+    int dst_port;
+    int connection_id;
+} forward_tcp_info;
+
 /* Configuration structure */
 typedef struct {
     int port;                       /* Port to listen on */
