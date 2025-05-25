@@ -12,7 +12,6 @@
 extern void send_log_entry(const char* src_ip, const char* dst_ip, int dst_port, const char* message_type, const char* data);
 extern void send_status_update(const char* message);
 extern void send_connection_notification(const char* client_ip, int client_port, const char* target_host, int target_port, int connection_id);
-extern void send_data_notification(int connection_id, const char* direction, const void* data, int data_length);
 extern void send_disconnect_notification(int connection_id, const char* reason);
 
 /* Global connection ID counter */
@@ -240,9 +239,6 @@ void forward_data(SSL *src, SSL *dst, const char *direction, const char *src_ip,
             break;
         }        // Print the intercepted data
         pretty_print_data(direction, buffer, len, src_ip, dst_ip, dst_port);
-
-        // Send data callback notification
-        send_data_notification(connection_id, direction, buffer, len);
 
         // Forward to the destination
         int written = SSL_write(dst, buffer, len);

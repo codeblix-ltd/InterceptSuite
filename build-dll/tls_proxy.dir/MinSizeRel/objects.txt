@@ -1,6 +1,0 @@
-D:/Windows TLS/build-dll/tls_proxy.dir/MinSizeRel/main.obj
-D:/Windows TLS/build-dll/tls_proxy.dir/MinSizeRel/cert_utils.obj
-D:/Windows TLS/build-dll/tls_proxy.dir/MinSizeRel/socks5.obj
-D:/Windows TLS/build-dll/tls_proxy.dir/MinSizeRel/tls_utils.obj
-D:/Windows TLS/build-dll/tls_proxy.dir/MinSizeRel/utils.obj
-D:/Windows TLS/build-dll/tls_proxy.dir/MinSizeRel/process_divert.obj

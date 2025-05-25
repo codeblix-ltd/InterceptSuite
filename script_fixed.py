@@ -16,7 +16,6 @@ import socket
 from datetime import datetime
 import json
 import queue
-import traceback
 
 # Define callback function types to match the DLL
 LOG_CALLBACK = ctypes.WINFUNCTYPE(None, c_char_p, c_char_p, c_char_p, c_int, c_char_p, c_char_p)
@@ -42,9 +41,10 @@ class TLSProxyDLL:
     def find_dll_path(self):
         """Find the first existing DLL path from possible locations"""
         possible_paths = [
-            os.path.join(os.path.dirname(__file__), "build", "Release", "tls_proxy.dll"),
             os.path.join(os.path.dirname(__file__), "build", "Debug", "tls_proxy.dll"),
-
+            os.path.join(os.path.dirname(__file__), "build", "Release", "tls_proxy.dll"),
+            os.path.join(os.path.dirname(__file__), "build-dll", "Debug", "tls_proxy.dll"),
+            os.path.join(os.path.dirname(__file__), "build-dll", "Release", "tls_proxy.dll"),
         ]
         print("Attempting to find DLL in the following locations:")
         for path in possible_paths:
@@ -66,12 +66,12 @@ class TLSProxyDLL:
                 print("DLL not found in any location")
                 messagebox.showerror("DLL Load Error", "Could not find tls_proxy.dll in any expected location.")
                 return False
-
+            
             print(f"Loading DLL from: {dll_path}")
             # Add DLL directory to DLL search path (for dependencies)
             if hasattr(os, 'add_dll_directory'):
                 os.add_dll_directory(os.path.dirname(dll_path))
-
+            
             self.dll = ctypes.CDLL(dll_path)
             print("DLL loaded, setting up function prototypes...")
 
@@ -260,7 +260,7 @@ class TLSProxyGUI:
         self.root.title("TLS MITM Proxy Control Panel")
         self.root.geometry("1200x800")
         self.root.minsize(1000, 600)
-
+        
         # Initialize DLL
         # Try multiple possible DLL locations
         possible_paths = [
@@ -268,7 +268,7 @@ class TLSProxyGUI:
             os.path.join(os.path.dirname(__file__), "build", "Release", "tls_proxy.dll"),
             os.path.join(os.path.dirname(__file__), "build-dll", "Debug", "tls_proxy.dll")
         ]
-
+        
         # Use the first path that exists
         dll_path = next((path for path in possible_paths if os.path.exists(path)), possible_paths[0])
         print(f"Trying to load DLL from: {dll_path}")

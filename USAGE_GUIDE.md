@@ -196,30 +196,6 @@ void on_connection(const char* client_ip, int client_port,
 set_connection_callback(on_connection);
 ```
 
-#### `void set_data_callback(data_callback_t callback)`
-Sets a callback function that is called when data is intercepted.
-
-- **Callback signature:** `void (*data_callback_t)(int connection_id, const char* direction, const void* data, int data_length)`
-- **Parameters:**
-  - `connection_id`: Unique identifier for the connection
-  - `direction`: "client->server" or "server->client"
-  - `data`: Pointer to the intercepted data
-  - `data_length`: Length of the data in bytes
-
-```c
-// Example data callback
-void on_data(int connection_id, const char* direction, const void* data, int data_length) {
-    printf("Data on connection %d (%s): %d bytes\n", 
-           connection_id, direction, data_length);
-    
-    // You can examine the data here
-    // Note: data may contain binary content, not just text
-}
-
-// Set the callback
-set_data_callback(on_data);
-```
-
 #### `void set_stats_callback(stats_callback_t callback)`
 Sets a callback function that is called when statistics are updated.
 
@@ -272,10 +248,6 @@ void on_connection(const char* client_ip, int client_port,
            connection_id, client_ip, client_port, target_host, target_port);
 }
 
-void on_data(int connection_id, const char* direction, const void* data, int data_length) {
-    printf("[DATA] %d (%s): %d bytes\n", connection_id, direction, data_length);
-}
-
 void on_stats_update(int total_connections, int active_connections, int total_bytes_transferred) {
     printf("[STATS] Total: %d, Active: %d, Bytes: %d\n", 
            total_connections, active_connections, total_bytes_transferred);
@@ -298,7 +270,6 @@ int main() {
 
     // Set up all callbacks
     set_connection_callback(on_connection);
-    set_data_callback(on_data);
     set_stats_callback(on_stats_update);
     set_disconnect_callback(on_disconnect);
     set_status_callback(on_status);

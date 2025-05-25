@@ -28,7 +28,6 @@ EVP_PKEY *ca_key = NULL;
 static log_callback_t g_log_callback = NULL;
 static status_callback_t g_status_callback = NULL;
 static connection_callback_t g_connection_callback = NULL;
-static data_callback_t g_data_callback = NULL;
 static stats_callback_t g_stats_callback = NULL;
 static disconnect_callback_t g_disconnect_callback = NULL;
 
@@ -308,19 +307,6 @@ void send_connection_notification(const char* client_ip, int client_port, const 
     }
 }
 
-/* Helper function to send data interception notifications */
-void send_data_notification(int connection_id, const char* direction, const void* data, int data_length) {
-    g_total_bytes += data_length;
-    if (g_data_callback && direction && data && data_length > 0) {
-        g_data_callback(connection_id, direction, data, data_length);
-    }
-    
-    /* Update statistics callback */
-    if (g_stats_callback) {
-        g_stats_callback(g_total_connections, 0, g_total_bytes); /* active_connections = 0 for now */
-    }
-}
-
 /* Helper function to send disconnect notifications */
 void send_disconnect_notification(int connection_id, const char* reason) {
     if (g_disconnect_callback && reason) {
@@ -339,10 +325,6 @@ __declspec(dllexport) void set_status_callback(status_callback_t callback) {
 
 __declspec(dllexport) void set_connection_callback(connection_callback_t callback) {
     g_connection_callback = callback;
-}
-
-__declspec(dllexport) void set_data_callback(data_callback_t callback) {
-    g_data_callback = callback;
 }
 
 __declspec(dllexport) void set_stats_callback(stats_callback_t callback) {
