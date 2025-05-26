@@ -27,6 +27,15 @@
 #include <openssl/bio.h>
 #include <openssl/rsa.h>
 
+/* Define certificate error codes if not available in this OpenSSL version */
+#ifndef SSL_R_TLSV1_ALERT_BAD_CERTIFICATE
+#define SSL_R_TLSV1_ALERT_BAD_CERTIFICATE 0x304
+#endif
+
+#ifndef SSL_R_CERTIFICATE_VERIFY_FAILED
+#define SSL_R_CERTIFICATE_VERIFY_FAILED 0x14B
+#endif
+
 /* OpenSSL Applink reference */
 void **__cdecl OPENSSL_Applink(void);
 
@@ -62,6 +71,15 @@ typedef unsigned int socklen_t;
 /* Define SSL error reason codes if not available */
 #ifndef SSL_R_UNEXPECTED_EOF_WHILE_READING
 #define SSL_R_UNEXPECTED_EOF_WHILE_READING 0x14A
+#endif
+
+/* Define certificate error codes if not available in this OpenSSL version */
+#ifndef SSL_R_TLSV1_ALERT_BAD_CERTIFICATE
+#define SSL_R_TLSV1_ALERT_BAD_CERTIFICATE 0x304
+#endif
+
+#ifndef SSL_R_CERTIFICATE_VERIFY_FAILED
+#define SSL_R_CERTIFICATE_VERIFY_FAILED 0x14B
 #endif
 
 /* Structures */

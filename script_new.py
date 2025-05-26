@@ -44,6 +44,7 @@ class TLSProxyDLL:
         possible_paths = [
             os.path.join(os.path.dirname(__file__), "build", "Release", "tls_proxy.dll"),
             os.path.join(os.path.dirname(__file__), "build", "Debug", "tls_proxy.dll"),
+
         ]
         print("Attempting to find DLL in the following locations:")
         for path in possible_paths:
@@ -90,6 +91,7 @@ class TLSProxyDLL:
             self.dll.set_status_callback.restype = None
             self.dll.set_status_callback.argtypes = [STATUS_CALLBACK]
 
+            # New callback functions
             self.dll.set_connection_callback.restype = None
             self.dll.set_connection_callback.argtypes = [CONNECTION_CALLBACK]
 
@@ -114,6 +116,7 @@ class TLSProxyDLL:
 
         except Exception as e:
             print(f"Exception during DLL loading: {e}")
+            import traceback
             traceback.print_exc()
             messagebox.showerror("DLL Load Error", f"Failed to load DLL: {str(e)}")
             return False
@@ -148,6 +151,7 @@ class TLSProxyDLL:
             return True
         except Exception as e:
             print(f"Error setting callbacks: {e}")
+            import traceback
             traceback.print_exc()
             return False
 
@@ -193,11 +197,47 @@ class TLSProxyDLL:
             count = self.dll.get_system_ips(buffer, 4096)
             if count > 0:
                 ip_string = buffer.value.decode('utf-8')
+                # Split by semicolon as the DLL returns '127.0.0.1;172.29.240.1;192.168.1.4;'
                 return [ip.strip() for ip in ip_string.split(';') if ip.strip()]
             return []
         except Exception as e:
             print(f"Error getting system IPs: {e}")
             return []
+
+    def get_proxy_config(self):
+        """Get current proxy configuration"""
+        if not self.is_loaded:
+            return None, None, None
+        try:
+            bind_addr = ctypes.create_string_buffer(256)
+            port = c_int()
+            log_file = ctypes.create_string_buffer(512)
+
+            if self.dll.get_proxy_config(bind_addr, ctypes.byref(port), log_file):
+                return (
+                    bind_addr.value.decode('utf-8') if bind_addr.value else "",
+                    port.value,
+                    log_file.value.decode('utf-8') if log_file.value else ""
+                )
+            return None, None, None
+        except Exception as e:
+            print(f"Error getting proxy config: {e}")
+            return None, None, None
+
+    def get_proxy_stats(self):
+        """Get proxy statistics"""
+        if not self.is_loaded:
+            return None, None
+        try:
+            connections = c_int()
+            bytes_transferred = c_int()
+
+            if self.dll.get_proxy_stats(ctypes.byref(connections), ctypes.byref(bytes_transferred)):
+                return connections.value, bytes_transferred.value
+            return None, None
+        except Exception as e:
+            print(f"Error getting proxy stats: {e}")
+            return None, None
 
 
 class TLSProxyGUI:
@@ -210,22 +250,25 @@ class TLSProxyGUI:
         self.root.minsize(1000, 600)
 
         # Initialize DLL
+        # Try multiple possible DLL locations
         possible_paths = [
             os.path.join(os.path.dirname(__file__), "build", "Debug", "tls_proxy.dll"),
             os.path.join(os.path.dirname(__file__), "build", "Release", "tls_proxy.dll"),
+            os.path.join(os.path.dirname(__file__), "build-dll", "Debug", "tls_proxy.dll")
         ]
 
+        # Use the first path that exists
         dll_path = next((path for path in possible_paths if os.path.exists(path)), possible_paths[0])
         print(f"Trying to load DLL from: {dll_path}")
         self.proxy_dll = TLSProxyDLL(dll_path)
 
-        # Data storage with reduced limits to prevent crashes
+        # Data storage
         self.log_entries = []
         self.status_messages = []
         self.connection_events = []
-        self.max_log_entries = 500  # Reduced from 1000
-        self.max_status_messages = 200  # Reduced from 500
-        self.max_connection_events = 500  # Reduced from 1000
+        self.max_log_entries = 1000
+        self.max_status_messages = 500
+        self.max_connection_events = 1000
 
         # Threading and queues for callback data
         self.log_queue = queue.Queue()
@@ -242,9 +285,7 @@ class TLSProxyGUI:
 
         # Create GUI
         self.create_widgets()
-        self.setup_callbacks()
-
-        # Start update timer
+        self.setup_callbacks()        # Start update timer
         self.update_display()
 
         # Try to load DLL on startup
@@ -252,6 +293,7 @@ class TLSProxyGUI:
 
     def create_widgets(self):
         """Create all GUI widgets"""
+
         # Main notebook for tabs
         self.notebook = ttk.Notebook(self.root)
         self.notebook.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
@@ -261,6 +303,7 @@ class TLSProxyGUI:
         self.create_config_tab()
         self.create_connections_tab()
         self.create_logs_tab()
+        self.create_proxy_history_tab()
 
     def create_proxy_tab(self):
         """Create the proxy control and monitoring tab"""
@@ -332,9 +375,9 @@ class TLSProxyGUI:
         conn_h_scroll.pack(side=tk.BOTTOM, fill=tk.X)
 
     def create_logs_tab(self):
-        """Create the logs tab"""
+        """Create the proxy history tab"""
         logs_frame = ttk.Frame(self.notebook)
-        self.notebook.add(logs_frame, text="Logs")
+        self.notebook.add(logs_frame, text="Proxy History")
 
         # Control buttons
         log_control = ttk.Frame(logs_frame)
@@ -342,13 +385,6 @@ class TLSProxyGUI:
 
         ttk.Button(log_control, text="Clear Logs", command=self.clear_logs).pack(side=tk.LEFT, padx=5)
         ttk.Button(log_control, text="Save Logs", command=self.save_logs).pack(side=tk.LEFT, padx=5)
-
-        # Status indicator
-        status_frame = ttk.LabelFrame(logs_frame, text="Status Messages")
-        status_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-
-        self.status_display = scrolledtext.ScrolledText(status_frame, height=10)
-        self.status_display.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
         # Auto-scroll checkbox
         self.auto_scroll_var = tk.BooleanVar(value=True)
@@ -377,19 +413,77 @@ class TLSProxyGUI:
         # Scrollbars
         logs_v_scroll = ttk.Scrollbar(logs_frame, orient=tk.VERTICAL, command=self.logs_tree.yview)
         logs_h_scroll = ttk.Scrollbar(logs_frame, orient=tk.HORIZONTAL, command=self.logs_tree.xview)
-        self.logs_tree.configure(yscrollcommand=logs_v_scroll.set, xscrollcommand=logs_h_scroll.set)
-
-        # Pack
+        self.logs_tree.configure(yscrollcommand=logs_v_scroll.set, xscrollcommand=logs_h_scroll.set)        # Pack
         self.logs_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         logs_v_scroll.pack(side=tk.RIGHT, fill=tk.Y)
         logs_h_scroll.pack(side=tk.BOTTOM, fill=tk.X)
 
+    def create_logs_tab(self):
+        """Create the status logs tab"""
+        logs_frame = ttk.Frame(self.notebook)
+        self.notebook.add(logs_frame, text="Logs")
+
+        # Control buttons
+        log_control = ttk.Frame(logs_frame)
+        log_control.pack(fill=tk.X, padx=5, pady=5)
+
+        ttk.Button(log_control, text="Clear Logs", command=self.clear_logs).pack(side=tk.LEFT, padx=5)
+        ttk.Button(log_control, text="Save Logs", command=self.save_logs).pack(side=tk.LEFT, padx=5)
+
+        # Status indicator
+        status_frame = ttk.LabelFrame(logs_frame, text="Status Messages")
+        status_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+        self.status_display = scrolledtext.ScrolledText(status_frame, height=10)
+        self.status_display.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+    def create_proxy_history_tab(self):
+        """Create the proxy history tab (system logs)"""
+        logs_frame = ttk.Frame(self.notebook)
+        self.notebook.add(logs_frame, text="Proxy History")
+
+        # Control buttons
+        log_control = ttk.Frame(logs_frame)
+        log_control.pack(fill=tk.X, padx=5, pady=5)
+
+        ttk.Button(log_control, text="Clear Logs", command=self.clear_logs).pack(side=tk.LEFT, padx=5)
+        ttk.Button(log_control, text="Save Logs", command=self.save_logs).pack(side=tk.LEFT, padx=5)
+
+        # Auto-scroll checkbox
+        self.auto_scroll_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(log_control, text="Auto-scroll", variable=self.auto_scroll_var).pack(side=tk.LEFT, padx=10)
+
+        # Log table
+        self.logs_tree = ttk.Treeview(logs_frame,
+                                     columns=("timestamp", "src_ip", "dst_ip", "port", "type", "data"),
+                                     show="headings")
+
+        self.logs_tree.heading("timestamp", text="Timestamp")
+        self.logs_tree.heading("src_ip", text="Source IP")
+        self.logs_tree.heading("dst_ip", text="Destination IP")
+        self.logs_tree.heading("port", text="Port")
+        self.logs_tree.heading("type", text="Type")
+        self.logs_tree.heading("data", text="Data")
+
+        # Column widths
+        self.logs_tree.column("timestamp", width=150)
+        self.logs_tree.column("src_ip", width=120)
+        self.logs_tree.column("dst_ip", width=120)
+        self.logs_tree.column("port", width=80)
+        self.logs_tree.column("type", width=80)
+        self.logs_tree.column("data", width=400)
+
+        # Scrollbars
+        logs_v_scroll = ttk.Scrollbar(logs_frame, orient=tk.VERTICAL, command=self.logs_tree.yview)
+        logs_h_scroll = ttk.Scrollbar(logs_frame, orient=tk.HORIZONTAL, command=self.logs_tree.xview)
+        self.logs_tree.configure(yscrollcommand=logs_v_scroll.set, xscrollcommand=logs_h_scroll.set)        # Pack
+        self.logs_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        logs_v_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+
     def create_config_tab(self):
         """Create the configuration tab"""
         config_frame = ttk.Frame(self.notebook)
-        self.notebook.add(config_frame, text="Configuration")
-
-        # Proxy Settings
+        self.notebook.add(config_frame, text="Configuration")        # Proxy Settings
         proxy_settings_frame = ttk.LabelFrame(config_frame, text="Proxy Settings")
         proxy_settings_frame.pack(fill=tk.X, padx=5, pady=5)
 
@@ -450,41 +544,15 @@ class TLSProxyGUI:
 
     def setup_callbacks(self):
         """Set up the DLL callback functions"""
+
         def log_callback(timestamp, src_ip, dst_ip, dst_port, message_type, data):
             """Callback for log entries"""
             try:
-                # Use error handling for each decode operation
-                try:
-                    timestamp_str = timestamp.decode('utf-8') if timestamp else datetime.now().strftime("%H:%M:%S")
-                except UnicodeDecodeError:
-                    timestamp_str = datetime.now().strftime("%H:%M:%S")
-
-                try:
-                    src_ip_str = src_ip.decode('utf-8') if src_ip else ""
-                except UnicodeDecodeError:
-                    src_ip_str = "[Binary Data]"
-
-                try:
-                    dst_ip_str = dst_ip.decode('utf-8') if dst_ip else ""
-                except UnicodeDecodeError:
-                    dst_ip_str = "[Binary Data]"
-
-                try:
-                    message_type_str = message_type.decode('utf-8') if message_type else ""
-                except UnicodeDecodeError:
-                    message_type_str = "Binary"
-
-                try:
-                    data_str = data.decode('utf-8') if data else ""
-                except UnicodeDecodeError:
-                    # For binary data, try to create a hex representation
-                    if data:
-                        try:
-                            data_str = f"[Binary Data: {data[:20].hex()}...]"
-                        except Exception:
-                            data_str = "[Binary Data]"
-                    else:
-                        data_str = ""
+                timestamp_str = timestamp.decode('utf-8') if timestamp else datetime.now().strftime("%H:%M:%S")
+                src_ip_str = src_ip.decode('utf-8') if src_ip else ""
+                dst_ip_str = dst_ip.decode('utf-8') if dst_ip else ""
+                message_type_str = message_type.decode('utf-8') if message_type else ""
+                data_str = data.decode('utf-8') if data else ""
 
                 # Add to queue for thread-safe GUI updates
                 self.log_queue.put({
@@ -497,44 +565,23 @@ class TLSProxyGUI:
                 })
             except Exception as e:
                 print(f"Error in log callback: {e}")
-                traceback.print_exc()
 
         def status_callback(message):
             """Callback for status messages"""
             try:
-                try:
-                    message_str = message.decode('utf-8') if message else ""
-                except UnicodeDecodeError:
-                    # For binary data, try to create a hex representation
-                    if message:
-                        try:
-                            message_str = f"[Binary Data: {message[:20].hex()}...]"
-                        except Exception:
-                            message_str = "[Binary Data]"
-                    else:
-                        message_str = ""
-
+                message_str = message.decode('utf-8') if message else ""
                 timestamp = datetime.now().strftime("%H:%M:%S")
 
                 # Add to queue for thread-safe GUI updates
                 self.status_queue.put(f"[{timestamp}] {message_str}")
             except Exception as e:
                 print(f"Error in status callback: {e}")
-                traceback.print_exc()
 
         def connection_callback(client_ip, client_port, server_ip, server_port, connection_id):
             """Callback for new connections"""
             try:
-                try:
-                    client_ip_str = client_ip.decode('utf-8') if client_ip else ""
-                except UnicodeDecodeError:
-                    client_ip_str = "[Binary Data]"
-
-                try:
-                    server_ip_str = server_ip.decode('utf-8') if server_ip else ""
-                except UnicodeDecodeError:
-                    server_ip_str = "[Binary Data]"
-
+                client_ip_str = client_ip.decode('utf-8') if client_ip else ""
+                server_ip_str = server_ip.decode('utf-8') if server_ip else ""
                 timestamp = datetime.now().strftime("%H:%M:%S")
 
                 # Add to queue for thread-safe GUI updates
@@ -549,7 +596,6 @@ class TLSProxyGUI:
                 })
             except Exception as e:
                 print(f"Error in connection callback: {e}")
-                traceback.print_exc()
 
         def stats_callback(active_connections, total_connections, bytes_transferred):
             """Callback for statistics updates"""
@@ -562,23 +608,11 @@ class TLSProxyGUI:
                 })
             except Exception as e:
                 print(f"Error in stats callback: {e}")
-                traceback.print_exc()
 
         def disconnect_callback(connection_id, reason):
             """Callback for connection disconnections"""
             try:
-                try:
-                    reason_str = reason.decode('utf-8') if reason else ""
-                except UnicodeDecodeError:
-                    # For binary data, try to create a hex representation
-                    if reason:
-                        try:
-                            reason_str = f"[Binary Data: {reason[:20].hex()}...]"
-                        except Exception:
-                            reason_str = "[Binary Data]"
-                    else:
-                        reason_str = ""
-
+                reason_str = reason.decode('utf-8') if reason else ""
                 timestamp = datetime.now().strftime("%H:%M:%S")
 
                 # Add to queue for thread-safe GUI updates
@@ -589,10 +623,7 @@ class TLSProxyGUI:
                     'reason': reason_str
                 })
             except Exception as e:
-                print(f"Error in disconnect callback: {e}")
-                traceback.print_exc()
-
-        # Store callback functions to prevent garbage collection
+                print(f"Error in disconnect callback: {e}")        # Store callback functions to prevent garbage collection
         self.log_callback_func = log_callback
         self.status_callback_func = status_callback
         self.connection_callback_func = connection_callback
@@ -606,7 +637,7 @@ class TLSProxyGUI:
             if self.proxy_dll.load_dll():
                 print("DLL loaded successfully, setting up callbacks...")
 
-                # Set up all callbacks
+                # Set up all callbacks (no data_callback)
                 if self.proxy_dll.set_callbacks(
                     self.log_callback_func,
                     self.status_callback_func,
@@ -627,6 +658,7 @@ class TLSProxyGUI:
                 self.status_queue.put("[SYSTEM] DLL loading failed")
         except Exception as e:
             print(f"Exception during DLL loading: {e}")
+            import traceback
             traceback.print_exc()
             messagebox.showerror("DLL Load Error", f"Exception during DLL loading: {str(e)}")
             self.status_queue.put("[SYSTEM] DLL loading exception")
@@ -635,9 +667,7 @@ class TLSProxyGUI:
         """Start the proxy server"""
         if not self.proxy_dll.is_loaded:
             messagebox.showerror("Error", "DLL not loaded")
-            return
-
-        # Start in a separate thread to avoid blocking the GUI
+            return        # Start in a separate thread to avoid blocking the GUI
         def start_thread():
             if self.proxy_dll.start_proxy():
                 self.proxy_running = True
@@ -650,9 +680,7 @@ class TLSProxyGUI:
     def stop_proxy(self):
         """Stop the proxy server"""
         if not self.proxy_dll.is_loaded:
-            return
-
-        self.proxy_dll.stop_proxy()
+            return        self.proxy_dll.stop_proxy()
         self.proxy_running = False
         self.status_queue.put("[SYSTEM] Proxy stopped")
 
@@ -669,8 +697,7 @@ class TLSProxyGUI:
 
             if self.proxy_dll.set_config(bind_addr, port, log_file):
                 self.status_queue.put(f"[CONFIG] Configuration applied: {bind_addr}:{port}")
-            else:
-                messagebox.showerror("Error", "Failed to apply configuration")
+            else:            messagebox.showerror("Error", "Failed to apply configuration")
         except ValueError:
             messagebox.showerror("Error", "Invalid port number")
 
@@ -680,13 +707,15 @@ class TLSProxyGUI:
             return
 
         # Get system IPs
-        ip_addresses = self.proxy_dll.get_system_ips()
-        print(f"Found IP addresses: {ip_addresses}")
+        ip_addresses_str = self.proxy_dll.get_system_ips()
+        print(ip_addresses_str)
+
+
 
         # Update combo box values
-        self.bind_addr_combo['values'] = ip_addresses
+        self.bind_addr_combo['values'] = ip_addresses_str
 
-        self.status_queue.put(f"[SYSTEM] Found {len(ip_addresses)} network interfaces")
+        self.status_queue.put(f"[SYSTEM] Found {len(ip_addresses_str)} network interfaces")
 
     def clear_connections(self):
         """Clear connection history"""
@@ -761,12 +790,10 @@ class TLSProxyGUI:
     def update_display(self):
         """Update the GUI display with new data from queues (real-time callback system)"""
 
-        # Process log entries with limits to prevent crashes
+        # Process log entries
         try:
-            processed_count = 0
-            while processed_count < 10:  # Limit processing to prevent GUI freezing
+            while True:
                 entry = self.log_queue.get_nowait()
-                processed_count += 1
 
                 # Add to storage
                 self.log_entries.append(entry)
@@ -774,39 +801,31 @@ class TLSProxyGUI:
                     self.log_entries.pop(0)
 
                 # Add to treeview
-                try:
-                    self.logs_tree.insert('', 'end', values=(
-                        entry['timestamp'],
-                        entry['src_ip'],
-                        entry['dst_ip'],
-                        entry['dst_port'],
-                        entry['message_type'],
-                        entry['data'][:100] + "..." if len(entry['data']) > 100 else entry['data']
-                    ))
+                self.logs_tree.insert('', 'end', values=(
+                    entry['timestamp'],
+                    entry['src_ip'],
+                    entry['dst_ip'],
+                    entry['dst_port'],
+                    entry['message_type'],
+                    entry['data'][:100] + "..." if len(entry['data']) > 100 else entry['data']
+                ))
 
-                    # Remove old entries from treeview
-                    children = self.logs_tree.get_children()
-                    if len(children) > self.max_log_entries:
-                        self.logs_tree.delete(children[0])
+                # Remove old entries from treeview
+                children = self.logs_tree.get_children()
+                if len(children) > self.max_log_entries:
+                    self.logs_tree.delete(children[0])
 
-                    # Auto-scroll
-                    if self.auto_scroll_var.get():
-                        self.logs_tree.see(self.logs_tree.get_children()[-1])
-                except Exception as e:
-                    print(f"Error updating logs tree: {e}")
+                # Auto-scroll
+                if self.auto_scroll_var.get():
+                    self.logs_tree.see(self.logs_tree.get_children()[-1])
 
         except queue.Empty:
             pass
-        except Exception as e:
-            print(f"Error processing log entries: {e}")
-            traceback.print_exc()
 
-        # Process status messages with limits
+        # Process status messages
         try:
-            processed_count = 0
-            while processed_count < 10:  # Limit processing to prevent GUI freezing
+            while True:
                 message = self.status_queue.get_nowait()
-                processed_count += 1
 
                 # Add to storage
                 self.status_messages.append(message)
@@ -814,31 +833,23 @@ class TLSProxyGUI:
                     self.status_messages.pop(0)
 
                 # Add to status display
-                try:
-                    self.status_display.insert(tk.END, message + "\n")
+                self.status_display.insert(tk.END, message + "\n")
 
-                    # Auto-scroll
-                    self.status_display.see(tk.END)
+                # Auto-scroll
+                self.status_display.see(tk.END)
 
-                    # Limit text widget size
-                    lines = self.status_display.get(1.0, tk.END).count('\n')
-                    if lines > self.max_status_messages:
-                        self.status_display.delete(1.0, "2.0")
-                except Exception as e:
-                    print(f"Error updating status display: {e}")
+                # Limit text widget size
+                lines = self.status_display.get(1.0, tk.END).count('\n')
+                if lines > self.max_status_messages:
+                    self.status_display.delete(1.0, "2.0")
 
         except queue.Empty:
             pass
-        except Exception as e:
-            print(f"Error processing status messages: {e}")
-            traceback.print_exc()
 
-        # Process connection events with limits
+        # Process connection events (NEW - real-time)
         try:
-            processed_count = 0
-            while processed_count < 10:  # Limit processing to prevent GUI freezing
+            while True:
                 event = self.connection_queue.get_nowait()
-                processed_count += 1
 
                 # Add to storage
                 self.connection_events.append(event)
@@ -846,65 +857,49 @@ class TLSProxyGUI:
                     self.connection_events.pop(0)
 
                 # Add to treeview
-                try:
-                    self.connections_tree.insert('', 'end', values=(
-                        event['timestamp'],
-                        event['event'],
-                        event['connection_id'],
-                        event['client_ip'],
-                        event['client_port'],
-                        event['server_ip'],
-                        event['server_port']
-                    ))
+                self.connections_tree.insert('', 'end', values=(
+                    event['timestamp'],
+                    event['event'],
+                    event['connection_id'],
+                    event['client_ip'],
+                    event['client_port'],
+                    event['server_ip'],
+                    event['server_port']
+                ))
 
-                    # Remove old entries from treeview
-                    children = self.connections_tree.get_children()
-                    if len(children) > self.max_connection_events:
-                        self.connections_tree.delete(children[0])
+                # Remove old entries from treeview
+                children = self.connections_tree.get_children()
+                if len(children) > self.max_connection_events:
+                    self.connections_tree.delete(children[0])
 
-                    # Auto-scroll
-                    if self.auto_scroll_conn_var.get():
-                        self.connections_tree.see(self.connections_tree.get_children()[-1])
-                except Exception as e:
-                    print(f"Error updating connections tree: {e}")
+                # Auto-scroll
+                if self.auto_scroll_conn_var.get():
+                    self.connections_tree.see(self.connections_tree.get_children()[-1])
 
         except queue.Empty:
             pass
-        except Exception as e:
-            print(f"Error processing connection events: {e}")
-            traceback.print_exc()
 
-        # Process statistics updates with limits
+        # Process statistics updates (NEW - real-time)
         try:
-            processed_count = 0
-            while processed_count < 5:  # Limit stats processing
+            while True:
                 stats = self.stats_queue.get_nowait()
-                processed_count += 1
 
                 # Update statistics display
-                try:
-                    self.current_connections = stats['active_connections']
-                    self.total_connections = stats['total_connections']
-                    self.bytes_transferred = stats['bytes_transferred']
+                self.current_connections = stats['active_connections']
+                self.total_connections = stats['total_connections']
+                self.bytes_transferred = stats['bytes_transferred']
 
-                    self.current_connections_var.set(f"Active Connections: {self.current_connections}")
-                    self.total_connections_var.set(f"Total Connections: {self.total_connections}")
-                    self.bytes_var.set(f"Bytes Transferred: {self.bytes_transferred:,}")
-                except Exception as e:
-                    print(f"Error updating statistics: {e}")
+                self.current_connections_var.set(f"Active Connections: {self.current_connections}")
+                self.total_connections_var.set(f"Total Connections: {self.total_connections}")
+                self.bytes_var.set(f"Bytes Transferred: {self.bytes_transferred:,}")
 
         except queue.Empty:
             pass
-        except Exception as e:
-            print(f"Error processing statistics: {e}")
-            traceback.print_exc()
 
-        # Process disconnect events with limits
+        # Process disconnect events (NEW - real-time)
         try:
-            processed_count = 0
-            while processed_count < 10:  # Limit disconnect processing
+            while True:
                 event = self.disconnect_queue.get_nowait()
-                processed_count += 1
 
                 # Add to connection events as a disconnect
                 disconnect_event = {
@@ -923,36 +918,30 @@ class TLSProxyGUI:
                     self.connection_events.pop(0)
 
                 # Add to treeview
-                try:
-                    self.connections_tree.insert('', 'end', values=(
-                        disconnect_event['timestamp'],
-                        disconnect_event['event'],
-                        disconnect_event['connection_id'],
-                        disconnect_event['client_ip'],
-                        disconnect_event['client_port'],
-                        disconnect_event['server_ip'],
-                        disconnect_event['server_port']
-                    ))
+                self.connections_tree.insert('', 'end', values=(
+                    disconnect_event['timestamp'],
+                    disconnect_event['event'],
+                    disconnect_event['connection_id'],
+                    disconnect_event['client_ip'],
+                    disconnect_event['client_port'],
+                    disconnect_event['server_ip'],
+                    disconnect_event['server_port']
+                ))
 
-                    # Remove old entries from treeview
-                    children = self.connections_tree.get_children()
-                    if len(children) > self.max_connection_events:
-                        self.connections_tree.delete(children[0])
+                # Remove old entries from treeview
+                children = self.connections_tree.get_children()
+                if len(children) > self.max_connection_events:
+                    self.connections_tree.delete(children[0])
 
-                    # Auto-scroll
-                    if self.auto_scroll_conn_var.get():
-                        self.connections_tree.see(self.connections_tree.get_children()[-1])
-                except Exception as e:
-                    print(f"Error updating connections tree for disconnect: {e}")
+                # Auto-scroll
+                if self.auto_scroll_conn_var.get():
+                    self.connections_tree.see(self.connections_tree.get_children()[-1])
 
         except queue.Empty:
             pass
-        except Exception as e:
-            print(f"Error processing disconnect events: {e}")
-            traceback.print_exc()
 
-        # Schedule next update
-        self.root.after(100, self.update_display)  # Update every 100ms
+        # Schedule next update (reduced frequency since we're using callbacks)
+        self.root.after(50, self.update_display)  # Update every 50ms for responsiveness
 
 
 def check_admin_privileges():

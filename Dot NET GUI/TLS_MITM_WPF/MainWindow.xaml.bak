@@ -1,0 +1,208 @@
+﻿<Window x:Class="TLS_MITM_WPF.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:TLS_MITM_WPF"
+        mc:Ignorable="d"
+        Title="TLS MITM Proxy Controller" Height="800" Width="1200"
+        WindowStartupLocation="CenterScreen">
+    
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="250"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+        
+        <!-- Navigation Panel -->
+        <Border Grid.Column="0" Background="#F5F5F5" BorderBrush="#E0E0E0" BorderThickness="0,0,1,0">
+            <StackPanel Margin="10">
+                <TextBlock Text="TLS MITM Proxy" FontSize="18" FontWeight="Bold" Margin="0,10,0,20"/>
+                
+                <Button Name="ProxyControlButton" Content="Proxy Control" Margin="0,2" Padding="10,8" 
+                        HorizontalContentAlignment="Left" Click="NavigationButton_Click" Tag="ProxyControl"/>
+                <Button Name="ConfigurationButton" Content="Configuration" Margin="0,2" Padding="10,8" 
+                        HorizontalContentAlignment="Left" Click="NavigationButton_Click" Tag="Configuration"/>
+                <Button Name="ConnectionsButton" Content="Connections" Margin="0,2" Padding="10,8" 
+                        HorizontalContentAlignment="Left" Click="NavigationButton_Click" Tag="Connections"/>
+                <Button Name="LogsButton" Content="Logs" Margin="0,2" Padding="10,8" 
+                        HorizontalContentAlignment="Left" Click="NavigationButton_Click" Tag="Logs"/>
+                <Button Name="ProxyHistoryButton" Content="Proxy History" Margin="0,2" Padding="10,8" 
+                        HorizontalContentAlignment="Left" Click="NavigationButton_Click" Tag="ProxyHistory"/>
+                
+                <Separator Margin="0,20"/>
+                
+                <StackPanel Name="StatusPanel">
+                    <TextBlock Text="Status" FontWeight="Bold" Margin="0,0,0,5"/>
+                    <TextBlock Name="StatusText" Text="Disconnected" Foreground="Red"/>
+                    <TextBlock Name="DllStatusText" Text="DLL: Not Loaded" Foreground="Gray" FontSize="10"/>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+        
+        <!-- Main Content Area -->
+        <Grid Grid.Column="1" Margin="20">
+            <!-- Proxy Control Panel -->
+            <StackPanel Name="ProxyControlPanel" Visibility="Visible">
+                <TextBlock Text="Proxy Control" FontSize="24" FontWeight="Bold" Margin="0,0,0,20"/>
+                
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    
+                    <StackPanel Grid.Column="0" Margin="0,0,10,0">
+                        <TextBlock Text="Proxy Configuration" FontWeight="Bold" FontSize="16" Margin="0,0,0,10"/>
+                        
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Bind Address:" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                            <ComboBox Name="BindAddressComboBox" Grid.Column="1" Height="25"/>
+                            <Button Name="RefreshInterfacesButton" Content="Refresh Interfaces" Grid.Column="2" Margin="5,0,0,0"
+                                    Click="RefreshInterfaces_Click" Padding="8,0"/>
+                        </Grid>
+                        
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Port:" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                            <TextBox Name="PortTextBox" Grid.Column="1" Text="4444" Height="25"/>
+                        </Grid>
+                        
+                        <Button Name="ApplyConfigButton" Content="Apply Configuration" Margin="0,10,0,10"
+                                Click="ApplyConfig_Click" Padding="15,8" HorizontalAlignment="Left"/>
+                        
+                        <StackPanel Orientation="Horizontal" Margin="0,20,0,0">
+                            <Button Name="StartProxyButton" Content="Start Proxy" Margin="0,0,10,0" Padding="15,8" 
+                                    Background="Green" Foreground="White" Click="StartProxy_Click"/>
+                            <Button Name="StopProxyButton" Content="Stop Proxy" Margin="0,0,10,0" Padding="15,8" 
+                                    Background="Red" Foreground="White" Click="StopProxy_Click" IsEnabled="False"/>
+                        </StackPanel>
+                    </StackPanel>
+                    
+                    <StackPanel Grid.Column="1" Margin="10,0,0,0">
+                        <TextBlock Text="Statistics" FontWeight="Bold" FontSize="16" Margin="0,0,0,10"/>
+                        
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Active Connections:" Margin="0,0,10,5"/>
+                            <TextBlock Grid.Row="0" Grid.Column="1" Name="ActiveConnectionsText" Text="0"/>
+                            
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Total Connections:" Margin="0,0,10,5"/>
+                            <TextBlock Grid.Row="1" Grid.Column="1" Name="TotalConnectionsText" Text="0"/>
+                            
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Bytes Sent:" Margin="0,0,10,5"/>
+                            <TextBlock Grid.Row="2" Grid.Column="1" Name="BytesSentText" Text="0"/>
+                            
+                            <TextBlock Grid.Row="3" Grid.Column="0" Text="Bytes Received:" Margin="0,0,10,5"/>
+                            <TextBlock Grid.Row="3" Grid.Column="1" Name="BytesReceivedText" Text="0"/>
+                        </Grid>
+                    </StackPanel>
+                </Grid>
+            </StackPanel>
+              <!-- Configuration Panel -->
+            <StackPanel Name="ConfigurationPanel" Visibility="Collapsed">
+                <TextBlock Text="Configuration" FontSize="24" FontWeight="Bold" Margin="0,0,0,20"/>
+                
+                <StackPanel>
+                    <GroupBox Header="Advanced Settings" Padding="10">
+                        <StackPanel>
+                            <CheckBox Name="VerboseModeCheckBox" Content="Verbose Mode" Margin="0,5" />
+                            <CheckBox Name="AutoStartProxyCheckBox" Content="Auto-start Proxy" Margin="0,5" />
+                        </StackPanel>
+                    </GroupBox>
+
+                    <GroupBox Header="Log File Settings" Margin="0,20,0,0" Padding="10">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Log File:" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                            <TextBox Name="LogFileTextBox" Grid.Column="1" Text="tls_proxy.log" Height="25"/>
+                            <Button Name="BrowseLogFileButton" Content="Browse" Grid.Column="2" Margin="5,0,0,0" 
+                                    Click="BrowseLogFile_Click" Height="25"/>
+                        </Grid>
+                    </GroupBox>
+                </StackPanel>
+            </StackPanel>
+            
+            <!-- Connections Panel -->
+            <StackPanel Name="ConnectionsPanel" Visibility="Collapsed">
+                <TextBlock Text="Connections" FontSize="24" FontWeight="Bold" Margin="0,0,0,20"/>
+                
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                    <Button Name="ClearConnectionsButton" Content="Clear Connections" Margin="0,0,10,0" Click="ClearConnections_Click"/>
+                    <Button Name="ExportConnectionsButton" Content="Export Connections" Click="ExportConnections_Click"/>
+                </StackPanel>
+                
+                <ListView Name="ConnectionsList" Height="600">
+                    <ListView.View>
+                        <GridView>
+                            <GridViewColumn Header="Timestamp" Width="150" DisplayMemberBinding="{Binding Timestamp}"/>
+                            <GridViewColumn Header="Event" Width="100" DisplayMemberBinding="{Binding Event}"/>
+                            <GridViewColumn Header="Connection ID" Width="100" DisplayMemberBinding="{Binding ConnectionId}"/>
+                            <GridViewColumn Header="Source IP" Width="120" DisplayMemberBinding="{Binding SourceIp}"/>
+                            <GridViewColumn Header="Source Port" Width="100" DisplayMemberBinding="{Binding SourcePort}"/>
+                            <GridViewColumn Header="Destination IP" Width="120" DisplayMemberBinding="{Binding DestinationIp}"/>
+                            <GridViewColumn Header="Destination Port" Width="100" DisplayMemberBinding="{Binding DestinationPort}"/>
+                        </GridView>
+                    </ListView.View>
+                </ListView>
+            </StackPanel>
+            
+            <!-- Logs Panel -->
+            <StackPanel Name="LogsPanel" Visibility="Collapsed">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    
+                    <TextBlock Grid.Row="0" Text="Logs" FontSize="24" FontWeight="Bold" Margin="0,0,0,20"/>
+                    
+                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10">
+                        <Button Name="ClearLogsButton" Content="Clear Logs" Margin="0,0,10,0" Click="ClearLogs_Click"/>
+                        <Button Name="ExportLogsButton" Content="Export Logs" Click="ExportLogs_Click"/>
+                        <CheckBox Name="AutoScrollCheckBox" Content="Auto-scroll" IsChecked="True" Margin="20,0,0,0" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    
+                    <TextBlock Grid.Row="2" Text="Status Messages" FontWeight="Bold" Margin="0,10,0,5"/>
+                    <TextBox Grid.Row="3" Name="StatusLogTextBox" TextWrapping="Wrap" IsReadOnly="True" 
+                              Height="150" VerticalScrollBarVisibility="Auto"/>
+                    
+                    <TextBlock Grid.Row="4" Text="System Log Entries" FontWeight="Bold" Margin="0,20,0,5"/>
+                    <ListView Grid.Row="5" Name="LogsList" Height="350">
+                        <ListView.View>
+                            <GridView>
+                                <GridViewColumn Header="Time" Width="150" DisplayMemberBinding="{Binding Timestamp}"/>
+                                <GridViewColumn Header="Level" Width="80" DisplayMemberBinding="{Binding Level}"/>
+                                <GridViewColumn Header="Message" Width="600" DisplayMemberBinding="{Binding Message}"/>
+                            </GridView>
+                        </ListView.View>
+                    </ListView>
+                </Grid>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Window>

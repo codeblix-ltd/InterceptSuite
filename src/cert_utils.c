@@ -49,29 +49,74 @@ static int write_memory_to_file(const char* filename, const char* data, size_t s
 int init_openssl(void) {
     printf("Initializing OpenSSL libraries...\n");
 
+    // Clear any existing errors
+    ERR_clear_error();
+
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
+    // Older OpenSSL versions require manual thread safety setup
     SSL_library_init();
     SSL_load_error_strings();
     OpenSSL_add_all_algorithms();
+
+    // Initialize threading support for older OpenSSL versions
+    // Note: For production use, you should implement proper locking callbacks
+    // For now, we'll rely on the fact that our DLL usage is single-threaded per connection
+
     printf("Using older OpenSSL API (pre-1.1.0)\n");
 #else
-    // For DLL builds, use explicit initialization flags
-    OPENSSL_init_ssl(OPENSSL_INIT_LOAD_SSL_STRINGS | OPENSSL_INIT_LOAD_CRYPTO_STRINGS, NULL);
-    OPENSSL_init_crypto(OPENSSL_INIT_ADD_ALL_CIPHERS | OPENSSL_INIT_ADD_ALL_DIGESTS, NULL);
+    // For DLL builds, use explicit initialization flags with thread safety
+    uint64_t init_flags = OPENSSL_INIT_LOAD_SSL_STRINGS |
+                         OPENSSL_INIT_LOAD_CRYPTO_STRINGS |
+                         OPENSSL_INIT_ADD_ALL_CIPHERS |
+                         OPENSSL_INIT_ADD_ALL_DIGESTS;
+
+    if (OPENSSL_init_ssl(init_flags, NULL) != 1) {
+        fprintf(stderr, "Failed to initialize OpenSSL SSL\n");
+        print_openssl_error();
+        return 0;
+    }
+
+    if (OPENSSL_init_crypto(OPENSSL_INIT_ADD_ALL_CIPHERS | OPENSSL_INIT_ADD_ALL_DIGESTS, NULL) != 1) {
+        fprintf(stderr, "Failed to initialize OpenSSL crypto\n");
+        print_openssl_error();
+        return 0;
+    }
+
     printf("Using newer OpenSSL API (1.1.0+)\n");
 #endif
+
+    // Verify OpenSSL is properly initialized
+    if (SSLeay() == 0) {
+        fprintf(stderr, "OpenSSL version check failed\n");
+        return 0;
+    }
 
     printf("OpenSSL initialized successfully with applink support\n");
     return 1;
 }
 
 void cleanup_openssl(void) {
-    if (ca_cert) X509_free(ca_cert);
-    if (ca_key) EVP_PKEY_free(ca_key);
+    // Clear error queue before cleanup
+    ERR_clear_error();
+
+    // Free global CA resources safely
+    if (ca_cert) {
+        X509_free(ca_cert);
+        ca_cert = NULL;
+    }
+    if (ca_key) {
+        EVP_PKEY_free(ca_key);
+        ca_key = NULL;
+    }
 
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
+    // Cleanup for older OpenSSL versions
     ERR_free_strings();
     EVP_cleanup();
+    CRYPTO_cleanup_all_ex_data();
+#else
+    // Modern OpenSSL handles cleanup automatically, but we can help
+    OPENSSL_cleanup();
 #endif
 }
 
@@ -131,23 +176,40 @@ int load_or_generate_ca_cert(void) {
     if (!ca_key) {
         print_openssl_error();
         return 0;
-    }
-
-    RSA *rsa = RSA_generate_key(2048, RSA_F4, NULL, NULL);
-    if (!rsa) {
+    }    // Generate RSA key using modern OpenSSL 3.0 API
+    EVP_PKEY_CTX *pkey_ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, NULL);
+    if (!pkey_ctx) {
         print_openssl_error();
         EVP_PKEY_free(ca_key);
         ca_key = NULL;
         return 0;
     }
 
-    if (!EVP_PKEY_assign_RSA(ca_key, rsa)) {
+    if (EVP_PKEY_keygen_init(pkey_ctx) <= 0) {
         print_openssl_error();
-        RSA_free(rsa);
+        EVP_PKEY_CTX_free(pkey_ctx);
         EVP_PKEY_free(ca_key);
         ca_key = NULL;
         return 0;
     }
+
+    if (EVP_PKEY_CTX_set_rsa_keygen_bits(pkey_ctx, 2048) <= 0) {
+        print_openssl_error();
+        EVP_PKEY_CTX_free(pkey_ctx);
+        EVP_PKEY_free(ca_key);
+        ca_key = NULL;
+        return 0;
+    }
+
+    if (EVP_PKEY_keygen(pkey_ctx, &ca_key) <= 0) {
+        print_openssl_error();
+        EVP_PKEY_CTX_free(pkey_ctx);
+        EVP_PKEY_free(ca_key);
+        ca_key = NULL;
+        return 0;
+    }
+
+    EVP_PKEY_CTX_free(pkey_ctx);
 
     // Generate cert
     ca_cert = X509_new();
@@ -265,21 +327,36 @@ int generate_cert_for_host(const char *hostname, X509 **cert_out, EVP_PKEY **key
     if (!key) {
         print_openssl_error();
         return 0;
-    }
-
-    RSA *rsa = RSA_generate_key(2048, RSA_F4, NULL, NULL);
-    if (!rsa) {
+    }    // Generate key using modern OpenSSL 3.0 API
+    EVP_PKEY_CTX *pkey_ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, NULL);
+    if (!pkey_ctx) {
         print_openssl_error();
         EVP_PKEY_free(key);
         return 0;
     }
 
-    if (!EVP_PKEY_assign_RSA(key, rsa)) {
+    if (EVP_PKEY_keygen_init(pkey_ctx) <= 0) {
         print_openssl_error();
-        RSA_free(rsa);
+        EVP_PKEY_CTX_free(pkey_ctx);
         EVP_PKEY_free(key);
         return 0;
     }
+
+    if (EVP_PKEY_CTX_set_rsa_keygen_bits(pkey_ctx, 2048) <= 0) {
+        print_openssl_error();
+        EVP_PKEY_CTX_free(pkey_ctx);
+        EVP_PKEY_free(key);
+        return 0;
+    }
+
+    if (EVP_PKEY_keygen(pkey_ctx, &key) <= 0) {
+        print_openssl_error();
+        EVP_PKEY_CTX_free(pkey_ctx);
+        EVP_PKEY_free(key);
+        return 0;
+    }
+
+    EVP_PKEY_CTX_free(pkey_ctx);
 
     // Generate cert
     cert = X509_new();
@@ -341,6 +418,9 @@ int generate_cert_for_host(const char *hostname, X509 **cert_out, EVP_PKEY **key
 SSL_CTX *create_server_ssl_context(void) {
     SSL_CTX *ctx;
 
+    // Clear any previous OpenSSL errors
+    ERR_clear_error();
+
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
     ctx = SSL_CTX_new(SSLv23_server_method());
 #else
@@ -348,18 +428,39 @@ SSL_CTX *create_server_ssl_context(void) {
 #endif
 
     if (!ctx) {
+        fprintf(stderr, "Failed to create SSL server context\n");
         print_openssl_error();
         return NULL;
     }
 
-    // Allow all SSL/TLS protocols
-    SSL_CTX_set_options(ctx, SSL_OP_NO_SSLv2);
+    // Enhanced SSL context configuration with error checking
+    long options = SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 | SSL_OP_SINGLE_DH_USE | SSL_OP_SINGLE_ECDH_USE;
+    if (SSL_CTX_set_options(ctx, options) == 0) {
+        if (config.verbose) {
+            fprintf(stderr, "Warning: Failed to set some SSL context options\n");
+            print_openssl_error();
+        }
+    }
+
+    // Set cipher list for better security
+    if (SSL_CTX_set_cipher_list(ctx, "HIGH:!aNULL:!eNULL:!EXPORT:!DES:!RC4:!MD5:!PSK:!SRP:!CAMELLIA") != 1) {
+        if (config.verbose) {
+            fprintf(stderr, "Warning: Failed to set cipher list\n");
+            print_openssl_error();
+        }
+    }
+
+    // Set session cache mode
+    SSL_CTX_set_session_cache_mode(ctx, SSL_SESS_CACHE_SERVER);
 
     return ctx;
 }
 
 SSL_CTX *create_client_ssl_context(void) {
     SSL_CTX *ctx;
+
+    // Clear any previous OpenSSL errors
+    ERR_clear_error();
 
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
     ctx = SSL_CTX_new(SSLv23_client_method());
@@ -368,12 +469,33 @@ SSL_CTX *create_client_ssl_context(void) {
 #endif
 
     if (!ctx) {
+        fprintf(stderr, "Failed to create SSL client context\n");
         print_openssl_error();
         return NULL;
     }
 
-    // Disable certificate verification for outbound connections
+    // Enhanced SSL context configuration with error checking
+    long options = SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 | SSL_OP_SINGLE_DH_USE | SSL_OP_SINGLE_ECDH_USE;
+    if (SSL_CTX_set_options(ctx, options) == 0) {
+        if (config.verbose) {
+            fprintf(stderr, "Warning: Failed to set some SSL context options\n");
+            print_openssl_error();
+        }
+    }
+
+    // Set cipher list for better security
+    if (SSL_CTX_set_cipher_list(ctx, "HIGH:!aNULL:!eNULL:!EXPORT:!DES:!RC4:!MD5:!PSK:!SRP:!CAMELLIA") != 1) {
+        if (config.verbose) {
+            fprintf(stderr, "Warning: Failed to set cipher list\n");
+            print_openssl_error();
+        }
+    }
+
+    // Disable certificate verification for outbound connections with proper error handling
     SSL_CTX_set_verify(ctx, SSL_VERIFY_NONE, NULL);
+
+    // Set session cache mode
+    SSL_CTX_set_session_cache_mode(ctx, SSL_SESS_CACHE_CLIENT);
 
     return ctx;
 }
