@@ -6,27 +6,374 @@
         xmlns:local="clr-namespace:TLS_MITM_WPF"
         mc:Ignorable="d"
         Title="TLS MITM Proxy Controller" Height="800" Width="1200"
-        WindowStartupLocation="CenterScreen">    <Grid>
+        WindowStartupLocation="CenterScreen"
+        Background="#1E1E1E">
+    <Window.Resources>
+        <!-- Dark Theme Resources -->        <SolidColorBrush x:Key="DarkBackground" Color="#1E1E1E"/>
+        <SolidColorBrush x:Key="DarkPanelBackground" Color="#252526"/>
+        <SolidColorBrush x:Key="MenuBackground" Color="#333333"/>
+        <SolidColorBrush x:Key="TextColor" Color="#E0E0E0"/>
+        <SolidColorBrush x:Key="AccentColor" Color="#570987"/>
+        <SolidColorBrush x:Key="SecondaryAccent" Color="#570987"/>
+        <SolidColorBrush x:Key="BorderBrush" Color="#3E3E3E"/>
+
+        <!-- ComboBox Toggle Button Template -->
+        <ControlTemplate x:Key="ComboBoxToggleButtonTemplate" TargetType="ToggleButton">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition />
+                    <ColumnDefinition Width="20" />
+                </Grid.ColumnDefinitions>
+                <Border Grid.ColumnSpan="2"
+                       Background="{TemplateBinding Background}"
+                       BorderBrush="{TemplateBinding BorderBrush}"
+                       BorderThickness="{TemplateBinding BorderThickness}" />
+
+                <Border Grid.Column="1"
+                       Margin="1"
+                       Background="{TemplateBinding Background}">
+                    <Path Name="Arrow"
+                         Fill="{StaticResource TextColor}"
+                         HorizontalAlignment="Center"
+                         VerticalAlignment="Center"
+                         Data="M 0 0 L 4 4 L 8 0 Z"/>
+                </Border>
+            </Grid>            <ControlTemplate.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="BorderBrush" Value="{StaticResource AccentColor}" />
+                    <Setter TargetName="Arrow" Property="Fill" Value="White" />
+                </Trigger>
+                <Trigger Property="IsChecked" Value="True">
+                    <Setter Property="BorderBrush" Value="{StaticResource AccentColor}" />
+                </Trigger>
+            </ControlTemplate.Triggers>
+        </ControlTemplate>
+
+        <!-- Button Style -->
+        <Style x:Key="DarkMenuButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="#333333"/>
+            <Setter Property="Foreground" Value="#E0E0E0"/>
+            <Setter Property="BorderBrush" Value="#444444"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="15,8"/>
+            <Setter Property="Margin" Value="5,5"/>
+            <Setter Property="MinWidth" Value="120"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="3">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"/>
+                        </Border>                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#444444"/>
+                                <Setter Property="BorderBrush" Value="{StaticResource AccentColor}"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="Background" Value="#222222"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                            <Trigger Property="IsFocused" Value="True">
+                                <Setter Property="BorderBrush" Value="{StaticResource AccentColor}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- TextBlock Style -->
+        <Style x:Key="DarkTextBlockStyle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource TextColor}"/>
+        </Style>        <!-- TextBox Style -->
+        <Style x:Key="DarkTextBoxStyle" TargetType="TextBox">
+            <Setter Property="Background" Value="#2D2D30"/>
+            <Setter Property="Foreground" Value="{StaticResource TextColor}"/>
+            <Setter Property="BorderBrush" Value="#3F3F46"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="5,3"/>
+            <Setter Property="CaretBrush" Value="{StaticResource TextColor}"/>
+            <Setter Property="SelectionBrush" Value="{StaticResource AccentColor}"/>
+            <Setter Property="SelectionOpacity" Value="0.7"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="BorderBrush" Value="{StaticResource AccentColor}"/>
+                </Trigger>
+                <Trigger Property="IsKeyboardFocused" Value="True">
+                    <Setter Property="BorderBrush" Value="{StaticResource AccentColor}"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style><!-- ComboBox Style -->
+        <Style x:Key="DarkComboBoxStyle" TargetType="ComboBox">
+            <Setter Property="Background" Value="#2D2D30"/>
+            <Setter Property="Foreground" Value="{StaticResource TextColor}"/>
+            <Setter Property="BorderBrush" Value="#3F3F46"/>
+            <Setter Property="BorderThickness" Value="1"/>
+
+            <!-- Override the control template to ensure dark styling throughout -->
+            <Setter Property="Template">
+                <Setter.Value>                    <ControlTemplate TargetType="ComboBox">
+                        <Grid Name="MainGrid">
+                            <ToggleButton IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                         Name="ToggleButton"
+                                         Template="{StaticResource ComboBoxToggleButtonTemplate}"
+                                         Background="{TemplateBinding Background}"
+                                         BorderBrush="{TemplateBinding BorderBrush}"
+                                         BorderThickness="{TemplateBinding BorderThickness}"
+                                         Focusable="false"
+                                         ClickMode="Press"/>
+
+                            <ContentPresenter Name="ContentSite"
+                                            Content="{TemplateBinding SelectionBoxItem}"
+                                            ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                            ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
+                                            VerticalAlignment="Center"
+                                            HorizontalAlignment="Left"
+                                            Margin="10,3,30,3"/>
+
+                            <!-- Dropdown popup -->
+                            <Popup Name="PART_Popup"
+                                  IsOpen="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                  AllowsTransparency="True"
+                                  PopupAnimation="Slide"
+                                  Focusable="False"
+                                  Placement="Bottom">
+                                <Border Background="#2D2D30"
+                                       BorderBrush="#3F3F46"
+                                       BorderThickness="1"
+                                       MaxHeight="{TemplateBinding MaxDropDownHeight}"
+                                       MinWidth="{Binding ActualWidth, ElementName=MainGrid}">
+                                    <ScrollViewer SnapsToDevicePixels="True"
+                                                 Margin="0"
+                                                 Background="#2D2D30">
+                                        <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained"/>
+                                    </ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Grid>                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.5"/>
+                            </Trigger>
+                            <Trigger Property="HasItems" Value="false">
+                                <Setter TargetName="PART_Popup" Property="IsOpen" Value="false" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+              <!-- Style the dropdown items -->
+            <Setter Property="ItemContainerStyle">
+                <Setter.Value>
+                    <Style TargetType="ComboBoxItem">
+                        <Setter Property="Background" Value="#2D2D30"/>
+                        <Setter Property="Foreground" Value="{StaticResource TextColor}"/>
+                        <Setter Property="Padding" Value="5,3"/>
+                        <Setter Property="HorizontalContentAlignment" Value="Left"/>
+                        <Setter Property="VerticalContentAlignment" Value="Center"/>
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ComboBoxItem">
+                                    <Border Name="Border"
+                                           Background="{TemplateBinding Background}"
+                                           BorderThickness="0"
+                                           Padding="{TemplateBinding Padding}">
+                                        <ContentPresenter />
+                                    </Border>                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="Border" Property="Background" Value="#3E3E40"/>
+                                            <Setter Property="Foreground" Value="White"/>
+                                        </Trigger>
+                                        <Trigger Property="IsSelected" Value="True">
+                                            <Setter TargetName="Border" Property="Background" Value="#007ACC"/>
+                                            <Setter Property="Foreground" Value="White"/>
+                                        </Trigger>
+                                        <Trigger Property="IsEnabled" Value="False">
+                                            <Setter Property="Foreground" Value="#666666"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </Setter.Value>
+            </Setter>
+        </Style>        <!-- ListView Style -->
+        <Style x:Key="DarkListViewStyle" TargetType="ListView">
+            <Setter Property="Background" Value="#252526"/>
+            <Setter Property="Foreground" Value="{StaticResource TextColor}"/>
+            <Setter Property="BorderBrush" Value="#3F3F46"/>
+        </Style>
+
+        <!-- GridViewColumnHeader Style (for ListView headers) -->
+        <Style x:Key="GridViewColumnHeaderStyle" TargetType="GridViewColumnHeader">
+            <Setter Property="Background" Value="#2D2D30"/>
+            <Setter Property="Foreground" Value="{StaticResource TextColor}"/>
+            <Setter Property="Padding" Value="8,5"/>
+            <Setter Property="BorderBrush" Value="#3F3F46"/>
+            <Setter Property="BorderThickness" Value="0,0,1,1"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#007ACC"/>
+                    <Setter Property="Foreground" Value="#570987"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#007ACC"/>
+                    <Setter Property="Foreground" Value="White"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- GroupBox Style -->
+        <Style x:Key="DarkGroupBoxStyle" TargetType="GroupBox">
+            <Setter Property="Foreground" Value="{StaticResource TextColor}"/>
+            <Setter Property="BorderBrush" Value="#3F3F46"/>
+        </Style>        <!-- CheckBox Style -->
+        <Style x:Key="DarkCheckBoxStyle" TargetType="CheckBox">
+            <Setter Property="Foreground" Value="{StaticResource TextColor}"/>
+        </Style>
+          <!-- Standard Button Style for all regular buttons (non-menu buttons) -->
+        <Style x:Key="DarkButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="#2D2D30"/>
+            <Setter Property="Foreground" Value="{StaticResource TextColor}"/>
+            <Setter Property="BorderBrush" Value="#3F3F46"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="10,5"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="2">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            Margin="{TemplateBinding Padding}"/>
+                        </Border>                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#3E3E42"/>
+                                <Setter Property="BorderBrush" Value="{StaticResource AccentColor}"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="Background" Value="#222222"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.6"/>
+                            </Trigger>
+                            <Trigger Property="IsFocused" Value="True">
+                                <Setter Property="BorderBrush" Value="{StaticResource AccentColor}"/>
+                                <Setter Property="BorderThickness" Value="1"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Green button style for Start functions -->
+        <Style x:Key="GreenButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="#0E6027"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderBrush" Value="#3F3F46"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="15,8"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="2">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            Margin="{TemplateBinding Padding}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#128A38"/>
+                                <Setter Property="BorderBrush" Value="{StaticResource AccentColor}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="Background" Value="#084016"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.6"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Red button style for Stop functions -->
+        <Style x:Key="RedButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="#8B2E2E"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderBrush" Value="#3F3F46"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="15,8"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="2">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            Margin="{TemplateBinding Padding}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#A83232"/>
+                                <Setter Property="BorderBrush" Value="{StaticResource AccentColor}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="Background" Value="#5A1E1E"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.6"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Grid Background="{StaticResource DarkBackground}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
-        </Grid.RowDefinitions>        <!-- Top Menu Bar -->
-        <Border Grid.Row="0" Background="#F5F5F5" BorderBrush="#E0E0E0" BorderThickness="0,0,0,1">
+        </Grid.RowDefinitions>
+
+        <!-- Top Menu Bar -->
+        <Border Grid.Row="0" Background="{StaticResource MenuBackground}" BorderBrush="#555555"
+                BorderThickness="0,0,0,1">
             <Grid Margin="10,5">
                 <!-- Navigation Menu -->
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button Name="ProxyControlButton" Content="Proxy Control" Margin="5,5" Padding="15,8"
-                            Click="NavigationButton_Click" Tag="ProxyControl" MinWidth="120"/>
-                    <Button Name="ConfigurationButton" Content="Configuration" Margin="5,5" Padding="15,8"
-                            Click="NavigationButton_Click" Tag="Configuration" MinWidth="120"/>
-                    <Button Name="ConnectionsButton" Content="Connections" Margin="5,5" Padding="15,8"
-                            Click="NavigationButton_Click" Tag="Connections" MinWidth="120"/>
-                    <Button Name="LogsButton" Content="Logs" Margin="5,5" Padding="15,8"
-                            Click="NavigationButton_Click" Tag="Logs" MinWidth="120"/>
-                    <Button Name="ProxyHistoryButton" Content="Proxy History" Margin="5,5" Padding="15,8"
-                            Click="NavigationButton_Click" Tag="ProxyHistory" MinWidth="120"/>
-                </StackPanel>
+                    <Button Name="ProxyControlButton" Content="Proxy Control"
+                            Style="{StaticResource DarkMenuButtonStyle}"
+                            Click="NavigationButton_Click" Tag="ProxyControl"/>
+                    <Button Name="ConfigurationButton" Content="Configuration"
+                            Style="{StaticResource DarkMenuButtonStyle}"
+                            Click="NavigationButton_Click" Tag="Configuration"/>
+                    <Button Name="ConnectionsButton" Content="Connections"
+                            Style="{StaticResource DarkMenuButtonStyle}"
+                            Click="NavigationButton_Click" Tag="Connections"/>
+                    <Button Name="LogsButton" Content="Logs"
+                            Style="{StaticResource DarkMenuButtonStyle}"
+                            Click="NavigationButton_Click" Tag="Logs"/>
+                    <Button Name="ProxyHistoryButton" Content="Proxy History"
+                            Style="{StaticResource DarkMenuButtonStyle}"
+                            Click="NavigationButton_Click" Tag="ProxyHistory"/>                </StackPanel>
             </Grid>
         </Border>
 
@@ -34,7 +381,8 @@
         <Grid Grid.Row="1" Margin="20">
             <!-- Proxy Control Panel -->
             <StackPanel Name="ProxyControlPanel" Visibility="Visible">
-                <TextBlock Text="Proxy Control" FontSize="24" FontWeight="Bold" Margin="0,0,0,20"/>
+                <TextBlock Text="Proxy Control" FontSize="24" FontWeight="Bold" Margin="0,0,0,20"
+                           Style="{StaticResource DarkTextBlockStyle}"/>
 
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -43,42 +391,44 @@
                     </Grid.ColumnDefinitions>
 
                     <StackPanel Grid.Column="0" Margin="0,0,10,0">
-                        <TextBlock Text="Proxy Configuration" FontWeight="Bold" FontSize="16" Margin="0,0,0,10"/>
+                        <TextBlock Text="Proxy Configuration" FontWeight="Bold" FontSize="16" Margin="0,0,0,10"
+                                   Style="{StaticResource DarkTextBlockStyle}"/>
 
                         <Grid Margin="0,0,0,10">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Text="Bind Address:" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                            <ComboBox Name="BindAddressComboBox" Grid.Column="1" Height="25"/>
-                            <Button Name="RefreshInterfacesButton" Content="Refresh Interfaces" Grid.Column="2" Margin="5,0,0,0"
-                                    Click="RefreshInterfaces_Click" Padding="8,0"/>
+                            </Grid.ColumnDefinitions>                            <TextBlock Text="Bind Address:" VerticalAlignment="Center" Margin="0,0,10,0"
+                                       Style="{StaticResource DarkTextBlockStyle}"/>
+                            <ComboBox Name="BindAddressComboBox" Grid.Column="1" Height="25"
+                                     Style="{StaticResource DarkComboBoxStyle}"/>                            <Button Name="RefreshInterfacesButton" Content="Refresh Interfaces" Grid.Column="2"
+                                    Margin="5,0,0,0" Click="RefreshInterfaces_Click" Padding="8,0"
+                                    Style="{StaticResource DarkButtonStyle}"/>
                         </Grid>
 
                         <Grid Margin="0,0,0,10">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Text="Port:" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                            <TextBox Name="PortTextBox" Grid.Column="1" Text="4444" Height="25"/>
-                        </Grid>
+                            </Grid.ColumnDefinitions>                            <TextBlock Text="Port:" VerticalAlignment="Center" Margin="0,0,10,0"
+                                      Style="{StaticResource DarkTextBlockStyle}"/>
+                            <TextBox Name="PortTextBox" Grid.Column="1" Text="4444" Height="25"
+                                    Style="{StaticResource DarkTextBoxStyle}"/>
+                        </Grid>                        <Button Name="ApplyConfigButton" Content="Apply Configuration" Margin="0,10,0,10"
+                                Click="ApplyConfig_Click" Padding="15,8" HorizontalAlignment="Left"
+                                Style="{StaticResource DarkButtonStyle}"/>
 
-                        <Button Name="ApplyConfigButton" Content="Apply Configuration" Margin="0,10,0,10"
-                                Click="ApplyConfig_Click" Padding="15,8" HorizontalAlignment="Left"/>
-
-                        <StackPanel Orientation="Horizontal" Margin="0,20,0,0">
-                            <Button Name="StartProxyButton" Content="Start Proxy" Margin="0,0,10,0" Padding="15,8"
-                                    Background="Green" Foreground="White" Click="StartProxy_Click"/>
-                            <Button Name="StopProxyButton" Content="Stop Proxy" Margin="0,0,10,0" Padding="15,8"
-                                    Background="Red" Foreground="White" Click="StopProxy_Click" IsEnabled="False"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,20,0,0">                            <Button Name="StartProxyButton" Content="Start Proxy" Margin="0,0,10,0"
+                                    Click="StartProxy_Click"
+                                    Style="{StaticResource GreenButtonStyle}"/>
+                            <Button Name="StopProxyButton" Content="Stop Proxy" Margin="0,0,10,0"
+                                    Click="StopProxy_Click" IsEnabled="False"
+                                    Style="{StaticResource RedButtonStyle}"/>
                         </StackPanel>
-                    </StackPanel>
-
-                    <StackPanel Grid.Column="1" Margin="10,0,0,0">
-                        <TextBlock Text="Statistics" FontWeight="Bold" FontSize="16" Margin="0,0,0,10"/>
+                    </StackPanel>                    <StackPanel Grid.Column="1" Margin="10,0,0,0">
+                        <TextBlock Text="Statistics" FontWeight="Bold" FontSize="16" Margin="0,0,0,10"
+                                  Style="{StaticResource DarkTextBlockStyle}"/>
 
                         <Grid>
                             <Grid.ColumnDefinitions>
@@ -92,61 +442,75 @@
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
 
-                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Active Connections:" Margin="0,0,10,5"/>
-                            <TextBlock Grid.Row="0" Grid.Column="1" Name="ActiveConnectionsText" Text="0"/>
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Active Connections:" Margin="0,0,10,5"
+                                      Style="{StaticResource DarkTextBlockStyle}"/>
+                            <TextBlock Grid.Row="0" Grid.Column="1" Name="ActiveConnectionsText" Text="0"
+                                      Style="{StaticResource DarkTextBlockStyle}"/>
 
-                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Total Connections:" Margin="0,0,10,5"/>
-                            <TextBlock Grid.Row="1" Grid.Column="1" Name="TotalConnectionsText" Text="0"/>
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Total Connections:" Margin="0,0,10,5"
+                                      Style="{StaticResource DarkTextBlockStyle}"/>
+                            <TextBlock Grid.Row="1" Grid.Column="1" Name="TotalConnectionsText" Text="0"
+                                      Style="{StaticResource DarkTextBlockStyle}"/>
 
-                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Bytes Sent:" Margin="0,0,10,5"/>
-                            <TextBlock Grid.Row="2" Grid.Column="1" Name="BytesSentText" Text="0"/>
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Bytes Sent:" Margin="0,0,10,5"
+                                      Style="{StaticResource DarkTextBlockStyle}"/>
+                            <TextBlock Grid.Row="2" Grid.Column="1" Name="BytesSentText" Text="0"
+                                      Style="{StaticResource DarkTextBlockStyle}"/>
 
-                            <TextBlock Grid.Row="3" Grid.Column="0" Text="Bytes Received:" Margin="0,0,10,5"/>
-                            <TextBlock Grid.Row="3" Grid.Column="1" Name="BytesReceivedText" Text="0"/>
+                            <TextBlock Grid.Row="3" Grid.Column="0" Text="Bytes Received:" Margin="0,0,10,5"
+                                      Style="{StaticResource DarkTextBlockStyle}"/>
+                            <TextBlock Grid.Row="3" Grid.Column="1" Name="BytesReceivedText" Text="0"
+                                      Style="{StaticResource DarkTextBlockStyle}"/>
                         </Grid>
                     </StackPanel>
                 </Grid>
             </StackPanel>
-              <!-- Configuration Panel -->
-            <StackPanel Name="ConfigurationPanel" Visibility="Collapsed">
-                <TextBlock Text="Configuration" FontSize="24" FontWeight="Bold" Margin="0,0,0,20"/>
+              <!-- Configuration Panel -->            <StackPanel Name="ConfigurationPanel" Visibility="Collapsed">
+                <TextBlock Text="Configuration" FontSize="24" FontWeight="Bold" Margin="0,0,0,20"
+                          Style="{StaticResource DarkTextBlockStyle}"/>
 
                 <StackPanel>
-                    <GroupBox Header="Advanced Settings" Padding="10">
+                    <GroupBox Header="Advanced Settings" Padding="10" Style="{StaticResource DarkGroupBoxStyle}">
                         <StackPanel>
-                            <CheckBox Name="VerboseModeCheckBox" Content="Verbose Mode" Margin="0,5" />
-                            <CheckBox Name="AutoStartProxyCheckBox" Content="Auto-start Proxy" Margin="0,5" />
+                            <CheckBox Name="VerboseModeCheckBox" Content="Verbose Mode" Margin="0,5"
+                                     Style="{StaticResource DarkCheckBoxStyle}" />
+                            <CheckBox Name="AutoStartProxyCheckBox" Content="Auto-start Proxy" Margin="0,5"
+                                     Style="{StaticResource DarkCheckBoxStyle}" />
                         </StackPanel>
                     </GroupBox>
 
-                    <GroupBox Header="Log File Settings" Margin="0,20,0,0" Padding="10">
+                    <GroupBox Header="Log File Settings" Margin="0,20,0,0" Padding="10"
+                             Style="{StaticResource DarkGroupBoxStyle}">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <TextBlock Text="Log File:" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                            <TextBox Name="LogFileTextBox" Grid.Column="1" Text="tls_proxy.log" Height="25"/>
-                            <Button Name="BrowseLogFileButton" Content="Browse" Grid.Column="2" Margin="5,0,0,0"
-                                    Click="BrowseLogFile_Click" Height="25"/>
+                            <TextBlock Text="Log File:" VerticalAlignment="Center" Margin="0,0,10,0"
+                                      Style="{StaticResource DarkTextBlockStyle}"/>
+                            <TextBox Name="LogFileTextBox" Grid.Column="1" Text="tls_proxy.log" Height="25"
+                                    Style="{StaticResource DarkTextBoxStyle}"/>                            <Button Name="BrowseLogFileButton" Content="Browse" Grid.Column="2" Margin="5,0,0,0"
+                                    Click="BrowseLogFile_Click" Height="25"
+                                    Style="{StaticResource DarkButtonStyle}"/>
                         </Grid>
                     </GroupBox>
                 </StackPanel>
             </StackPanel>
 
-            <!-- Connections Panel -->
-            <StackPanel Name="ConnectionsPanel" Visibility="Collapsed">
-                <TextBlock Text="Connections" FontSize="24" FontWeight="Bold" Margin="0,0,0,20"/>
+            <!-- Connections Panel -->            <StackPanel Name="ConnectionsPanel" Visibility="Collapsed">
+                <TextBlock Text="Connections" FontSize="24" FontWeight="Bold" Margin="0,0,0,20"
+                          Style="{StaticResource DarkTextBlockStyle}"/>
 
-                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                    <Button Name="ClearConnectionsButton" Content="Clear Connections" Margin="0,0,10,0" Click="ClearConnections_Click"/>
-                    <Button Name="ExportConnectionsButton" Content="Export Connections" Click="ExportConnections_Click"/>
-                </StackPanel>
-
-                <ListView Name="ConnectionsList" Height="600">
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">                    <Button Name="ClearConnectionsButton" Content="Clear Connections" Margin="0,0,10,0"
+                           Click="ClearConnections_Click"
+                           Style="{StaticResource DarkButtonStyle}"/>
+                    <Button Name="ExportConnectionsButton" Content="Export Connections"
+                           Click="ExportConnections_Click"
+                           Style="{StaticResource DarkButtonStyle}"/>
+                </StackPanel>                <ListView Name="ConnectionsList" Height="600" Style="{StaticResource DarkListViewStyle}">
                     <ListView.View>
-                        <GridView>
+                        <GridView ColumnHeaderContainerStyle="{StaticResource GridViewColumnHeaderStyle}">
                             <GridViewColumn Header="Timestamp" Width="150" DisplayMemberBinding="{Binding Timestamp}"/>
                             <GridViewColumn Header="Event" Width="100" DisplayMemberBinding="{Binding Event}"/>
                             <GridViewColumn Header="Connection ID" Width="100" DisplayMemberBinding="{Binding ConnectionId}"/>
@@ -158,8 +522,7 @@
                     </ListView.View>
                 </ListView>
             </StackPanel>
-              <!-- Logs Panel -->
-            <StackPanel Name="LogsPanel" Visibility="Collapsed">
+              <!-- Logs Panel -->            <StackPanel Name="LogsPanel" Visibility="Collapsed">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -168,22 +531,28 @@
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
 
-                    <TextBlock Grid.Row="0" Text="Logs" FontSize="24" FontWeight="Bold" Margin="0,0,0,20"/>
+                    <TextBlock Grid.Row="0" Text="Logs" FontSize="24" FontWeight="Bold" Margin="0,0,0,20"
+                              Style="{StaticResource DarkTextBlockStyle}"/>
 
-                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10">
-                        <Button Name="ClearLogsButton" Content="Clear Logs" Margin="0,0,10,0" Click="ClearLogs_Click"/>
-                        <Button Name="ExportLogsButton" Content="Export Logs" Click="ExportLogs_Click"/>
-                        <CheckBox Name="AutoScrollCheckBox" Content="Auto-scroll" IsChecked="True" Margin="20,0,0,0" VerticalAlignment="Center"/>
+                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10">                        <Button Name="ClearLogsButton" Content="Clear Logs" Margin="0,0,10,0"
+                               Click="ClearLogs_Click"
+                               Style="{StaticResource DarkButtonStyle}"/>
+                        <Button Name="ExportLogsButton" Content="Export Logs"
+                               Click="ExportLogs_Click"
+                               Style="{StaticResource DarkButtonStyle}"/>
+                        <CheckBox Name="AutoScrollCheckBox" Content="Auto-scroll" IsChecked="True"
+                                 Margin="20,0,0,0" VerticalAlignment="Center"
+                                 Style="{StaticResource DarkCheckBoxStyle}"/>
                     </StackPanel>
 
-                    <TextBlock Grid.Row="2" Text="Status Messages" FontWeight="Bold" Margin="0,10,0,5"/>
+                    <TextBlock Grid.Row="2" Text="Status Messages" FontWeight="Bold" Margin="0,10,0,5"
+                              Style="{StaticResource DarkTextBlockStyle}"/>
                     <TextBox Grid.Row="3" Name="StatusLogTextBox" TextWrapping="Wrap" IsReadOnly="True"
-                              Height="150" VerticalScrollBarVisibility="Auto"/>
-
-                    <TextBlock Grid.Row="4" Text="System Log Entries" FontWeight="Bold" Margin="0,20,0,5"/>
-                    <ListView Grid.Row="5" Name="LogsList" Height="350">
+                              Height="150" VerticalScrollBarVisibility="Auto"
+                              Style="{StaticResource DarkTextBoxStyle}"/>                    <TextBlock Grid.Row="4" Text="System Log Entries" FontWeight="Bold" Margin="0,20,0,5"
+                              Style="{StaticResource DarkTextBlockStyle}"/>                    <ListView Grid.Row="5" Name="LogsList" Height="350" Style="{StaticResource DarkListViewStyle}">
                         <ListView.View>
-                            <GridView>
+                            <GridView ColumnHeaderContainerStyle="{StaticResource GridViewColumnHeaderStyle}">
                                 <GridViewColumn Header="Time" Width="150" DisplayMemberBinding="{Binding Timestamp}"/>
                                 <GridViewColumn Header="Level" Width="80" DisplayMemberBinding="{Binding Level}"/>
                                 <GridViewColumn Header="Message" Width="600" DisplayMemberBinding="{Binding Message}"/>
@@ -193,18 +562,19 @@
                 </Grid>
             </StackPanel>
 
-            <!-- Proxy History Panel -->
-            <StackPanel Name="ProxyHistoryPanel" Visibility="Collapsed">
-                <TextBlock Text="Proxy History" FontSize="24" FontWeight="Bold" Margin="0,0,0,20"/>
+            <!-- Proxy History Panel -->            <StackPanel Name="ProxyHistoryPanel" Visibility="Collapsed">
+                <TextBlock Text="Proxy History" FontSize="24" FontWeight="Bold" Margin="0,0,0,20"
+                          Style="{StaticResource DarkTextBlockStyle}"/>
 
-                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                    <Button Name="ClearHistoryButton" Content="Clear History" Margin="0,0,10,0" Click="ClearHistory_Click"/>
-                    <Button Name="ExportHistoryButton" Content="Export History" Click="ExportHistory_Click"/>
-                </StackPanel>
-
-                <ListView Name="HistoryList" Height="600">
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">                    <Button Name="ClearHistoryButton" Content="Clear History" Margin="0,0,10,0"
+                           Click="ClearHistory_Click"
+                           Style="{StaticResource DarkButtonStyle}"/>
+                    <Button Name="ExportHistoryButton" Content="Export History"
+                           Click="ExportHistory_Click"
+                           Style="{StaticResource DarkButtonStyle}"/>
+                </StackPanel>                <ListView Name="HistoryList" Height="600" Style="{StaticResource DarkListViewStyle}">
                     <ListView.View>
-                        <GridView>
+                        <GridView ColumnHeaderContainerStyle="{StaticResource GridViewColumnHeaderStyle}">
                             <GridViewColumn Header="Timestamp" Width="150" DisplayMemberBinding="{Binding Timestamp}"/>
                             <GridViewColumn Header="Source IP" Width="120" DisplayMemberBinding="{Binding SourceIp}"/>
                             <GridViewColumn Header="Destination IP" Width="120" DisplayMemberBinding="{Binding DestinationIp}"/>
@@ -213,11 +583,12 @@
                             <GridViewColumn Header="Data" Width="300" DisplayMemberBinding="{Binding Data}"/>
                         </GridView>
                     </ListView.View>
-                </ListView>            </StackPanel>
+                </ListView></StackPanel>
         </Grid>
 
         <!-- Bottom Status Bar -->
-        <Border Grid.Row="2" Background="#F5F5F5" BorderBrush="#E0E0E0" BorderThickness="0,1,0,0">
+        <Border Grid.Row="2" Background="{StaticResource MenuBackground}" BorderBrush="#444444"
+               BorderThickness="0,1,0,0">
             <Grid Margin="10,5">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
@@ -227,16 +598,16 @@
 
                 <!-- Status Text -->
                 <TextBlock Grid.Column="0" Name="StatusText" Text="Ready" VerticalAlignment="Center"
-                           FontWeight="Normal" Foreground="#333333"/>
+                           Style="{StaticResource DarkTextBlockStyle}"/>
 
                 <!-- DLL Status -->
                 <TextBlock Grid.Column="1" Name="DllStatusText" Text="DLL Status: Not Loaded"
-                           VerticalAlignment="Center" FontWeight="Normal" Foreground="#666666"
+                           VerticalAlignment="Center" Foreground="#C0C0C0"
                            Margin="20,0,20,0"/>
 
                 <!-- Current Time -->
                 <TextBlock Grid.Column="2" Name="CurrentTimeText" Text="" VerticalAlignment="Center"
-                           FontWeight="Normal" Foreground="#666666" Margin="10,0,0,0"/>
+                           Foreground="{StaticResource SecondaryAccent}" Margin="10,0,0,0"/>
             </Grid>
         </Border>
     </Grid>
