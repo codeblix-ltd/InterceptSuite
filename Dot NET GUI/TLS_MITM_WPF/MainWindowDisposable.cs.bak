@@ -1,0 +1,69 @@
+// filepath: d:\Windows TLS\Dot NET GUI\TLS_MITM_WPF\MainWindowDisposable.cs
+using System;
+
+namespace TLS_MITM_WPF
+{
+    // Implementation of IDisposable for MainWindow
+    public partial class MainWindow
+    {
+        private bool _disposed = false;
+
+        // Implement IDisposable pattern
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!_disposed)
+            {
+                if (disposing)
+                {
+                    // Dispose managed resources
+                    _updateTimer?.Stop();
+                    _updateTimer = null;
+                    
+                    // Clean up the DLL manager
+                    if (_dllManager != null)
+                    {
+                        // Stop proxy if running
+                        if (_proxyRunning)
+                        {
+                            _dllManager.StopProxy();
+                            _proxyRunning = false;
+                        }
+                        
+                        _dllManager.Dispose();
+                        _dllManager = null;
+                    }
+                    
+                    // Clear collections
+                    _logEvents.Clear();
+                    _connectionEvents.Clear();
+                    _historyEvents.Clear();
+                    _statusMessages.Clear();
+                }
+
+                // Free unmanaged resources and set large fields to null
+                _disposed = true;
+            }
+        }
+
+        // Public implementation of Dispose pattern
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        // Destructor
+        ~MainWindow()
+        {
+            Dispose(false);
+        }
+
+        // Override Window's closing event to ensure resources are properly disposed
+        protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
+        {
+            // Make sure to stop the proxy and dispose resources when the window closes
+            Dispose();
+            base.OnClosing(e);
+        }
+    }
+}

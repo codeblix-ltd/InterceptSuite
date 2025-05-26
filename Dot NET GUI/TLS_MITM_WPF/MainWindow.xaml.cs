@@ -16,7 +16,7 @@ using Microsoft.Win32;
 
 namespace TLS_MITM_WPF;
 
-public partial class MainWindow : Window, INotifyPropertyChanged
+public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 {
     // Data models for logs
     public class LogEvent : INotifyPropertyChanged
@@ -160,123 +160,32 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         get => _bytesReceived;
         set { _bytesReceived = value; OnPropertyChanged(nameof(BytesReceived)); }
-    }
-
-    // DLL interaction
-    private bool _proxyDllLoaded = false;
+    }    // DLL interaction
     private bool _proxyRunning = false;
+    private DllManager? _dllManager = null;
 
     // Timer for UI updates
     private DispatcherTimer? _updateTimer = null;
 
-    // DLL P/Invoke declarations
-    [DllImport("tls_proxy.dll", CallingConvention = CallingConvention.Cdecl)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool start_proxy();
-
-    [DllImport("tls_proxy.dll", CallingConvention = CallingConvention.Cdecl)]
-    private static extern void stop_proxy();
-
-    [DllImport("tls_proxy.dll", CallingConvention = CallingConvention.Cdecl)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool set_config(
-        [MarshalAs(UnmanagedType.LPStr)] string bind_addr,
-        int port,
-        [MarshalAs(UnmanagedType.LPStr)] string log_file);
-
-    [DllImport("tls_proxy.dll", CallingConvention = CallingConvention.Cdecl)]
-    private static extern int get_system_ips(
-        [MarshalAs(UnmanagedType.LPStr)] StringBuilder buffer,
-        int buffer_size);
-
-    [DllImport("tls_proxy.dll", CallingConvention = CallingConvention.Cdecl)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool get_proxy_config(
-        [MarshalAs(UnmanagedType.LPStr)] StringBuilder bind_addr,
-        ref int port,
-        [MarshalAs(UnmanagedType.LPStr)] StringBuilder log_file);
-
-    [DllImport("tls_proxy.dll", CallingConvention = CallingConvention.Cdecl)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool get_proxy_stats(
-        ref int connections,
-        ref int bytes_transferred);
-
-    // Callback function delegates
-    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    private delegate void LogCallbackDelegate(
-        [MarshalAs(UnmanagedType.LPStr)] string timestamp,
-        [MarshalAs(UnmanagedType.LPStr)] string src_ip,
-        [MarshalAs(UnmanagedType.LPStr)] string dst_ip,
-        int dst_port,
-        [MarshalAs(UnmanagedType.LPStr)] string message_type,
-        [MarshalAs(UnmanagedType.LPStr)] string data);
-
-    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    private delegate void StatusCallbackDelegate([MarshalAs(UnmanagedType.LPStr)] string message);
-
-    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    private delegate void ConnectionCallbackDelegate(
-        [MarshalAs(UnmanagedType.LPStr)] string client_ip,
-        int client_port,
-        [MarshalAs(UnmanagedType.LPStr)] string target_host,
-        int target_port,
-        int connection_id);
-
-    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    private delegate void StatsCallbackDelegate(
-        int total_connections,
-        int active_connections,
-        int total_bytes_transferred);
-
-    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    private delegate void DisconnectCallbackDelegate(
-        int connection_id,
-        [MarshalAs(UnmanagedType.LPStr)] string reason);
-
-    [DllImport("tls_proxy.dll", CallingConvention = CallingConvention.Cdecl)]
-    private static extern void set_log_callback(LogCallbackDelegate callback);
-
-    [DllImport("tls_proxy.dll", CallingConvention = CallingConvention.Cdecl)]
-    private static extern void set_status_callback(StatusCallbackDelegate callback);
-
-    [DllImport("tls_proxy.dll", CallingConvention = CallingConvention.Cdecl)]
-    private static extern void set_connection_callback(ConnectionCallbackDelegate callback);
-
-    [DllImport("tls_proxy.dll", CallingConvention = CallingConvention.Cdecl)]
-    private static extern void set_stats_callback(StatsCallbackDelegate callback);
-
-    [DllImport("tls_proxy.dll", CallingConvention = CallingConvention.Cdecl)]
-    private static extern void set_disconnect_callback(DisconnectCallbackDelegate callback);
-
-    // Callback function instances
-    private readonly LogCallbackDelegate _logCallback;
-    private readonly StatusCallbackDelegate _statusCallback;
-    private readonly ConnectionCallbackDelegate _connectionCallback;
-    private readonly StatsCallbackDelegate _statsCallback;
-    private readonly DisconnectCallbackDelegate _disconnectCallback;
-
     public event PropertyChangedEventHandler? PropertyChanged;
     protected virtual void OnPropertyChanged(string propertyName) =>
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-
-    public MainWindow()
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));    public MainWindow()
     {
         InitializeComponent();
 
-        // Initialize callbacks
-        _logCallback = LogCallback;
-        _statusCallback = StatusCallback;
-        _connectionCallback = ConnectionCallback;
-        _statsCallback = StatsCallback;
-        _disconnectCallback = DisconnectCallback;
+        // Initialize DLL manager with callbacks
+        _dllManager = new DllManager(
+            LogCallback,
+            StatusCallback,
+            ConnectionCallback,
+            StatsCallback,
+            DisconnectCallback
+        );
 
         // Initialize ListViews
         ConnectionsList.ItemsSource = _connectionEvents;
         LogsList.ItemsSource = _logEvents;
-        HistoryList.ItemsSource = _historyEvents;
-
-        // Initialize timer for UI updates
+        HistoryList.ItemsSource = _historyEvents;        // Initialize timer for UI updates
         _updateTimer = new DispatcherTimer();
         _updateTimer.Interval = TimeSpan.FromMilliseconds(100);
         _updateTimer.Tick += UpdateTimer_Tick;
@@ -285,21 +194,19 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         // Initial navigation selection
         ProxyControlButton.IsEnabled = false;  // Mark as selected
 
-        // Load network interfaces
-        RefreshNetworkInterfaces();
-
-        // Try to load DLL automatically
-        _ = LoadDllAsync();
-    }
-
-    private void UpdateTimer_Tick(object? sender, EventArgs e)
+        // Try to load DLL automatically first, then update network interfaces when DLL is loaded
+        _ = LoadDllAndInitializeAsync();
+    }    private void UpdateTimer_Tick(object? sender, EventArgs e)
     {
+        // Update current time in status bar
+        CurrentTimeText.Text = DateTime.Now.ToString("HH:mm:ss");
+
         // Update UI elements with latest data
-        if (_proxyDllLoaded && _proxyRunning)
+        if (_dllManager != null && _dllManager.IsLoaded && _proxyRunning)
         {
             int connections = 0;
             int bytes = 0;
-            if (get_proxy_stats(ref connections, ref bytes))
+            if (_dllManager.GetProxyStats(ref connections, ref bytes))
             {
                 TotalConnections = connections;
                 ActiveConnections = connections; // In a real app, these might be different
@@ -313,85 +220,66 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 BytesReceivedText.Text = BytesReceived.ToString();
             }
         }
-    }
-
-    private async Task LoadDllAsync()
+    }private async Task LoadDllAsync()
     {
-        await Task.Run(() =>
+        if (_dllManager == null)
         {
-            try
-            {
-                string? dllPath = FindDllPath();
-                if (dllPath == null)
-                {
-                    Dispatcher.Invoke(() =>
-                    {
-                        AddStatusMessage("[ERROR] Could not find tls_proxy.dll");
-                    });
-                    return;
-                }                // Add directory for loading dependencies
-                string? dllDirectory = Path.GetDirectoryName(dllPath);
-                if (dllDirectory != null)
-                {
-                    AddDllDirectory(dllDirectory);
-                }
-
-                // Actually loading the DLL is handled by P/Invoke automatically
-
-                // Try to initialize by setting callbacks
-                set_log_callback(_logCallback);
-                set_status_callback(_statusCallback);
-                set_connection_callback(_connectionCallback);
-                set_stats_callback(_statsCallback);
-                set_disconnect_callback(_disconnectCallback);
-
-                _proxyDllLoaded = true;
-
-                Dispatcher.Invoke(() =>
-                {
-                    DllStatusText.Text = "DLL: Loaded";
-                    DllStatusText.Foreground = System.Windows.Media.Brushes.Green;
-                    AddStatusMessage("[SYSTEM] DLL loaded successfully");
-                });
-            }
-            catch (Exception ex)
-            {
-                Dispatcher.Invoke(() =>
-                {
-                    AddStatusMessage($"[ERROR] Failed to load DLL: {ex.Message}");
-                });
-            }
-        });
-    }
-
-    // Helper to find DLL in possible locations
-    private string? FindDllPath()
-    {
-        // Try possible paths
-        string[] possiblePaths = new[]
-        {
-            @"d:\Windows TLS\build\Debug\tls_proxy.dll",
-            @"d:\Windows TLS\build\Release\tls_proxy.dll",
-            Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "tls_proxy.dll"),
-            "tls_proxy.dll"
-        };
-
-        foreach (string path in possiblePaths)
-        {
-            if (File.Exists(path))
-                return path;
+            Dispatcher.Invoke(() =>
+                AddStatusMessage("[ERROR] DLL Manager not initialized")
+            );
+            return;
         }
 
-        return null;
-    }
+        var result = await _dllManager.LoadDllAsync();
 
-    // Helper to add DLL search paths
-    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-    private static extern bool AddDllDirectory(string lpPathName);
-
-    private void RefreshNetworkInterfaces()
+        Dispatcher.Invoke(() =>
+        {
+            if (result.success)
+            {
+                DllStatusText.Text = "DLL: Loaded";
+                DllStatusText.Foreground = System.Windows.Media.Brushes.Green;
+                AddStatusMessage("[SYSTEM] DLL loaded successfully");
+            }
+            else
+            {
+                AddStatusMessage($"[ERROR] {result.message}");
+            }
+        });
+    }private async Task LoadDllAndInitializeAsync()
     {
-        if (!_proxyDllLoaded)
+        if (_dllManager == null)
+        {
+            AddStatusMessage("[ERROR] DLL Manager not initialized");
+            return;
+        }
+
+        // Load the DLL first
+        var result = await _dllManager.LoadDllAsync();
+
+        Dispatcher.Invoke(() =>
+        {
+            if (result.success)
+            {
+                DllStatusText.Text = "DLL: Loaded";
+                DllStatusText.Foreground = System.Windows.Media.Brushes.Green;
+                AddStatusMessage("[SYSTEM] DLL loaded successfully");
+
+                // Now that DLL is loaded, refresh network interfaces
+                RefreshNetworkInterfaces();
+            }
+            else
+            {
+                DllStatusText.Text = "DLL: Failed to load";
+                DllStatusText.Foreground = System.Windows.Media.Brushes.Red;
+                AddStatusMessage($"[ERROR] {result.message}");
+
+                // Use fallback method if DLL loading failed
+                RefreshNetworkInterfaces_Fallback();
+            }
+        });
+    }    private void RefreshNetworkInterfaces()
+    {
+        if (_dllManager == null || !_dllManager.IsLoaded)
         {
             // Local method
             BindAddressComboBox.Items.Clear();
@@ -412,11 +300,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                     }
                 }
 
-                // Always add loopback
-                if (!BindAddressComboBox.Items.Contains("127.0.0.1"))
-                {
-                    BindAddressComboBox.Items.Add("127.0.0.1");
-                }
+
 
                 if (BindAddressComboBox.Items.Count > 0)
                 {
@@ -433,13 +317,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 BindAddressComboBox.SelectedIndex = 0;
             }
             return;
-        }
-
-        try
+        }        try
         {
             // Use DLL API
             StringBuilder buffer = new StringBuilder(2048);
-            int result = get_system_ips(buffer, buffer.Capacity);            if (result > 0)
+            int result = _dllManager.GetSystemIps(buffer, buffer.Capacity);
+
+            if (result > 0)
             {
                 string ipList = buffer.ToString();
                 AddStatusMessage($"[DEBUG] Raw IP list from DLL: '{ipList}'");
@@ -447,29 +331,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 // Handle both comma and semicolon separators
                 string[] ipAddresses = ipList.Split(new char[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries);
 
-                // Track unique IPs to avoid duplicates
-                List<string> uniqueIps = new List<string>();
-
                 BindAddressComboBox.Items.Clear();
                 foreach (string ip in ipAddresses)
                 {
                     if (!string.IsNullOrWhiteSpace(ip))
                     {
                         string trimmedIp = ip.Trim();
-                        if (!uniqueIps.Contains(trimmedIp))
-                        {
-                            uniqueIps.Add(trimmedIp);
-                            BindAddressComboBox.Items.Add(trimmedIp);
-                            AddStatusMessage($"[DEBUG] Added IP: '{trimmedIp}'");
-                        }
+                        BindAddressComboBox.Items.Add(trimmedIp);
+                        AddStatusMessage($"[DEBUG] Added IP: '{trimmedIp}'");
                     }
-                }
-
-                // Always ensure loopback is present
-                if (!uniqueIps.Contains("127.0.0.1"))
-                {
-                    BindAddressComboBox.Items.Add("127.0.0.1");
-                    AddStatusMessage($"[DEBUG] Added loopback IP");
                 }
 
                 if (BindAddressComboBox.Items.Count > 0)
@@ -707,14 +577,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         // Call our enhanced version with better diagnostics and SOCKS5 configuration hints
         EnhancedStartProxy();
-    }
-
-    private void StopProxy_Click(object sender, RoutedEventArgs e)
+    }    private void StopProxy_Click(object sender, RoutedEventArgs e)
     {
-        if (!_proxyDllLoaded || !_proxyRunning)
+        if (_dllManager == null || !_dllManager.IsLoaded || !_dllManager.IsProxyRunning)
             return;
 
-        stop_proxy();
+        _dllManager.StopProxy();
         _proxyRunning = false;
         StatusText.Text = "Stopped";
         StatusText.Foreground = System.Windows.Media.Brushes.Red;
@@ -722,11 +590,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         StopProxyButton.IsEnabled = false;
 
         AddStatusMessage("[SYSTEM] Proxy stopped");
-    }    // RefreshInterfaces_Click is now implemented in MainWindowPatch.cs
+    }
+
+    // RefreshInterfaces_Click is now implemented in MainWindowPatch.cs
 
     private void ApplyConfig_Click(object sender, RoutedEventArgs e)
     {
-        if (!_proxyDllLoaded)
+        if (_dllManager == null || !_dllManager.IsLoaded)
         {
             MessageBox.Show("DLL not loaded", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             return;
@@ -738,7 +608,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             int port = int.Parse(PortTextBox.Text);
             string logFile = LogFileTextBox.Text;
 
-            if (set_config(bindAddr, port, logFile))
+            if (_dllManager.SetConfig(bindAddr, port, logFile))
             {
                 AddStatusMessage($"[CONFIG] Configuration applied: {bindAddr}:{port}");
             }
@@ -858,9 +728,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         _historyEvents.Clear();
         AddStatusMessage("[SYSTEM] Proxy history cleared");
-    }
-
-    private void ExportHistory_Click(object sender, RoutedEventArgs e)
+    }    private void ExportHistory_Click(object sender, RoutedEventArgs e)
     {
         SaveFileDialog saveFileDialog = new SaveFileDialog
         {
@@ -890,4 +758,53 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             }
         }
     }
+
+    // IDisposable implementation
+    private bool _disposed = false;    protected virtual void Dispose(bool disposing)
+    {
+        if (!_disposed)
+        {
+            if (disposing)
+            {
+                // Dispose managed resources
+                _updateTimer?.Stop();
+                _updateTimer = null;
+
+                // Clean up the DLL manager - it will handle stopping the proxy safely
+                if (_dllManager != null)
+                {
+                    _dllManager.Dispose();
+                    _dllManager = null;
+                    _proxyRunning = false; // Update our local state
+                }
+
+                // Clear collections
+                _logEvents.Clear();
+                _connectionEvents.Clear();
+                _historyEvents.Clear();
+                _statusMessages.Clear();
+            }
+
+            // Free unmanaged resources and set large fields to null
+            _disposed = true;
+        }
     }
+
+    public void Dispose()
+    {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+
+    ~MainWindow()
+    {
+        Dispose(false);
+    }
+
+    protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
+    {
+        // Make sure to stop the proxy and dispose resources when the window closes
+        Dispose();
+        base.OnClosing(e);
+    }
+}

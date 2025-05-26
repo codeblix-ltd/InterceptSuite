@@ -7,11 +7,10 @@ using System.Windows;
 namespace TLS_MITM_WPF
 {
     public partial class MainWindow
-    {
-        // Enhanced method to provide better diagnostics during proxy startup
+    {        // Enhanced method to provide better diagnostics during proxy startup
         private void EnhancedStartProxy()
         {
-            if (!_proxyDllLoaded)
+            if (_dllManager == null || !_dllManager.IsLoaded)
             {
                 MessageBox.Show("DLL not loaded", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
@@ -20,7 +19,7 @@ namespace TLS_MITM_WPF
             // Add diagnostics before starting
             DiagnosticReport();
 
-            if (start_proxy())
+            if (_dllManager.StartProxy())
             {
                 _proxyRunning = true;
                 StatusText.Text = "Running";
@@ -40,15 +39,17 @@ namespace TLS_MITM_WPF
             {
                 MessageBox.Show("Failed to start proxy", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
-        }
-
-        // Generate a diagnostic report
+        }        // Generate a diagnostic report
         private void DiagnosticReport()
         {
+            string bindAddr = BindAddressComboBox.SelectedItem?.ToString() ?? "127.0.0.1";
+            int port;
+            if (!int.TryParse(PortTextBox.Text, out port))
+                port = 4444; // Default
+
+            // Create a StringBuilder for our report
             StringBuilder report = new StringBuilder();
             report.AppendLine("[DIAGNOSTIC] Generating proxy diagnostic report:");
-
-            // Check network interfaces
             report.AppendLine("[DIAGNOSTIC] Available network interfaces:");
             int count = 0;
             foreach (var item in BindAddressComboBox.Items)
@@ -62,9 +63,8 @@ namespace TLS_MITM_WPF
 
             try
             {
-                // Check port availability
-                int port = int.Parse(PortTextBox.Text);
-                bool isPortAvailable = IsPortAvailable(port);
+                // Check port availability (already parsed above)
+                bool isPortAvailable = DiagnosticsHelper.IsPortAvailable(bindAddr, port);
                 report.AppendLine($"[DIAGNOSTIC] Port {port} available: {isPortAvailable}");
 
                 if (!isPortAvailable)

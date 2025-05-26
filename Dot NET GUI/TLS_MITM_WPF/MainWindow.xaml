@@ -6,45 +6,32 @@
         xmlns:local="clr-namespace:TLS_MITM_WPF"
         mc:Ignorable="d"
         Title="TLS MITM Proxy Controller" Height="800" Width="1200"
-        WindowStartupLocation="CenterScreen">
-
-    <Grid>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="250"/>
-            <ColumnDefinition Width="*"/>
-        </Grid.ColumnDefinitions>
-
-        <!-- Navigation Panel -->
-        <Border Grid.Column="0" Background="#F5F5F5" BorderBrush="#E0E0E0" BorderThickness="0,0,1,0">
-            <StackPanel Margin="10">
-                <TextBlock Text="TLS MITM Proxy" FontSize="18" FontWeight="Bold" Margin="0,10,0,20"/>
-
-                <Button Name="ProxyControlButton" Content="Proxy Control" Margin="0,2" Padding="10,8"
-                        HorizontalContentAlignment="Left" Click="NavigationButton_Click" Tag="ProxyControl"/>
-                <Button Name="ConfigurationButton" Content="Configuration" Margin="0,2" Padding="10,8"
-                        HorizontalContentAlignment="Left" Click="NavigationButton_Click" Tag="Configuration"/>
-                <Button Name="ConnectionsButton" Content="Connections" Margin="0,2" Padding="10,8"
-                        HorizontalContentAlignment="Left" Click="NavigationButton_Click" Tag="Connections"/>
-                <Button Name="LogsButton" Content="Logs" Margin="0,2" Padding="10,8"
-                        HorizontalContentAlignment="Left" Click="NavigationButton_Click" Tag="Logs"/>
-                <Button Name="ProxyHistoryButton" Content="Proxy History" Margin="0,2" Padding="10,8"
-                        HorizontalContentAlignment="Left" Click="NavigationButton_Click" Tag="ProxyHistory"/>
-                <Button Name="HelpButton" Content="Help" Margin="0,15,0,2" Padding="10,8"
-                        HorizontalContentAlignment="Left" Click="ShowHelpDialog_Click"
-                        Background="#4285F4" Foreground="White"/>
-
-                <Separator Margin="0,20"/>
-
-                <StackPanel Name="StatusPanel">
-                    <TextBlock Text="Status" FontWeight="Bold" Margin="0,0,0,5"/>
-                    <TextBlock Name="StatusText" Text="Disconnected" Foreground="Red"/>
-                    <TextBlock Name="DllStatusText" Text="DLL: Not Loaded" Foreground="Gray" FontSize="10"/>
+        WindowStartupLocation="CenterScreen">    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>        <!-- Top Menu Bar -->
+        <Border Grid.Row="0" Background="#F5F5F5" BorderBrush="#E0E0E0" BorderThickness="0,0,0,1">
+            <Grid Margin="10,5">
+                <!-- Navigation Menu -->
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button Name="ProxyControlButton" Content="Proxy Control" Margin="5,5" Padding="15,8"
+                            Click="NavigationButton_Click" Tag="ProxyControl" MinWidth="120"/>
+                    <Button Name="ConfigurationButton" Content="Configuration" Margin="5,5" Padding="15,8"
+                            Click="NavigationButton_Click" Tag="Configuration" MinWidth="120"/>
+                    <Button Name="ConnectionsButton" Content="Connections" Margin="5,5" Padding="15,8"
+                            Click="NavigationButton_Click" Tag="Connections" MinWidth="120"/>
+                    <Button Name="LogsButton" Content="Logs" Margin="5,5" Padding="15,8"
+                            Click="NavigationButton_Click" Tag="Logs" MinWidth="120"/>
+                    <Button Name="ProxyHistoryButton" Content="Proxy History" Margin="5,5" Padding="15,8"
+                            Click="NavigationButton_Click" Tag="ProxyHistory" MinWidth="120"/>
                 </StackPanel>
-            </StackPanel>
+            </Grid>
         </Border>
 
         <!-- Main Content Area -->
-        <Grid Grid.Column="1" Margin="20">
+        <Grid Grid.Row="1" Margin="20">
             <!-- Proxy Control Panel -->
             <StackPanel Name="ProxyControlPanel" Visibility="Visible">
                 <TextBlock Text="Proxy Control" FontSize="24" FontWeight="Bold" Margin="0,0,0,20"/>
@@ -226,8 +213,31 @@
                             <GridViewColumn Header="Data" Width="300" DisplayMemberBinding="{Binding Data}"/>
                         </GridView>
                     </ListView.View>
-                </ListView>
-            </StackPanel>
+                </ListView>            </StackPanel>
         </Grid>
+
+        <!-- Bottom Status Bar -->
+        <Border Grid.Row="2" Background="#F5F5F5" BorderBrush="#E0E0E0" BorderThickness="0,1,0,0">
+            <Grid Margin="10,5">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Status Text -->
+                <TextBlock Grid.Column="0" Name="StatusText" Text="Ready" VerticalAlignment="Center"
+                           FontWeight="Normal" Foreground="#333333"/>
+
+                <!-- DLL Status -->
+                <TextBlock Grid.Column="1" Name="DllStatusText" Text="DLL Status: Not Loaded"
+                           VerticalAlignment="Center" FontWeight="Normal" Foreground="#666666"
+                           Margin="20,0,20,0"/>
+
+                <!-- Current Time -->
+                <TextBlock Grid.Column="2" Name="CurrentTimeText" Text="" VerticalAlignment="Center"
+                           FontWeight="Normal" Foreground="#666666" Margin="10,0,0,0"/>
+            </Grid>
+        </Border>
     </Grid>
 </Window>

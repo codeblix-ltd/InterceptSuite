@@ -15,7 +15,7 @@ namespace TLS_MITM_WPF
             // Keep track of the old selected item
             object? oldSelectedItem = BindAddressComboBox.SelectedItem;
 
-            if (!_proxyDllLoaded)
+            if (_dllManager == null || !_dllManager.IsLoaded)
             {
                 // We already have an implementation for this in the original code
                 // Just call the existing method
@@ -27,7 +27,7 @@ namespace TLS_MITM_WPF
             {
                 // Use DLL API to get IP addresses
                 StringBuilder buffer = new StringBuilder(2048);
-                int result = get_system_ips(buffer, buffer.Capacity);
+                int result = _dllManager.GetSystemIps(buffer, buffer.Capacity);
 
                 if (result > 0)
                 {

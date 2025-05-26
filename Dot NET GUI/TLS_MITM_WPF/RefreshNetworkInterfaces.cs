@@ -5,11 +5,10 @@ using System.Windows;
 namespace TLS_MITM_WPF
 {
     public partial class MainWindow
-    {
-        // Enhanced version of RefreshNetworkInterfaces method
+    {        // Enhanced version of RefreshNetworkInterfaces method
         private void RefreshNetworkInterfaces_Enhanced()
         {
-            if (!_proxyDllLoaded)
+            if (_dllManager == null || !_dllManager.IsLoaded)
             {
                 // We already have a fallback for non-DLL case so just call existing method
                 RefreshNetworkInterfaces();
@@ -20,7 +19,7 @@ namespace TLS_MITM_WPF
             {
                 // Use DLL API
                 StringBuilder buffer = new StringBuilder(2048);
-                int result = get_system_ips(buffer, buffer.Capacity);
+                int result = _dllManager.GetSystemIps(buffer, buffer.Capacity);
 
                 if (result > 0)
                 {
