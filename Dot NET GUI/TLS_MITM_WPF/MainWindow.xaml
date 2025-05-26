@@ -7,7 +7,9 @@
         mc:Ignorable="d"
         Title="TLS MITM Proxy Controller" Height="800" Width="1200"
         WindowStartupLocation="CenterScreen"
-        Background="#1E1E1E">
+        Background="#1E1E1E"
+        Foreground="#E0E0E0"
+        UseLayoutRounding="True">
     <Window.Resources>
         <!-- Dark Theme Resources -->        <SolidColorBrush x:Key="DarkBackground" Color="#1E1E1E"/>
         <SolidColorBrush x:Key="DarkPanelBackground" Color="#252526"/>

@@ -13,11 +13,16 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
 using Microsoft.Win32;
+using System.Windows.Interop;
 
 namespace TLS_MITM_WPF;
 
 public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 {
+    // DLL imports for dark title bar
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
+
     // Data models for logs
     public class LogEvent : INotifyPropertyChanged
     {
@@ -172,6 +177,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));    public MainWindow()
     {
         InitializeComponent();
+
+        // Apply dark title bar when window loads
+        Loaded += MainWindow_Loaded;
 
         // Initialize DLL manager with callbacks
         _dllManager = new DllManager(
@@ -806,5 +814,52 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         // Make sure to stop the proxy and dispose resources when the window closes
         Dispose();
         base.OnClosing(e);
+    }
+
+    // Apply dark title bar to the window
+    private void MainWindow_Loaded(object sender, RoutedEventArgs e)
+    {
+        // Apply dark title bar
+        ApplyDarkTitleBar();
+
+        // Update window chrome
+        UpdateWindowChrome();
+    }
+
+    // Apply dark title bar to the window
+    private void ApplyDarkTitleBar()
+    {
+        try
+        {
+            // Get the window handle
+            IntPtr hwnd = new WindowInteropHelper(this).Handle;
+
+            if (hwnd != IntPtr.Zero)
+            {
+                // Check if we're on Windows 10/11
+                if (Environment.OSVersion.Version.Major >= 10)
+                {
+                    // DWMWA_USE_IMMERSIVE_DARK_MODE = 20
+                    int attribute = 20;
+                    int value = 1; // 1 = dark mode
+                    DwmSetWindowAttribute(hwnd, attribute, ref value, sizeof(int));
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            // Log the exception or ignore
+            Console.WriteLine($"Error setting dark title bar: {ex.Message}");
+        }
+    }
+
+    // Update window chrome for a better look
+    private void UpdateWindowChrome()
+    {
+        // You could add additional window chrome customizations here if needed
+        // like setting custom margins, etc.
+
+        // Force a visual refresh
+        InvalidateVisual();
     }
 }
