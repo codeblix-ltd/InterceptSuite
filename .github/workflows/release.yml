@@ -1,10 +1,10 @@
 name: Create Combined Release Package
 
 on:
-  push:
-    branches: [ main, master ]
-    tags:
-      - 'v*'  # Run when tag is pushed matching pattern v*, like v1.0.0
+  release:
+    types: [published, created]
+  tags:
+    - 'v*'  # Run when tag is pushed matching pattern v*, like v1.0.0
   workflow_dispatch:  # Allow manual trigger
 
 permissions:
@@ -157,7 +157,12 @@ jobs:
             $version = "1.0.0"
           }
         }
-          echo "Package version: $version"
+          echo "Package version: $version"        # For releases, use the release tag version
+        if ("${{ github.event_name }}" -eq "release") {
+          $version = "${{ github.event.release.tag_name }}".TrimStart('v')
+          echo "Using release version: $version"
+        }
+        
         echo "PACKAGE_VERSION=$version" >> $env:GITHUB_ENV
         
     - name: Create combined package
@@ -173,10 +178,9 @@ jobs:
         path: InterceptSuite-v${{ env.PACKAGE_VERSION }}-win-x64.zip
         if-no-files-found: error
         retention-days: 90
-        
-    # Create GitHub Release when a tag is pushed
-    - name: Create GitHub Release
-      if: startsWith(github.ref, 'refs/tags/v')
+          # Upload to the GitHub Release that triggered this workflow
+    - name: Upload to GitHub Release
+      if: github.event_name == 'release'
       uses: softprops/action-gh-release@v2
       with:
         name: "InterceptSuite v${{ env.PACKAGE_VERSION }}"
