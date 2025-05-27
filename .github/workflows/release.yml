@@ -13,7 +13,8 @@ permissions:
 
 jobs:
   build:
-    runs-on: windows-latest    env:
+    runs-on: windows-latest
+    env:
       CMAKE_TOOLCHAIN_FILE: ${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake
       BUILD_TYPE: Release
       VERSION: 0.1
