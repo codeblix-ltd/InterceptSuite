@@ -43,7 +43,8 @@ jobs:
         .\bootstrap-vcpkg.bat -disableMetrics
 
     - name: Configure CMake
-      run: cmake -B build -S . -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DCMAKE_TOOLCHAIN_FILE=${{ env.CMAKE_TOOLCHAIN_FILE }}    - name: Build
+      run: cmake -B build -S . -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DCMAKE_TOOLCHAIN_FILE=${{ env.CMAKE_TOOLCHAIN_FILE }}
+    - name: Build
       run: cmake --build build --config ${{ env.BUILD_TYPE }}
 
     - name: List files to debug
