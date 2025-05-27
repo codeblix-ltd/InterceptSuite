@@ -32,8 +32,6 @@ namespace TLS_MITM_WPF
                 AddStatusMessage("[SOCKS5] - Host: " + (BindAddressComboBox.SelectedItem?.ToString() ?? "127.0.0.1"));
                 AddStatusMessage("[SOCKS5] - Port: " + PortTextBox.Text);
                 AddStatusMessage("[SOCKS5] - Type: SOCKS5");
-                AddStatusMessage("[SOCKS5] - For Firefox: Enable 'Proxy DNS when using SOCKS v5'");
-                AddStatusMessage("[SOCKS5] - For Chrome: Add --host-resolver-rules=\"MAP * ~NOTFOUND , EXCLUDE localhost\"");
             }
             else
             {
