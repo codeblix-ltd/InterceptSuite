@@ -1,5 +1,4 @@
-// Filename: D:\Windows TLS\Dot NET GUI\TLS_MITM_WPF\MainWindowPatch.cs
-
+/
 using System;
 using System.Windows;
 using System.Windows.Controls;
