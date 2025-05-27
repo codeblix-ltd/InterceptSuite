@@ -839,13 +839,27 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         {
             AddStatusMessage($"[ERROR] Failed to load configuration: {ex.Message}");
         }
-    }
-
-    private void HistoryList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    }    private void HistoryList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (HistoryList.SelectedItem is LogEvent selectedItem)
         {
-            HistoryDataTextBox.Text = selectedItem.Data;
+            // Format the display based on the message type
+            if (selectedItem.Type == "Binary")
+            {
+                HistoryDataTextBox.Text = $"[Binary Data]\n{selectedItem.Data}";
+            }
+            else if (selectedItem.Type == "Text")
+            {
+                HistoryDataTextBox.Text = $"[Text Data]\n{selectedItem.Data}";
+            }
+            else if (selectedItem.Type == "Empty")
+            {
+                HistoryDataTextBox.Text = "[Empty Data]";
+            }
+            else
+            {
+                HistoryDataTextBox.Text = $"[{selectedItem.Type}]\n{selectedItem.Data}";
+            }
         }
         else
         {

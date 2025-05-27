@@ -72,6 +72,7 @@ void pretty_print_data(const char *direction, const unsigned char *data, int len
     }
 
     // Format the message content
+    ////// Need to works on this part show better representation of data, support to binary ---> string/ASCII conversion
     if (len > 0) {
         // Check if the data appears to be text
         int is_text = 1;
@@ -84,19 +85,17 @@ void pretty_print_data(const char *direction, const unsigned char *data, int len
                     break;
                 }
             }
-        }
-
-        if (is_text) {
+        }        if (is_text) {
             // Limit text length to avoid buffer overflow
             int copy_len = (len > 1024) ? 1024 : len;
-            snprintf(message, sizeof(message), "[Text] %.*s%s",
+            snprintf(message, sizeof(message), "%.*s%s",
                      copy_len, data, (copy_len < len) ? "...(truncated)" : "");
         } else {
             // For binary data, show a shortened hex representation
-            snprintf(message, sizeof(message), "[Binary] ");
+            message[0] = '\0'; // Start with empty string
             int hex_len = (len > 32) ? 32 : len;
-            char *msg_ptr = message + strlen(message);
-            size_t remaining = sizeof(message) - strlen(message) - 1;
+            char *msg_ptr = message;
+            size_t remaining = sizeof(message) - 1;
 
             for (int i = 0; i < hex_len && remaining > 3; i++) {
                 int bytes_written = snprintf(msg_ptr, remaining, "%02x ", data[i]);
@@ -107,9 +106,8 @@ void pretty_print_data(const char *direction, const unsigned char *data, int len
             if (hex_len < len && remaining > 12) {
                 snprintf(msg_ptr, remaining, "...(truncated)");
             }
-        }
-    } else {
-        strncpy(message, "[Empty]", sizeof(message) - 1);    }
+        }    } else {
+        strncpy(message, "", sizeof(message) - 1);    }
 
     // Determine message type for the callback
     const char* message_type;
