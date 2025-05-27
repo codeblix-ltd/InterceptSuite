@@ -469,11 +469,11 @@
                             <GridViewColumn Header="Destination Port" Width="100" DisplayMemberBinding="{Binding DestinationPort}"/>                        </GridView>
                     </ListView.View>
                 </ListView>
-            </Grid>
-
-            <!-- Proxy History Panel --><Grid Name="ProxyHistoryPanel" Visibility="Collapsed">
+            </Grid>            <!-- Proxy History Panel --><Grid Name="ProxyHistoryPanel" Visibility="Collapsed">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
@@ -491,7 +491,8 @@
                 </StackPanel>
 
                 <ListView Name="HistoryList" Style="{StaticResource DarkListViewStyle}" Grid.Row="2"
-                          VerticalAlignment="Stretch" HorizontalAlignment="Stretch">
+                          VerticalAlignment="Stretch" HorizontalAlignment="Stretch"
+                          SelectionChanged="HistoryList_SelectionChanged">
                     <ListView.View>
                         <GridView ColumnHeaderContainerStyle="{StaticResource GridViewColumnHeaderStyle}">
                             <GridViewColumn Header="Timestamp" Width="150" DisplayMemberBinding="{Binding Timestamp}"/>
@@ -499,9 +500,23 @@
                             <GridViewColumn Header="Destination IP" Width="120" DisplayMemberBinding="{Binding DestinationIp}"/>
                             <GridViewColumn Header="Port" Width="60" DisplayMemberBinding="{Binding Port}"/>
                             <GridViewColumn Header="Type" Width="100" DisplayMemberBinding="{Binding Type}"/>
-                            <GridViewColumn Header="Data" Width="300" DisplayMemberBinding="{Binding Data}"/>                        </GridView>
+                        </GridView>
                     </ListView.View>
                 </ListView>
+                
+                <!-- Splitter between history list and data view -->
+                <GridSplitter Grid.Row="3" Height="5" HorizontalAlignment="Stretch" 
+                              Background="#3F3F46" ResizeBehavior="PreviousAndNext"/>
+                
+                <!-- Data view pane (similar to Burp Suite) -->
+                <TextBox Name="HistoryDataTextBox" Grid.Row="4"
+                         Style="{StaticResource DarkTextBoxStyle}"
+                         TextWrapping="NoWrap"
+                         AcceptsReturn="True"
+                         IsReadOnly="True"
+                         FontFamily="Consolas"
+                         HorizontalScrollBarVisibility="Auto"
+                         VerticalScrollBarVisibility="Auto"/>
             </Grid>
         </Grid><!-- Bottom Status Bar -->
         <Border Grid.Row="2" Background="{StaticResource MenuBackground}" BorderBrush="#444444"

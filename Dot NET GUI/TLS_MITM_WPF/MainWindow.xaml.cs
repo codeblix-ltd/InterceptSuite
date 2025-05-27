@@ -561,7 +561,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                     break;
             }
         }
-    }private void StartProxy_Click(object sender, RoutedEventArgs e)
+        }
+
+    private void StartProxy_Click(object sender, RoutedEventArgs e)
     {
         // Call our enhanced version with better diagnostics and SOCKS5 configuration hints
         EnhancedStartProxy();
@@ -836,6 +838,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         catch (Exception ex)
         {
             AddStatusMessage($"[ERROR] Failed to load configuration: {ex.Message}");
+        }
+    }
+
+    private void HistoryList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (HistoryList.SelectedItem is LogEvent selectedItem)
+        {
+            HistoryDataTextBox.Text = selectedItem.Data;
+        }
+        else
+        {
+            HistoryDataTextBox.Text = string.Empty;
         }
     }
 }
