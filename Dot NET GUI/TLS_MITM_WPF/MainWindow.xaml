@@ -99,7 +99,7 @@
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Padding" Value="5,3"/>
             <Setter Property="CaretBrush" Value="{StaticResource TextColor}"/>
-            <Setter Property="SelectionBrush" Value="{StaticResource AccentColor}"/>
+            <Setter Property="SelectionBrush" Value="#007ACC"/>
             <Setter Property="SelectionOpacity" Value="0.7"/>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
@@ -203,30 +203,93 @@
                     </Style>
                 </Setter.Value>
             </Setter>
-        </Style>        <!-- ListView Style -->
+        </Style>        <!-- ListView Item Style -->
+        <Style x:Key="DarkListViewItemStyle" TargetType="ListViewItem">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{StaticResource TextColor}"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="5,2"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListViewItem">
+                        <Border x:Name="Bd"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                Padding="{TemplateBinding Padding}"
+                                SnapsToDevicePixels="true">
+                            <GridViewRowPresenter x:Name="PART_Header" 
+                                                 SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"
+                                                 VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="true">
+                                <Setter Property="Background" TargetName="Bd" Value="#3E3E42"/>
+                                <Setter Property="TextElement.Foreground" TargetName="Bd" Value="White"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="true">
+                                <Setter Property="Background" TargetName="Bd" Value="#007ACC"/>
+                                <Setter Property="TextElement.Foreground" TargetName="Bd" Value="White"/>
+                            </Trigger>
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="IsSelected" Value="true"/>
+                                    <Condition Property="IsMouseOver" Value="true"/>
+                                </MultiTrigger.Conditions>
+                                <Setter Property="Background" TargetName="Bd" Value="#1C97EA"/>
+                                <Setter Property="TextElement.Foreground" TargetName="Bd" Value="White"/>
+                            </MultiTrigger>
+                            <Trigger Property="IsEnabled" Value="false">
+                                <Setter Property="TextElement.Foreground" TargetName="Bd" Value="#666666"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        
+        <!-- ListView Style -->
         <Style x:Key="DarkListViewStyle" TargetType="ListView">
             <Setter Property="Background" Value="#252526"/>
             <Setter Property="Foreground" Value="{StaticResource TextColor}"/>
             <Setter Property="BorderBrush" Value="#3F3F46"/>
-        </Style>
-
-        <!-- GridViewColumnHeader Style (for ListView headers) -->
+            <Setter Property="ItemContainerStyle" Value="{StaticResource DarkListViewItemStyle}"/>
+        </Style>        <!-- GridViewColumnHeader Style (for ListView headers) -->
         <Style x:Key="GridViewColumnHeaderStyle" TargetType="GridViewColumnHeader">
             <Setter Property="Background" Value="#2D2D30"/>
             <Setter Property="Foreground" Value="{StaticResource TextColor}"/>
             <Setter Property="Padding" Value="8,5"/>
             <Setter Property="BorderBrush" Value="#3F3F46"/>
             <Setter Property="BorderThickness" Value="0,0,1,1"/>
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#007ACC"/>
-                    <Setter Property="Foreground" Value="#570987"/>
-                </Trigger>
-                <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#007ACC"/>
-                    <Setter Property="Foreground" Value="White"/>
-                </Trigger>
-            </Style.Triggers>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="GridViewColumnHeader">
+                        <Border x:Name="HeaderBorder"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                Background="{TemplateBinding Background}">
+                            <TextBlock x:Name="HeaderContent"
+                                       Text="{TemplateBinding Content}"
+                                       Padding="{TemplateBinding Padding}"
+                                       HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                       VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                       Foreground="{TemplateBinding Foreground}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="HeaderBorder" Property="Background" Value="#444444"/>
+                                <Setter TargetName="HeaderContent" Property="Foreground" Value="White"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="HeaderBorder" Property="Background" Value="#007ACC"/>
+                                <Setter TargetName="HeaderContent" Property="Foreground" Value="White"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
 
         <!-- GroupBox Style -->
@@ -507,14 +570,18 @@
                 <!-- Splitter between history list and data view -->
                 <GridSplitter Grid.Row="3" Height="5" HorizontalAlignment="Stretch" 
                               Background="#3F3F46" ResizeBehavior="PreviousAndNext"/>
-                
-                <!-- Data view pane (similar to Burp Suite) -->
+                  <!-- Data view pane (similar to Burp Suite) -->
                 <TextBox Name="HistoryDataTextBox" Grid.Row="4"
                          Style="{StaticResource DarkTextBoxStyle}"
                          TextWrapping="NoWrap"
                          AcceptsReturn="True"
                          IsReadOnly="True"
                          FontFamily="Consolas"
+                         FontSize="12"
+                         Background="#1E1E1E"
+                         Foreground="#E0E0E0"
+                         BorderThickness="1"
+                         Padding="8"
                          HorizontalScrollBarVisibility="Auto"
                          VerticalScrollBarVisibility="Auto"/>
             </Grid>
