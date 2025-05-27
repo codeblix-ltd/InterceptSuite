@@ -1,5 +1,5 @@
 {
-  "name": "InterceptSuite",
+  "name": "intercept-suite",
   "version-string": "0.1",
   "dependencies": [
     "openssl"
