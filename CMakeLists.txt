@@ -99,9 +99,20 @@ install(TARGETS Intercept
     ARCHIVE DESTINATION ${INSTALL_ARCHIVE_DIR}
 )
 
+# Install header files
 install(FILES
     include/tls_proxy_dll.h
+    include/tls_proxy.h
     DESTINATION include/intercept)
+
+# Install OpenSSL DLLs if found
+if(WIN32 AND OPENSSL_CRYPTO_DLL AND EXISTS "${OPENSSL_CRYPTO_DLL}")
+    install(FILES
+        "${OPENSSL_CRYPTO_DLL}"
+        "${OPENSSL_SSL_DLL}"
+        DESTINATION ${INSTALL_RUNTIME_DIR}
+    )
+endif()
 
 # CPack configuration
 include(InstallRequiredSystemLibraries)
@@ -112,10 +123,13 @@ set(CPACK_PACKAGE_VERSION "1.0.0")
 set(CPACK_PACKAGE_VERSION_MAJOR "1")
 set(CPACK_PACKAGE_VERSION_MINOR "0")
 set(CPACK_PACKAGE_VERSION_PATCH "0")
+set(CPACK_PACKAGE_FILE_NAME "Intercept-${CPACK_PACKAGE_VERSION}-win64")
 
 # Packaging settings
 set(CPACK_GENERATOR "ZIP")
-set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
+    set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
+endif()
 
 # Include CPack module to enable packaging commands
 include(CPack)
