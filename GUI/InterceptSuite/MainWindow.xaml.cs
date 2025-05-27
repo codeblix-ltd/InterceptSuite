@@ -15,7 +15,7 @@ using System.Windows.Threading;
 using Microsoft.Win32;
 using System.Windows.Interop;
 
-namespace TLS_MITM_WPF;
+namespace InterceptSuite;
 
 public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 {

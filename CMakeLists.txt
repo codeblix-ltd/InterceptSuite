@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.14)
-project(tls_project C)
+project(InterceptSuite C)
 
 set(CMAKE_C_STANDARD 11)
 
@@ -23,7 +23,7 @@ include_directories(
 find_package(OpenSSL REQUIRED)
 
 # Add library
-add_library(tls_proxy SHARED
+add_library(Intercept SHARED
     src/main.c
     src/cert_utils.c
     src/socks5.c
@@ -32,8 +32,8 @@ add_library(tls_proxy SHARED
 )
 
 # Link against dependencies
-target_compile_definitions(tls_proxy PRIVATE HAVE_OPENSSL _UNICODE UNICODE)
-target_link_libraries(tls_proxy PRIVATE
+target_compile_definitions(Intercept PRIVATE HAVE_OPENSSL _UNICODE UNICODE)
+target_link_libraries(Intercept PRIVATE
     OpenSSL::SSL
     OpenSSL::Crypto
     $<$<PLATFORM_ID:Windows>:ws2_32>
@@ -80,11 +80,11 @@ if(WIN32)
     message(STATUS "OpenSSL Crypto DLL: ${OPENSSL_CRYPTO_DLL}")
     message(STATUS "OpenSSL SSL DLL: ${OPENSSL_SSL_DLL}")# Copy DLLs to output directory if they were found
     if(OPENSSL_CRYPTO_DLL AND EXISTS "${OPENSSL_CRYPTO_DLL}")
-        add_custom_command(TARGET tls_proxy POST_BUILD
+        add_custom_command(TARGET Intercept POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
                 "${OPENSSL_SSL_DLL}"
                 "${OPENSSL_CRYPTO_DLL}"
-                $<TARGET_FILE_DIR:tls_proxy>
+                $<TARGET_FILE_DIR:Intercept>
         )
     else()
         message(WARNING "OpenSSL DLLs not found - DLL might not run without them")
@@ -93,7 +93,7 @@ if(WIN32)
 endif()
 
 # Install targets and dependencies
-install(TARGETS tls_proxy
+install(TARGETS Intercept
     RUNTIME DESTINATION ${INSTALL_RUNTIME_DIR}
     LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR}
     ARCHIVE DESTINATION ${INSTALL_ARCHIVE_DIR}
@@ -101,4 +101,21 @@ install(TARGETS tls_proxy
 
 install(FILES
     include/tls_proxy_dll.h
-    DESTINATION include)
+    DESTINATION include/intercept)
+
+# CPack configuration
+include(InstallRequiredSystemLibraries)
+set(CPACK_PACKAGE_NAME "InterceptSuite")
+set(CPACK_PACKAGE_VENDOR "InterceptSuite")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Intercept Suite - TLS MITM Proxy")
+set(CPACK_PACKAGE_VERSION "1.0.0")
+set(CPACK_PACKAGE_VERSION_MAJOR "1")
+set(CPACK_PACKAGE_VERSION_MINOR "0")
+set(CPACK_PACKAGE_VERSION_PATCH "0")
+
+# Packaging settings
+set(CPACK_GENERATOR "ZIP")
+set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
+
+# Include CPack module to enable packaging commands
+include(CPack)

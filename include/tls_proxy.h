@@ -1,12 +1,12 @@
 /*
- * TLS MITM Proxy - Main Header
+ * Intercept Suite - Main Header
  *
  * Defines common structures, constants and function declarations
  * for the TLS intercept proxy.
  */
 
-#ifndef TLS_PROXY_H
-#define TLS_PROXY_H
+#ifndef INTERCEPT_PROXY_H
+#define INTERCEPT_PROXY_H
 
 #define _CRT_SECURE_NO_WARNINGS
 #include <stdio.h>

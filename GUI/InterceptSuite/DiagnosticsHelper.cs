@@ -5,7 +5,7 @@ using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Text;
 
-namespace TLS_MITM_WPF
+namespace InterceptSuite
 {
     /// <summary>
     /// Helper class for diagnostics and network utility functions

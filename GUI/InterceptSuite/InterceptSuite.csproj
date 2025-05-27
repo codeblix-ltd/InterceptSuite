@@ -1,19 +1,22 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <OutputType>WinExe</OutputType>
+  <PropertyGroup>    <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <Platforms>x64</Platforms>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <RootNamespace>InterceptSuite</RootNamespace>
+    <AssemblyName>InterceptSuite</AssemblyName>
+    <Title>Intercept Suite</Title>
+    <Description>TLS MITM Proxy Intercept Suite</Description>
   </PropertyGroup>
 
-  <!-- Include the TLS Proxy DLL -->
+  <!-- Include the Intercept DLL -->
   <ItemGroup>
-    <None Include="..\..\build\Debug\tls_proxy.dll" CopyToOutputDirectory="PreserveNewest" Condition="Exists('..\..\build\Debug\tls_proxy.dll')" />
-    <None Include="..\..\build\Release\tls_proxy.dll" CopyToOutputDirectory="PreserveNewest" Condition="Exists('..\..\build\Release\tls_proxy.dll')" />
+    <None Include="..\..\build\Debug\Intercept.dll" CopyToOutputDirectory="PreserveNewest" Condition="Exists('..\..\build\Debug\Intercept.dll')" />
+    <None Include="..\..\build\Release\Intercept.dll" CopyToOutputDirectory="PreserveNewest" Condition="Exists('..\..\build\Release\Intercept.dll')" />
     <None Include="..\..\build\Debug\libcrypto-3-x64.dll" CopyToOutputDirectory="PreserveNewest" Condition="Exists('..\..\build\Debug\libcrypto-3-x64.dll')" />
     <None Include="..\..\build\Debug\libssl-3-x64.dll" CopyToOutputDirectory="PreserveNewest" Condition="Exists('..\..\build\Debug\libssl-3-x64.dll')" />
     <None Include="..\..\build\Release\libcrypto-3-x64.dll" CopyToOutputDirectory="PreserveNewest" Condition="Exists('..\..\build\Release\libcrypto-3-x64.dll')" />

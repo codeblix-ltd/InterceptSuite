@@ -5,7 +5,7 @@ using System.Runtime.InteropServices;
 using System;
 using Microsoft.Win32;
 
-namespace TLS_MITM_WPF;
+namespace InterceptSuite;
 
 /// <summary>
 /// Interaction logic for App.xaml

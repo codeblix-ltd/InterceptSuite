@@ -1,7 +1,7 @@
-﻿<Application x:Class="TLS_MITM_WPF.App"
+﻿<Application x:Class="InterceptSuite.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:local="clr-namespace:TLS_MITM_WPF"
+             xmlns:local="clr-namespace:InterceptSuite"
              StartupUri="MainWindow.xaml">
     <Application.Resources>
         <ResourceDictionary>

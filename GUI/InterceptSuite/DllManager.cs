@@ -4,7 +4,7 @@ using System.IO;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace TLS_MITM_WPF
+namespace InterceptSuite
 {    /// <summary>
     /// Manages loading, initialization, and cleanup of native DLLs
     /// </summary>
@@ -66,11 +66,10 @@ namespace TLS_MITM_WPF
             return await Task.Run(() =>
             {
                 try
-                {
-                    string? dllPath = FindDllPath();
+                {                    string? dllPath = FindDllPath();
                     if (dllPath == null)
                     {
-                        return (false, "Could not find tls_proxy.dll");
+                        return (false, "Could not find Intercept.dll");
                     }
 
                     // Add directory for loading dependencies
@@ -97,16 +96,16 @@ namespace TLS_MITM_WPF
             });
         }
 
-        // Helper to find DLL in possible locations
+    // Helper to find DLL in possible locations
         private string? FindDllPath()
         {
             // Try possible paths
             string[] possiblePaths = new[]
             {
-                @"d:\Windows TLS\build\Debug\tls_proxy.dll",
-                @"d:\Windows TLS\build\Release\tls_proxy.dll",
-                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "tls_proxy.dll"),
-                "tls_proxy.dll"
+                @"d:\Windows TLS\build\Debug\Intercept.dll",
+                @"d:\Windows TLS\build\Release\Intercept.dll",
+                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Intercept.dll"),
+                "Intercept.dll"
             };
 
             foreach (string path in possiblePaths)

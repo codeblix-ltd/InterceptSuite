@@ -4,7 +4,7 @@ using System.Net.NetworkInformation;
 using System.Text;
 using System.Windows;
 
-namespace TLS_MITM_WPF
+namespace InterceptSuite
 {
     public partial class MainWindow
     {        // Enhanced method to provide better diagnostics during proxy startup

@@ -3,60 +3,56 @@ using System;
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace TLS_MITM_WPF
-{
-    /// <summary>
+namespace InterceptSuite
+{    /// <summary>
     /// This class centralizes all P/Invoke declarations for better organization and maintenance
     /// </summary>
     internal static class NativeMethods
     {
-        // DLL P/Invoke declarations for tls_proxy.dll
-        [DllImport("tls_proxy.dll", CallingConvention = CallingConvention.Cdecl)]
+        // DLL P/Invoke declarations for Intercept.dll
+        [DllImport("Intercept.dll", CallingConvention = CallingConvention.Cdecl)]
         [return: MarshalAs(UnmanagedType.Bool)]
         internal static extern bool start_proxy();
 
-        [DllImport("tls_proxy.dll", CallingConvention = CallingConvention.Cdecl)]
-        internal static extern void stop_proxy();        [DllImport("tls_proxy.dll", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport("Intercept.dll", CallingConvention = CallingConvention.Cdecl)]        internal static extern void stop_proxy();
+
+        [DllImport("Intercept.dll", CallingConvention = CallingConvention.Cdecl)]
         [return: MarshalAs(UnmanagedType.Bool)]
         internal static extern bool set_config(
             [MarshalAs(UnmanagedType.LPStr)] string bind_addr,
             int port,
             [MarshalAs(UnmanagedType.LPStr)] string log_file,
-            int verbose_mode);
-
-
-
-        [DllImport("tls_proxy.dll", CallingConvention = CallingConvention.Cdecl)]
+            int verbose_mode);        [DllImport("Intercept.dll", CallingConvention = CallingConvention.Cdecl)]
         internal static extern int get_system_ips(
             [MarshalAs(UnmanagedType.LPStr)] StringBuilder buffer,
-            int buffer_size);        [DllImport("tls_proxy.dll", CallingConvention = CallingConvention.Cdecl)]
+            int buffer_size);
+
+        [DllImport("Intercept.dll", CallingConvention = CallingConvention.Cdecl)]
         [return: MarshalAs(UnmanagedType.Bool)]
         internal static extern bool get_proxy_config(
             [MarshalAs(UnmanagedType.LPStr)] StringBuilder bind_addr,
             ref int port,
             [MarshalAs(UnmanagedType.LPStr)] StringBuilder log_file,
-            ref int verbose_mode);
-
-        [DllImport("tls_proxy.dll", CallingConvention = CallingConvention.Cdecl)]
+            ref int verbose_mode);        [DllImport("Intercept.dll", CallingConvention = CallingConvention.Cdecl)]
         [return: MarshalAs(UnmanagedType.Bool)]
         internal static extern bool get_proxy_stats(
             ref int connections,
             ref int bytes_transferred);
 
         // Callback function registration
-        [DllImport("tls_proxy.dll", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport("Intercept.dll", CallingConvention = CallingConvention.Cdecl)]
         internal static extern void set_log_callback(LogCallbackDelegate callback);
 
-        [DllImport("tls_proxy.dll", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport("Intercept.dll", CallingConvention = CallingConvention.Cdecl)]
         internal static extern void set_status_callback(StatusCallbackDelegate callback);
 
-        [DllImport("tls_proxy.dll", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport("Intercept.dll", CallingConvention = CallingConvention.Cdecl)]
         internal static extern void set_connection_callback(ConnectionCallbackDelegate callback);
 
-        [DllImport("tls_proxy.dll", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport("Intercept.dll", CallingConvention = CallingConvention.Cdecl)]
         internal static extern void set_stats_callback(StatsCallbackDelegate callback);
 
-        [DllImport("tls_proxy.dll", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport("Intercept.dll", CallingConvention = CallingConvention.Cdecl)]
         internal static extern void set_disconnect_callback(DisconnectCallbackDelegate callback);
 
         // Win32 API for DLL loading

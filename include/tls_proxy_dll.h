@@ -1,9 +1,9 @@
 /*
- * TLS MITM Proxy - DLL Interface Header
+ * Intercept Suite - DLL Interface Header
  */
 
-#ifndef TLS_PROXY_DLL_H
-#define TLS_PROXY_DLL_H
+#ifndef INTERCEPT_DLL_H
+#define INTERCEPT_DLL_H
 
 #include <windows.h>
 
@@ -51,4 +51,4 @@ __declspec(dllexport) BOOL get_proxy_stats(int* connections, int* bytes_transfer
 }
 #endif
 
-#endif /* TLS_PROXY_DLL_H */
+#endif/* TLS_PROXY_DLL_H */

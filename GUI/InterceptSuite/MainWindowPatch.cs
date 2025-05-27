@@ -4,7 +4,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Text;
 
-namespace TLS_MITM_WPF
+namespace InterceptSuite
 {
     // This is a partial class containing patched methods
     public partial class MainWindow

@@ -1,10 +1,11 @@
-name: Build Package
+name: Build Intercept Suite Package
 
 on:
   push:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -13,11 +14,9 @@ permissions:
 jobs:
   build:
     runs-on: windows-latest
-    strategy:
-      matrix:
-        config: [Debug, Release]
     env:
       CMAKE_TOOLCHAIN_FILE: ${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake
+      BUILD_TYPE: Release
 
     steps:
     - uses: actions/checkout@v4
@@ -43,18 +42,20 @@ jobs:
         cd vcpkg
         .\bootstrap-vcpkg.bat -disableMetrics
 
-
-
     - name: Configure CMake
-      run: cmake -B build-${{ matrix.config }} -S . -DCMAKE_BUILD_TYPE=${{ matrix.config }}
+      run: cmake -B build -S . -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DCMAKE_TOOLCHAIN_FILE=${{ env.CMAKE_TOOLCHAIN_FILE }}    - name: Build
+      run: cmake --build build --config ${{ env.BUILD_TYPE }}
 
-    - name: Build
-      run: cmake --build build-${{ matrix.config }} --config ${{ matrix.config }}
     - name: List files to debug
-      if: ${{ matrix.config == 'Release' }}
       run: |
         echo "--- Output Directory Contents ---"
-        dir build-${{ matrix.config }}\${{ matrix.config }}
+        dir build\${{ env.BUILD_TYPE }}
+        echo "--- Check for Intercept.dll and dependencies ---"
+        if (Test-Path -Path "build\${{ env.BUILD_TYPE }}\Intercept.dll") {
+          echo "✅ Intercept.dll found in build output"
+        } else {
+          echo "❌ Intercept.dll not found in build output"
+        }
         echo "--- Check for vcpkg directory ---"
         if (Test-Path -Path "vcpkg\installed\x64-windows\bin") {
           echo "--- vcpkg installed bin directory ---"
@@ -63,14 +64,31 @@ jobs:
           echo "vcpkg bin directory not found - OpenSSL DLLs must be from another source"
         }
 
-    - name: Package
-      working-directory: build-${{ matrix.config }}
-      run: cpack -G ZIP -C ${{ matrix.config }}
+    - name: Setup .NET SDK
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: '8.0.x'
+
+    - name: Build C# GUI Project
+      run: |
+        echo "--- Building InterceptSuite C# Project ---"
+        cd "GUI\InterceptSuite"
+        dotnet build -c ${{ env.BUILD_TYPE }}
+        mkdir -p ..\..\build\package\InterceptSuite
+        cp -r bin\${{ env.BUILD_TYPE }}\net8.0-windows\* ..\..\build\package\InterceptSuite\
+        cd ..\..
+        echo "--- Copying DLL and dependencies ---"
+        cp build\${{ env.BUILD_TYPE }}\Intercept.dll build\package\InterceptSuite\
+        cp build\${{ env.BUILD_TYPE }}\libcrypto-3-x64.dll build\package\InterceptSuite\
+        cp build\${{ env.BUILD_TYPE }}\libssl-3-x64.dll build\package\InterceptSuite\    - name: Package
+      working-directory: build
+      run: |
+        cd package
+        Compress-Archive -Path InterceptSuite -DestinationPath InterceptSuite-v1.0.0-win-x64.zip
 
     - name: Upload Package
       uses: actions/upload-artifact@v4
       with:
-        name: TLS-MITM-Proxy-Windows-${{ matrix.config }}
-        path: build-${{ matrix.config }}/TLS-MITM-Proxy-*.zip
+        name: InterceptSuite-Windows        path: build/package/InterceptSuite-*.zip
         if-no-files-found: error
         retention-days: 90

@@ -1,5 +1,5 @@
 {
-  "name": "tls-mitm-proxy",
+  "name": "InterceptSuite",
   "version-string": "0.1",
   "dependencies": [
     "openssl"
