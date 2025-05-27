@@ -47,7 +47,6 @@ jobs:
 
     - name: Build DLL
       run: cmake --build build --config ${{ env.BUILD_TYPE }}
-
     - name: List built files
       run: |
         echo "--- Output Directory Contents ---"
@@ -64,7 +63,9 @@ jobs:
           dir vcpkg\installed\x64-windows\bin
         } else {
           echo "vcpkg bin directory not found - OpenSSL DLLs must be from another source"
-        }    - name: Package with CPack
+        }
+
+    - name: Package with CPack
       run: |
         cd build
         cpack -C ${{ env.BUILD_TYPE }}
@@ -78,7 +79,9 @@ jobs:
         } else {
           echo "❌ Package creation failed"
           exit 1
-        }    - name: Upload Package
+        }
+
+    - name: Upload Package
       uses: actions/upload-artifact@v4
       with:
         name: Intercept-DLL-Windows
