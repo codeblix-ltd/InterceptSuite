@@ -265,13 +265,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         Dispatcher.Invoke(() =>
         {
             if (result.success)
-            {
-                DllStatusText.Text = "DLL: Loaded";
+            {                DllStatusText.Text = "DLL: Loaded";
                 DllStatusText.Foreground = System.Windows.Media.Brushes.Green;
                 AddStatusMessage("[SYSTEM] DLL loaded successfully");
 
-                // Now that DLL is loaded, refresh network interfaces
+                // Now that DLL is loaded, refresh network interfaces and load config
                 RefreshNetworkInterfaces();
+
+                // Load existing configuration including verbose mode
+                LoadProxyConfigFromDll();
             }
             else
             {
@@ -787,5 +789,53 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
         // Force a visual refresh
         InvalidateVisual();
+    }
+
+    private void LoadProxyConfigFromDll()
+    {
+        if (_dllManager == null || !_dllManager.IsLoaded)
+        {
+            return;
+        }
+
+        try
+        {
+            StringBuilder bindAddrBuffer = new StringBuilder(256);
+            StringBuilder logFileBuffer = new StringBuilder(1024);
+            int port = 0;
+            int verboseMode = 0;
+
+            if (_dllManager.GetProxyConfig(bindAddrBuffer, ref port, logFileBuffer, ref verboseMode))
+            {
+                // Update UI elements with current config
+                string bindAddr = bindAddrBuffer.ToString();
+                string logFile = logFileBuffer.ToString();
+
+                // Find and select the bind address if it exists in the dropdown
+                int index = BindAddressComboBox.Items.IndexOf(bindAddr);
+                if (index >= 0)
+                {
+                    BindAddressComboBox.SelectedIndex = index;
+                }
+                else if (BindAddressComboBox.Items.Count > 0)
+                {
+                    BindAddressComboBox.SelectedIndex = 0;
+                }
+
+                // Set port and log file
+                PortTextBox.Text = port.ToString();
+                LogFileTextBox.Text = logFile;
+
+                // Set verbose mode checkbox
+                VerboseModeCheckBox.IsChecked = verboseMode != 0;
+
+                AddStatusMessage($"[CONFIG] Loaded configuration from DLL: {bindAddr}:{port}");
+                AddStatusMessage($"[CONFIG] Log file: {logFile}, Verbose mode: {(verboseMode != 0 ? "On" : "Off")}");
+            }
+        }
+        catch (Exception ex)
+        {
+            AddStatusMessage($"[ERROR] Failed to load configuration: {ex.Message}");
+        }
     }
 }

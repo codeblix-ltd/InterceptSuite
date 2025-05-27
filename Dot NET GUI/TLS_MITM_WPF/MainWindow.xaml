@@ -370,14 +370,18 @@
                             Style="{StaticResource DarkMenuButtonStyle}"
                             Click="NavigationButton_Click" Tag="ProxyHistory"/>                </StackPanel>
             </Grid>
-        </Border>
-
-        <!-- Main Content Area -->
+        </Border>        <!-- Main Content Area -->
         <Grid Grid.Row="1" Margin="20">
-            <!-- Proxy Control Panel -->
-            <StackPanel Name="ProxyControlPanel" Visibility="Visible">
+            <!-- Proxy Control Panel -->            <Grid Name="ProxyControlPanel" Visibility="Visible">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                
                 <TextBlock Text="Proxy Control" FontSize="24" FontWeight="Bold" Margin="0,0,0,20"
-                           Style="{StaticResource DarkTextBlockStyle}"/>                <Grid>
+                           Grid.Row="0" Style="{StaticResource DarkTextBlockStyle}"/>
+                
+                <Grid Grid.Row="1">
                     <StackPanel>
                         <TextBlock Text="Proxy Configuration" FontWeight="Bold" FontSize="16" Margin="0,0,0,10"
                                    Style="{StaticResource DarkTextBlockStyle}"/>
@@ -433,19 +437,27 @@
                                     Style="{StaticResource RedButtonStyle}"/>
                         </StackPanel>
                     </StackPanel>
-                </Grid></StackPanel>
+                </Grid></Grid>            <!-- Connections Panel --><Grid Name="ConnectionsPanel" Visibility="Collapsed">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
 
-            <!-- Connections Panel --><StackPanel Name="ConnectionsPanel" Visibility="Collapsed">
                 <TextBlock Text="Connections" FontSize="24" FontWeight="Bold" Margin="0,0,0,20"
-                          Style="{StaticResource DarkTextBlockStyle}"/>
+                          Style="{StaticResource DarkTextBlockStyle}" Grid.Row="0"/>
 
-                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">                    <Button Name="ClearConnectionsButton" Content="Clear Connections" Margin="0,0,10,0"
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,10" Grid.Row="1">
+                    <Button Name="ClearConnectionsButton" Content="Clear Connections" Margin="0,0,10,0"
                            Click="ClearConnections_Click"
                            Style="{StaticResource DarkButtonStyle}"/>
                     <Button Name="ExportConnectionsButton" Content="Export Connections"
                            Click="ExportConnections_Click"
                            Style="{StaticResource DarkButtonStyle}"/>
-                </StackPanel>                <ListView Name="ConnectionsList" Height="600" Style="{StaticResource DarkListViewStyle}">
+                </StackPanel>
+
+                <ListView Name="ConnectionsList" Style="{StaticResource DarkListViewStyle}" Grid.Row="2"
+                          VerticalAlignment="Stretch" HorizontalAlignment="Stretch">
                     <ListView.View>
                         <GridView ColumnHeaderContainerStyle="{StaticResource GridViewColumnHeaderStyle}">
                             <GridViewColumn Header="Timestamp" Width="150" DisplayMemberBinding="{Binding Timestamp}"/>
@@ -454,22 +466,32 @@
                             <GridViewColumn Header="Source IP" Width="120" DisplayMemberBinding="{Binding SourceIp}"/>
                             <GridViewColumn Header="Source Port" Width="100" DisplayMemberBinding="{Binding SourcePort}"/>
                             <GridViewColumn Header="Destination IP" Width="120" DisplayMemberBinding="{Binding DestinationIp}"/>
-                            <GridViewColumn Header="Destination Port" Width="100" DisplayMemberBinding="{Binding DestinationPort}"/>
-                        </GridView>
+                            <GridViewColumn Header="Destination Port" Width="100" DisplayMemberBinding="{Binding DestinationPort}"/>                        </GridView>
                     </ListView.View>
-                </ListView>            </StackPanel>
+                </ListView>
+            </Grid>
 
-            <!-- Proxy History Panel --><StackPanel Name="ProxyHistoryPanel" Visibility="Collapsed">
+            <!-- Proxy History Panel --><Grid Name="ProxyHistoryPanel" Visibility="Collapsed">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
                 <TextBlock Text="Proxy History" FontSize="24" FontWeight="Bold" Margin="0,0,0,20"
-                          Style="{StaticResource DarkTextBlockStyle}"/>
+                          Style="{StaticResource DarkTextBlockStyle}" Grid.Row="0"/>
 
-                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">                    <Button Name="ClearHistoryButton" Content="Clear History" Margin="0,0,10,0"
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,10" Grid.Row="1">
+                    <Button Name="ClearHistoryButton" Content="Clear History" Margin="0,0,10,0"
                            Click="ClearHistory_Click"
                            Style="{StaticResource DarkButtonStyle}"/>
                     <Button Name="ExportHistoryButton" Content="Export History"
                            Click="ExportHistory_Click"
                            Style="{StaticResource DarkButtonStyle}"/>
-                </StackPanel>                <ListView Name="HistoryList" Height="600" Style="{StaticResource DarkListViewStyle}">
+                </StackPanel>
+
+                <ListView Name="HistoryList" Style="{StaticResource DarkListViewStyle}" Grid.Row="2"
+                          VerticalAlignment="Stretch" HorizontalAlignment="Stretch">
                     <ListView.View>
                         <GridView ColumnHeaderContainerStyle="{StaticResource GridViewColumnHeaderStyle}">
                             <GridViewColumn Header="Timestamp" Width="150" DisplayMemberBinding="{Binding Timestamp}"/>
@@ -477,11 +499,11 @@
                             <GridViewColumn Header="Destination IP" Width="120" DisplayMemberBinding="{Binding DestinationIp}"/>
                             <GridViewColumn Header="Port" Width="60" DisplayMemberBinding="{Binding Port}"/>
                             <GridViewColumn Header="Type" Width="100" DisplayMemberBinding="{Binding Type}"/>
-                            <GridViewColumn Header="Data" Width="300" DisplayMemberBinding="{Binding Data}"/>
-                        </GridView>
+                            <GridViewColumn Header="Data" Width="300" DisplayMemberBinding="{Binding Data}"/>                        </GridView>
                     </ListView.View>
-                </ListView></StackPanel>
-        </Grid>        <!-- Bottom Status Bar -->
+                </ListView>
+            </Grid>
+        </Grid><!-- Bottom Status Bar -->
         <Border Grid.Row="2" Background="{StaticResource MenuBackground}" BorderBrush="#444444"
                BorderThickness="0,1,0,0">
             <Grid Margin="10,5">

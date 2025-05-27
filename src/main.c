@@ -368,11 +368,12 @@ __declspec(dllexport) int get_system_ips(char* buffer, int buffer_size) {
 }
 
 /* Get current proxy configuration */
-__declspec(dllexport) BOOL get_proxy_config(char* bind_addr, int* port, char* log_file) {
-    if (!bind_addr || !port || !log_file) return FALSE;
+__declspec(dllexport) BOOL get_proxy_config(char* bind_addr, int* port, char* log_file, int* verbose_mode) {
+    if (!bind_addr || !port || !log_file || !verbose_mode) return FALSE;
     strcpy(bind_addr, config.bind_addr);
     *port = config.port;
     strcpy(log_file, config.log_file);
+    *verbose_mode = config.verbose;
 
     return TRUE;
 }

@@ -42,7 +42,7 @@ __declspec(dllexport) void set_disconnect_callback(disconnect_callback_t callbac
 __declspec(dllexport) int get_system_ips(char* buffer, int buffer_size);
 
 /* Get current proxy configuration */
-__declspec(dllexport) BOOL get_proxy_config(char* bind_addr, int* port, char* log_file);
+__declspec(dllexport) BOOL get_proxy_config(char* bind_addr, int* port, char* log_file, int* verbose_mode);
 
 /* Get proxy statistics */
 __declspec(dllexport) BOOL get_proxy_stats(int* connections, int* bytes_transferred);

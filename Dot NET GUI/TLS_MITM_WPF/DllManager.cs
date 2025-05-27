@@ -166,10 +166,8 @@ namespace TLS_MITM_WPF
 
 
         public int GetSystemIps(StringBuilder buffer, int bufferSize) =>
-            _dllLoaded ? NativeMethods.get_system_ips(buffer, bufferSize) : 0;
-
-        public bool GetProxyConfig(StringBuilder bindAddress, ref int port, StringBuilder logFile) =>
-            _dllLoaded && NativeMethods.get_proxy_config(bindAddress, ref port, logFile);
+            _dllLoaded ? NativeMethods.get_system_ips(buffer, bufferSize) : 0;        public bool GetProxyConfig(StringBuilder bindAddress, ref int port, StringBuilder logFile, ref int verboseMode) =>
+            _dllLoaded && NativeMethods.get_proxy_config(bindAddress, ref port, logFile, ref verboseMode);
 
         public bool GetProxyStats(ref int connections, ref int bytes) =>
             _dllLoaded && NativeMethods.get_proxy_stats(ref connections, ref bytes);        protected virtual void Dispose(bool disposing)
