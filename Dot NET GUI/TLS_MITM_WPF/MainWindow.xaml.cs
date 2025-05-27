@@ -133,7 +133,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     }
 
     // Collections
-    private readonly ObservableCollection<LogEvent> _logEvents = new();
     private readonly ObservableCollection<ConnectionEvent> _connectionEvents = new();
     private readonly ObservableCollection<LogEvent> _historyEvents = new();
     private readonly List<string> _statusMessages = new();
@@ -183,7 +182,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
         // Initialize DLL manager with callbacks
         _dllManager = new DllManager(
-            LogCallback,
+            ProxyDataCallback, // was LogCallback
             StatusCallback,
             ConnectionCallback,
             StatsCallback,
@@ -192,7 +191,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
         // Initialize ListViews
         ConnectionsList.ItemsSource = _connectionEvents;
-        LogsList.ItemsSource = _logEvents;
         HistoryList.ItemsSource = _historyEvents;        // Initialize timer for UI updates
         _updateTimer = new DispatcherTimer();
         _updateTimer.Interval = TimeSpan.FromMilliseconds(100);
@@ -398,7 +396,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         BindAddressComboBox.SelectedIndex = 0;
     }
 
-    private void LogCallback(string timestamp, string src_ip, string dst_ip, int dst_port,
+    // Rename LogCallback to ProxyDataCallback
+    private void ProxyDataCallback(string timestamp, string src_ip, string dst_ip, int dst_port,
                             string message_type, string data)
     {
         // Need to dispatch to UI thread
@@ -414,14 +413,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 Data = data
             };
 
-            _historyEvents.Add(logEvent);
-
-            // Trim history if too large
+            _historyEvents.Add(logEvent);            // Trim history if too large
             if (_historyEvents.Count > 1000)
                 _historyEvents.RemoveAt(0);
 
-            // Auto-scroll if enabled
-            if (AutoScrollCheckBox.IsChecked == true && HistoryList.Items.Count > 0)
+            // Auto-scroll the history list
+            if (HistoryList.Items.Count > 0)
             {
                 HistoryList.ScrollIntoView(HistoryList.Items[HistoryList.Items.Count - 1]);
             }
@@ -521,34 +518,23 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 ConnectionsList.ScrollIntoView(ConnectionsList.Items[ConnectionsList.Items.Count - 1]);
             }
         });
-    }
-
-    private void AddStatusMessage(string message)
+    }    private void AddStatusMessage(string message)
     {
         _statusMessages.Add(message);
 
-        // Append to text box with timestamp
-        string timestamp = DateTime.Now.ToString("HH:mm:ss");
-        StatusLogTextBox.AppendText($"[{timestamp}] {message}{Environment.NewLine}");
+        // Append message to the status bar
+        StatusText.Text = message;
 
         // Trim status messages if too many
         if (_statusMessages.Count > 1000)
             _statusMessages.RemoveAt(0);
-
-        // Auto-scroll
-        if (AutoScrollCheckBox.IsChecked == true)
-            StatusLogTextBox.ScrollToEnd();
-    }
-
-    private void NavigationButton_Click(object sender, RoutedEventArgs e)
+    }private void NavigationButton_Click(object sender, RoutedEventArgs e)
     {
         if (sender is Button button && button.Tag is string tag)
         {
             // Reset all buttons
             ProxyControlButton.IsEnabled = true;
-            ConfigurationButton.IsEnabled = true;
             ConnectionsButton.IsEnabled = true;
-            LogsButton.IsEnabled = true;
             ProxyHistoryButton.IsEnabled = true;
 
             // Mark selected button
@@ -556,9 +542,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
             // Hide all panels
             ProxyControlPanel.Visibility = Visibility.Collapsed;
-            ConfigurationPanel.Visibility = Visibility.Collapsed;
             ConnectionsPanel.Visibility = Visibility.Collapsed;
-            LogsPanel.Visibility = Visibility.Collapsed;
             ProxyHistoryPanel.Visibility = Visibility.Collapsed;
 
             // Show the selected panel
@@ -567,21 +551,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 case "ProxyControl":
                     ProxyControlPanel.Visibility = Visibility.Visible;
                     break;
-                case "Configuration":
-                    ConfigurationPanel.Visibility = Visibility.Visible;
-                    break;
                 case "Connections":
                     ConnectionsPanel.Visibility = Visibility.Visible;
-                    break;
-                case "Logs":
-                    LogsPanel.Visibility = Visibility.Visible;
                     break;
                 case "ProxyHistory":
                     ProxyHistoryPanel.Visibility = Visibility.Visible;
                     break;
             }
         }
-    }    private void StartProxy_Click(object sender, RoutedEventArgs e)
+    }private void StartProxy_Click(object sender, RoutedEventArgs e)
     {
         // Call our enhanced version with better diagnostics and SOCKS5 configuration hints
         EnhancedStartProxy();
@@ -608,13 +586,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         {
             MessageBox.Show("DLL not loaded", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             return;
-        }
-
-        try
+        }        try
         {
             string bindAddr = BindAddressComboBox.SelectedItem?.ToString() ?? "127.0.0.1";
             int port = int.Parse(PortTextBox.Text);
-            string logFile = LogFileTextBox.Text;
+            string logFile = "tls_proxy.log"; // Default log file name
 
             if (_dllManager.SetConfig(bindAddr, port, logFile))
             {
@@ -630,70 +606,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         {
             MessageBox.Show($"Error: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
         }
-    }
-
-    private void BrowseLogFile_Click(object sender, RoutedEventArgs e)
-    {
-        SaveFileDialog saveFileDialog = new SaveFileDialog
-        {
-            Filter = "Log files (*.log)|*.log|All files (*.*)|*.*",
-            DefaultExt = ".log",
-            FileName = "tls_proxy.log"
-        };
-
-        if (saveFileDialog.ShowDialog() == true)
-        {
-            LogFileTextBox.Text = saveFileDialog.FileName;
-        }
-    }
-
-    private void ClearLogs_Click(object sender, RoutedEventArgs e)
-    {
-        StatusLogTextBox.Clear();
-        _logEvents.Clear();
-        _statusMessages.Clear();
-        AddStatusMessage("[SYSTEM] Logs cleared");
-    }
-
-    private void ExportLogs_Click(object sender, RoutedEventArgs e)
-    {
-        SaveFileDialog saveFileDialog = new SaveFileDialog
-        {
-            Filter = "Text files (*.txt)|*.txt|All files (*.*)|*.*",
-            DefaultExt = ".txt",
-            FileName = $"tls_proxy_logs_{DateTime.Now:yyyyMMdd_HHmmss}.txt"
-        };
-
-        if (saveFileDialog.ShowDialog() == true)
-        {
-            try
-            {
-                using StreamWriter writer = new StreamWriter(saveFileDialog.FileName);
-                writer.WriteLine("=== TLS MITM Proxy Logs ===");
-                writer.WriteLine();
-
-                writer.WriteLine("Status Messages:");
-                foreach (string message in _statusMessages)
-                {
-                    writer.WriteLine(message);
-                }
-
-                writer.WriteLine();
-                writer.WriteLine("Log Entries:");
-                foreach (LogEvent entry in _logEvents)
-                {
-                    writer.WriteLine($"{entry.Timestamp} | {entry.SourceIp} | {entry.DestinationIp} | {entry.Port} | {entry.Type} | {entry.Data}");
-                }
-
-                AddStatusMessage($"[SYSTEM] Logs exported to {saveFileDialog.FileName}");
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Failed to export logs: {ex.Message}",
-                               "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-        }
-    }
+    }    // BrowseLogFile_Click method removed as it's no longer needed
 
     private void ClearConnections_Click(object sender, RoutedEventArgs e)
     {
@@ -787,7 +700,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 }
 
                 // Clear collections
-                _logEvents.Clear();
                 _connectionEvents.Clear();
                 _historyEvents.Clear();
                 _statusMessages.Clear();

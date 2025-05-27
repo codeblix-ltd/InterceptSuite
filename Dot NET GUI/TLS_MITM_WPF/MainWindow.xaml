@@ -360,19 +360,12 @@
                 BorderThickness="0,0,0,1">
             <Grid Margin="10,5">
                 <!-- Navigation Menu -->
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button Name="ProxyControlButton" Content="Proxy Control"
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">                    <Button Name="ProxyControlButton" Content="Proxy Control"
                             Style="{StaticResource DarkMenuButtonStyle}"
                             Click="NavigationButton_Click" Tag="ProxyControl"/>
-                    <Button Name="ConfigurationButton" Content="Configuration"
-                            Style="{StaticResource DarkMenuButtonStyle}"
-                            Click="NavigationButton_Click" Tag="Configuration"/>
                     <Button Name="ConnectionsButton" Content="Connections"
                             Style="{StaticResource DarkMenuButtonStyle}"
                             Click="NavigationButton_Click" Tag="Connections"/>
-                    <Button Name="LogsButton" Content="Logs"
-                            Style="{StaticResource DarkMenuButtonStyle}"
-                            Click="NavigationButton_Click" Tag="Logs"/>
                     <Button Name="ProxyHistoryButton" Content="Proxy History"
                             Style="{StaticResource DarkMenuButtonStyle}"
                             Click="NavigationButton_Click" Tag="ProxyHistory"/>                </StackPanel>
@@ -465,42 +458,9 @@
                                       Style="{StaticResource DarkTextBlockStyle}"/>
                         </Grid>
                     </StackPanel>
-                </Grid>
-            </StackPanel>
-              <!-- Configuration Panel -->            <StackPanel Name="ConfigurationPanel" Visibility="Collapsed">
-                <TextBlock Text="Configuration" FontSize="24" FontWeight="Bold" Margin="0,0,0,20"
-                          Style="{StaticResource DarkTextBlockStyle}"/>
+                </Grid>            </StackPanel>
 
-                <StackPanel>
-                    <GroupBox Header="Advanced Settings" Padding="10" Style="{StaticResource DarkGroupBoxStyle}">
-                        <StackPanel>
-                            <CheckBox Name="VerboseModeCheckBox" Content="Verbose Mode" Margin="0,5"
-                                     Style="{StaticResource DarkCheckBoxStyle}" />
-                            <CheckBox Name="AutoStartProxyCheckBox" Content="Auto-start Proxy" Margin="0,5"
-                                     Style="{StaticResource DarkCheckBoxStyle}" />
-                        </StackPanel>
-                    </GroupBox>
-
-                    <GroupBox Header="Log File Settings" Margin="0,20,0,0" Padding="10"
-                             Style="{StaticResource DarkGroupBoxStyle}">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Text="Log File:" VerticalAlignment="Center" Margin="0,0,10,0"
-                                      Style="{StaticResource DarkTextBlockStyle}"/>
-                            <TextBox Name="LogFileTextBox" Grid.Column="1" Text="tls_proxy.log" Height="25"
-                                    Style="{StaticResource DarkTextBoxStyle}"/>                            <Button Name="BrowseLogFileButton" Content="Browse" Grid.Column="2" Margin="5,0,0,0"
-                                    Click="BrowseLogFile_Click" Height="25"
-                                    Style="{StaticResource DarkButtonStyle}"/>
-                        </Grid>
-                    </GroupBox>
-                </StackPanel>
-            </StackPanel>
-
-            <!-- Connections Panel -->            <StackPanel Name="ConnectionsPanel" Visibility="Collapsed">
+            <!-- Connections Panel --><StackPanel Name="ConnectionsPanel" Visibility="Collapsed">
                 <TextBlock Text="Connections" FontSize="24" FontWeight="Bold" Margin="0,0,0,20"
                           Style="{StaticResource DarkTextBlockStyle}"/>
 
@@ -522,49 +482,9 @@
                             <GridViewColumn Header="Destination Port" Width="100" DisplayMemberBinding="{Binding DestinationPort}"/>
                         </GridView>
                     </ListView.View>
-                </ListView>
-            </StackPanel>
-              <!-- Logs Panel -->            <StackPanel Name="LogsPanel" Visibility="Collapsed">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                    </Grid.RowDefinitions>
+                </ListView>            </StackPanel>
 
-                    <TextBlock Grid.Row="0" Text="Logs" FontSize="24" FontWeight="Bold" Margin="0,0,0,20"
-                              Style="{StaticResource DarkTextBlockStyle}"/>
-
-                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10">                        <Button Name="ClearLogsButton" Content="Clear Logs" Margin="0,0,10,0"
-                               Click="ClearLogs_Click"
-                               Style="{StaticResource DarkButtonStyle}"/>
-                        <Button Name="ExportLogsButton" Content="Export Logs"
-                               Click="ExportLogs_Click"
-                               Style="{StaticResource DarkButtonStyle}"/>
-                        <CheckBox Name="AutoScrollCheckBox" Content="Auto-scroll" IsChecked="True"
-                                 Margin="20,0,0,0" VerticalAlignment="Center"
-                                 Style="{StaticResource DarkCheckBoxStyle}"/>
-                    </StackPanel>
-
-                    <TextBlock Grid.Row="2" Text="Status Messages" FontWeight="Bold" Margin="0,10,0,5"
-                              Style="{StaticResource DarkTextBlockStyle}"/>
-                    <TextBox Grid.Row="3" Name="StatusLogTextBox" TextWrapping="Wrap" IsReadOnly="True"
-                              Height="150" VerticalScrollBarVisibility="Auto"
-                              Style="{StaticResource DarkTextBoxStyle}"/>                    <TextBlock Grid.Row="4" Text="System Log Entries" FontWeight="Bold" Margin="0,20,0,5"
-                              Style="{StaticResource DarkTextBlockStyle}"/>                    <ListView Grid.Row="5" Name="LogsList" Height="350" Style="{StaticResource DarkListViewStyle}">
-                        <ListView.View>
-                            <GridView ColumnHeaderContainerStyle="{StaticResource GridViewColumnHeaderStyle}">
-                                <GridViewColumn Header="Time" Width="150" DisplayMemberBinding="{Binding Timestamp}"/>
-                                <GridViewColumn Header="Level" Width="80" DisplayMemberBinding="{Binding Level}"/>
-                                <GridViewColumn Header="Message" Width="600" DisplayMemberBinding="{Binding Message}"/>
-                            </GridView>
-                        </ListView.View>
-                    </ListView>
-                </Grid>
-            </StackPanel>
-
-            <!-- Proxy History Panel -->            <StackPanel Name="ProxyHistoryPanel" Visibility="Collapsed">
+            <!-- Proxy History Panel --><StackPanel Name="ProxyHistoryPanel" Visibility="Collapsed">
                 <TextBlock Text="Proxy History" FontSize="24" FontWeight="Bold" Margin="0,0,0,20"
                           Style="{StaticResource DarkTextBlockStyle}"/>
 
