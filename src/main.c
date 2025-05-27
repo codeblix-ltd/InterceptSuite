@@ -174,7 +174,7 @@ __declspec(dllexport) void stop_proxy(void) {
     DeleteCriticalSection(&g_server.cs);
 }
 
-__declspec(dllexport) BOOL set_config(const char* bind_addr, int port, const char* log_file) {
+__declspec(dllexport) BOOL set_config(const char* bind_addr, int port, const char* log_file, int verbose_mode) {
     if (!bind_addr || port <= 0 || port > 65535 || !log_file) {
         return FALSE;
     }
@@ -188,6 +188,7 @@ __declspec(dllexport) BOOL set_config(const char* bind_addr, int port, const cha
     strncpy(config.bind_addr, bind_addr, sizeof(config.bind_addr) - 1);
     config.port = port;
     strncpy(config.log_file, log_file, sizeof(config.log_file) - 1);
+    config.verbose = verbose_mode;
 
     return TRUE;
 }

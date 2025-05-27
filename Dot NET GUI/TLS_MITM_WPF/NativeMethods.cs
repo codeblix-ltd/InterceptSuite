@@ -16,14 +16,15 @@ namespace TLS_MITM_WPF
         internal static extern bool start_proxy();
 
         [DllImport("tls_proxy.dll", CallingConvention = CallingConvention.Cdecl)]
-        internal static extern void stop_proxy();
-
-        [DllImport("tls_proxy.dll", CallingConvention = CallingConvention.Cdecl)]
+        internal static extern void stop_proxy();        [DllImport("tls_proxy.dll", CallingConvention = CallingConvention.Cdecl)]
         [return: MarshalAs(UnmanagedType.Bool)]
         internal static extern bool set_config(
             [MarshalAs(UnmanagedType.LPStr)] string bind_addr,
             int port,
-            [MarshalAs(UnmanagedType.LPStr)] string log_file);
+            [MarshalAs(UnmanagedType.LPStr)] string log_file,
+            int verbose_mode);
+
+
 
         [DllImport("tls_proxy.dll", CallingConvention = CallingConvention.Cdecl)]
         internal static extern int get_system_ips(

@@ -20,7 +20,6 @@ void init_config(void) {
     strncpy(config.bind_addr, DEFAULT_BIND_ADDR, sizeof(config.bind_addr) - 1);
     strncpy(config.log_file, DEFAULT_LOGFILE, sizeof(config.log_file) - 1);
     config.log_fp = NULL;
-    config.help_requested = 0;
     config.verbose = 0;
 }
 

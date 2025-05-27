@@ -377,15 +377,8 @@
             <!-- Proxy Control Panel -->
             <StackPanel Name="ProxyControlPanel" Visibility="Visible">
                 <TextBlock Text="Proxy Control" FontSize="24" FontWeight="Bold" Margin="0,0,0,20"
-                           Style="{StaticResource DarkTextBlockStyle}"/>
-
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-
-                    <StackPanel Grid.Column="0" Margin="0,0,10,0">
+                           Style="{StaticResource DarkTextBlockStyle}"/>                <Grid>
+                    <StackPanel>
                         <TextBlock Text="Proxy Configuration" FontWeight="Bold" FontSize="16" Margin="0,0,0,10"
                                    Style="{StaticResource DarkTextBlockStyle}"/>
 
@@ -400,9 +393,7 @@
                                      Style="{StaticResource DarkComboBoxStyle}"/>                            <Button Name="RefreshInterfacesButton" Content="Refresh Interfaces" Grid.Column="2"
                                     Margin="5,0,0,0" Click="RefreshInterfaces_Click" Padding="8,0"
                                     Style="{StaticResource DarkButtonStyle}"/>
-                        </Grid>
-
-                        <Grid Margin="0,0,0,10">
+                        </Grid>                        <Grid Margin="0,0,0,10">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="*"/>
@@ -410,7 +401,27 @@
                                       Style="{StaticResource DarkTextBlockStyle}"/>
                             <TextBox Name="PortTextBox" Grid.Column="1" Text="4444" Height="25"
                                     Style="{StaticResource DarkTextBoxStyle}"/>
-                        </Grid>                        <Button Name="ApplyConfigButton" Content="Apply Configuration" Margin="0,10,0,10"
+                        </Grid>
+
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Log File:" VerticalAlignment="Center" Margin="0,0,10,0"
+                                      Style="{StaticResource DarkTextBlockStyle}"/>
+                            <TextBox Name="LogFileTextBox" Grid.Column="1" Text="tls_proxy.log" Height="25"
+                                    Style="{StaticResource DarkTextBoxStyle}"/>
+                            <Button Name="BrowseLogFileButton" Content="Browse" Grid.Column="2"
+                                    Margin="5,0,0,0" Click="BrowseLogFile_Click" Height="25"
+                                    Style="{StaticResource DarkButtonStyle}"/>
+                        </Grid>
+
+                        <CheckBox Name="VerboseModeCheckBox" Content="Verbose Mode" Margin="0,0,0,10"
+                                 Style="{StaticResource DarkCheckBoxStyle}" />
+
+                        <Button Name="ApplyConfigButton" Content="Apply Configuration" Margin="0,10,0,10"
                                 Click="ApplyConfig_Click" Padding="15,8" HorizontalAlignment="Left"
                                 Style="{StaticResource DarkButtonStyle}"/>
 
@@ -421,44 +432,8 @@
                                     Click="StopProxy_Click" IsEnabled="False"
                                     Style="{StaticResource RedButtonStyle}"/>
                         </StackPanel>
-                    </StackPanel>                    <StackPanel Grid.Column="1" Margin="10,0,0,0">
-                        <TextBlock Text="Statistics" FontWeight="Bold" FontSize="16" Margin="0,0,0,10"
-                                  Style="{StaticResource DarkTextBlockStyle}"/>
-
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                            </Grid.RowDefinitions>
-
-                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Active Connections:" Margin="0,0,10,5"
-                                      Style="{StaticResource DarkTextBlockStyle}"/>
-                            <TextBlock Grid.Row="0" Grid.Column="1" Name="ActiveConnectionsText" Text="0"
-                                      Style="{StaticResource DarkTextBlockStyle}"/>
-
-                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Total Connections:" Margin="0,0,10,5"
-                                      Style="{StaticResource DarkTextBlockStyle}"/>
-                            <TextBlock Grid.Row="1" Grid.Column="1" Name="TotalConnectionsText" Text="0"
-                                      Style="{StaticResource DarkTextBlockStyle}"/>
-
-                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Bytes Sent:" Margin="0,0,10,5"
-                                      Style="{StaticResource DarkTextBlockStyle}"/>
-                            <TextBlock Grid.Row="2" Grid.Column="1" Name="BytesSentText" Text="0"
-                                      Style="{StaticResource DarkTextBlockStyle}"/>
-
-                            <TextBlock Grid.Row="3" Grid.Column="0" Text="Bytes Received:" Margin="0,0,10,5"
-                                      Style="{StaticResource DarkTextBlockStyle}"/>
-                            <TextBlock Grid.Row="3" Grid.Column="1" Name="BytesReceivedText" Text="0"
-                                      Style="{StaticResource DarkTextBlockStyle}"/>
-                        </Grid>
                     </StackPanel>
-                </Grid>            </StackPanel>
+                </Grid></StackPanel>
 
             <!-- Connections Panel --><StackPanel Name="ConnectionsPanel" Visibility="Collapsed">
                 <TextBlock Text="Connections" FontSize="24" FontWeight="Bold" Margin="0,0,0,20"
@@ -506,14 +481,16 @@
                         </GridView>
                     </ListView.View>
                 </ListView></StackPanel>
-        </Grid>
-
-        <!-- Bottom Status Bar -->
+        </Grid>        <!-- Bottom Status Bar -->
         <Border Grid.Row="2" Background="{StaticResource MenuBackground}" BorderBrush="#444444"
                BorderThickness="0,1,0,0">
             <Grid Margin="10,5">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
@@ -522,13 +499,28 @@
                 <TextBlock Grid.Column="0" Name="StatusText" Text="Ready" VerticalAlignment="Center"
                            Style="{StaticResource DarkTextBlockStyle}"/>
 
+                <!-- Statistics -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0">
+                    <TextBlock Text="Active: " VerticalAlignment="Center" Style="{StaticResource DarkTextBlockStyle}"/>
+                    <TextBlock Name="ActiveConnectionsText" Text="0" VerticalAlignment="Center" Margin="0,0,10,0" Style="{StaticResource DarkTextBlockStyle}"/>
+
+                    <TextBlock Text="Total: " VerticalAlignment="Center" Style="{StaticResource DarkTextBlockStyle}"/>
+                    <TextBlock Name="TotalConnectionsText" Text="0" VerticalAlignment="Center" Margin="0,0,10,0" Style="{StaticResource DarkTextBlockStyle}"/>
+
+                    <TextBlock Text="Sent: " VerticalAlignment="Center" Style="{StaticResource DarkTextBlockStyle}"/>
+                    <TextBlock Name="BytesSentText" Text="0" VerticalAlignment="Center" Margin="0,0,10,0" Style="{StaticResource DarkTextBlockStyle}"/>
+
+                    <TextBlock Text="Received: " VerticalAlignment="Center" Style="{StaticResource DarkTextBlockStyle}"/>
+                    <TextBlock Name="BytesReceivedText" Text="0" VerticalAlignment="Center" Style="{StaticResource DarkTextBlockStyle}"/>
+                </StackPanel>
+
                 <!-- DLL Status -->
-                <TextBlock Grid.Column="1" Name="DllStatusText" Text="DLL Status: Not Loaded"
+                <TextBlock Grid.Column="2" Name="DllStatusText" Text="DLL Status: Not Loaded"
                            VerticalAlignment="Center" Foreground="#C0C0C0"
                            Margin="20,0,20,0"/>
 
                 <!-- Current Time -->
-                <TextBlock Grid.Column="2" Name="CurrentTimeText" Text="" VerticalAlignment="Center"
+                <TextBlock Grid.Column="3" Name="CurrentTimeText" Text="" VerticalAlignment="Center"
                            Foreground="{StaticResource SecondaryAccent}" Margin="10,0,0,0"/>
             </Grid>
         </Border>

@@ -27,7 +27,7 @@ __declspec(dllexport) BOOL start_proxy(void);
 __declspec(dllexport) void stop_proxy(void);
 
 /* Configure proxy settings */
-__declspec(dllexport) BOOL set_config(const char* bind_addr, int port, const char* log_file);
+__declspec(dllexport) BOOL set_config(const char* bind_addr, int port, const char* log_file, int verbose_mode);
 
 /* Set callback functions for real-time logging */
 __declspec(dllexport) void set_log_callback(log_callback_t callback);

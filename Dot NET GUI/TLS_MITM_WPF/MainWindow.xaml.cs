@@ -587,14 +587,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             MessageBox.Show("DLL not loaded", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             return;
         }        try
-        {
-            string bindAddr = BindAddressComboBox.SelectedItem?.ToString() ?? "127.0.0.1";
+        {            string bindAddr = BindAddressComboBox.SelectedItem?.ToString() ?? "127.0.0.1";
             int port = int.Parse(PortTextBox.Text);
-            string logFile = "tls_proxy.log"; // Default log file name
-
-            if (_dllManager.SetConfig(bindAddr, port, logFile))
+            string logFile = LogFileTextBox.Text;
+            bool verboseMode = VerboseModeCheckBox.IsChecked ?? false;            // Now we can pass the verbose mode directly to the DLL
+            if (_dllManager.SetConfig(bindAddr, port, logFile, verboseMode))
             {
                 AddStatusMessage($"[CONFIG] Configuration applied: {bindAddr}:{port}");
+                AddStatusMessage($"[CONFIG] Log file: {logFile}, Verbose mode: {(verboseMode ? "On" : "Off")}");
             }
             else
             {
@@ -605,8 +605,22 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         catch (Exception ex)
         {
             MessageBox.Show($"Error: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+        }    }
+
+    private void BrowseLogFile_Click(object sender, RoutedEventArgs e)
+    {
+        SaveFileDialog saveFileDialog = new SaveFileDialog
+        {
+            Filter = "Log files (*.log)|*.log|All files (*.*)|*.*",
+            DefaultExt = ".log",
+            FileName = LogFileTextBox.Text
+        };
+
+        if (saveFileDialog.ShowDialog() == true)
+        {
+            LogFileTextBox.Text = saveFileDialog.FileName;
         }
-    }    // BrowseLogFile_Click method removed as it's no longer needed
+    }
 
     private void ClearConnections_Click(object sender, RoutedEventArgs e)
     {

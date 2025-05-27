@@ -160,10 +160,10 @@ namespace TLS_MITM_WPF
                     _proxyRunning = false;
                 }
             }
-        }
+        }        public bool SetConfig(string bindAddress, int port, string logFile, bool verboseMode) =>
+            _dllLoaded && NativeMethods.set_config(bindAddress, port, logFile, verboseMode ? 1 : 0);
 
-        public bool SetConfig(string bindAddress, int port, string logFile) =>
-            _dllLoaded && NativeMethods.set_config(bindAddress, port, logFile);
+
 
         public int GetSystemIps(StringBuilder buffer, int bufferSize) =>
             _dllLoaded ? NativeMethods.get_system_ips(buffer, bufferSize) : 0;

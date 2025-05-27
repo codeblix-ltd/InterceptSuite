@@ -51,8 +51,8 @@ void **__cdecl OPENSSL_Applink(void);
 #define MAX_FILEPATH_LEN 512
 #define MAX_IP_ADDR_LEN 46  /* Max length for IPv6 addresses */
 #define CERT_EXPIRY_DAYS 365
-#define CA_CERT_FILE "myCA.pem"
-#define CA_KEY_FILE "myCA.key"
+#define CA_CERT_FILE "Intercept_Suite_Cert.pem"
+#define CA_KEY_FILE "Intercept_Suite_key.key"
 
 /* Windows-specific defines and typedefs */
 typedef SOCKET socket_t;
@@ -124,7 +124,6 @@ typedef struct {
     char bind_addr[MAX_IP_ADDR_LEN];/* IP address to bind to */
     char log_file[MAX_FILEPATH_LEN];/* Path to log file */
     FILE *log_fp;                   /* Log file pointer */
-    int help_requested;             /* Flag for help display */
     int verbose;                    /* Flag for verbose output */
 } proxy_config;
 
@@ -148,8 +147,6 @@ extern server_thread_t g_server;
 int init_winsock(void);
 void cleanup_winsock(void);
 int start_proxy_server(void);
-void print_usage(const char *program_name);
-int parse_arguments(int argc, char *argv[]);
 int validate_ip_address(const char *ip_addr);
 void log_message(const char *format, ...);
 void close_log_file(void);
