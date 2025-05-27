@@ -25,8 +25,11 @@ jobs:
     - name: Restore dependencies
       run: dotnet restore GUI/InterceptSuite/InterceptSuite.csproj
 
+    - name: Clean
+      run: dotnet clean GUI/InterceptSuite/InterceptSuite.csproj --configuration Release
+
     - name: Build
-      run: dotnet build GUI/InterceptSuite/InterceptSuite.csproj --configuration Release --no-restore
+      run: dotnet build GUI/InterceptSuite/InterceptSuite.csproj --configuration Release
 
     - name: Publish
       run: dotnet publish GUI/InterceptSuite/InterceptSuite.csproj --configuration Release --no-build --output publish
