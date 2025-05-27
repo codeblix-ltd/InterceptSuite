@@ -90,6 +90,7 @@ jobs:
     - name: Upload Package
       uses: actions/upload-artifact@v4
       with:
-        name: InterceptSuite-Windows        path: build/package/InterceptSuite-*.zip
+        name: InterceptSuite-Windows
+        path: build/package/InterceptSuite-*.zip
         if-no-files-found: error
         retention-days: 90
