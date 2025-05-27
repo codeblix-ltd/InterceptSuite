@@ -157,10 +157,10 @@ jobs:
             $version = "1.0.0"
           }
         }
-        
-        echo "Package version: $version"
+          echo "Package version: $version"
         echo "PACKAGE_VERSION=$version" >> $env:GITHUB_ENV
-      - name: Create combined package
+        
+    - name: Create combined package
       run: |
         Compress-Archive -Path "combined\*" -DestinationPath "InterceptSuite-v${{ env.PACKAGE_VERSION }}-win-x64.zip"
         echo "✅ Combined package created: InterceptSuite-v${{ env.PACKAGE_VERSION }}-win-x64.zip"
