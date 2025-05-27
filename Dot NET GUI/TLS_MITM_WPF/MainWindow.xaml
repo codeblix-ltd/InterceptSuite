@@ -220,7 +220,7 @@
                                 BorderThickness="{TemplateBinding BorderThickness}"
                                 Padding="{TemplateBinding Padding}"
                                 SnapsToDevicePixels="true">
-                            <GridViewRowPresenter x:Name="PART_Header" 
+                            <GridViewRowPresenter x:Name="PART_Header"
                                                  SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"
                                                  VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
                         </Border>
@@ -249,7 +249,7 @@
                 </Setter.Value>
             </Setter>
         </Style>
-        
+
         <!-- ListView Style -->
         <Style x:Key="DarkListViewStyle" TargetType="ListView">
             <Setter Property="Background" Value="#252526"/>
@@ -566,9 +566,9 @@
                         </GridView>
                     </ListView.View>
                 </ListView>
-                
+
                 <!-- Splitter between history list and data view -->
-                <GridSplitter Grid.Row="3" Height="5" HorizontalAlignment="Stretch" 
+                <GridSplitter Grid.Row="3" Height="5" HorizontalAlignment="Stretch"
                               Background="#3F3F46" ResizeBehavior="PreviousAndNext"/>
                   <!-- Data view pane (similar to Burp Suite) -->
                 <TextBox Name="HistoryDataTextBox" Grid.Row="4"

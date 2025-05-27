@@ -69,10 +69,8 @@ void pretty_print_data(const char *direction, const unsigned char *data, int len
                 return;
             }
         }
-    }
-
-    // Format the message content
-    ////// Need to works on this part show better representation of data, support to binary ---> string/ASCII conversion
+    }    // Format the message content
+    // Show full data content without redundant type prefixes
     if (len > 0) {
         // Check if the data appears to be text
         int is_text = 1;
@@ -85,29 +83,52 @@ void pretty_print_data(const char *direction, const unsigned char *data, int len
                     break;
                 }
             }
-        }        if (is_text) {
-            // Limit text length to avoid buffer overflow
-            int copy_len = (len > 1024) ? 1024 : len;
+        }
+
+        if (is_text) {
+            // For text data, use most of the buffer but leave room for truncation warning
+            // BUFFER_SIZE is 16384, but message array is sized to BUFFER_SIZE
+            // Leave ~100 bytes for the truncation warning and null terminator
+            int max_safe_len = sizeof(message) - 100;
+            int copy_len = (len > max_safe_len) ? max_safe_len : len;
+
             snprintf(message, sizeof(message), "%.*s%s",
-                     copy_len, data, (copy_len < len) ? "...(truncated)" : "");
+                    copy_len, data, (copy_len < len) ? "...(truncated)" : "");
         } else {
-            // For binary data, show a shortened hex representation
+            // For binary data, show a more comprehensive hex representation
             message[0] = '\0'; // Start with empty string
-            int hex_len = (len > 32) ? 32 : len;
             char *msg_ptr = message;
             size_t remaining = sizeof(message) - 1;
 
+            // Calculate how many bytes we can safely display
+            // Each byte takes ~3 chars (2 hex digits + space)
+            // Leave ~30 bytes for the truncation warning
+            int max_bytes = (remaining - 30) / 3;
+            int hex_len = (len > max_bytes) ? max_bytes : len;
+
+            // Format with line breaks every 16 bytes for better readability
             for (int i = 0; i < hex_len && remaining > 3; i++) {
-                int bytes_written = snprintf(msg_ptr, remaining, "%02x ", data[i]);
+                int bytes_written;
+
+                // Add a line break every 16 bytes
+                if (i > 0 && i % 16 == 0) {
+                    bytes_written = snprintf(msg_ptr, remaining, "\n");
+                    msg_ptr += bytes_written;
+                    remaining -= bytes_written;
+                }
+
+                bytes_written = snprintf(msg_ptr, remaining, "%02x ", data[i]);
                 msg_ptr += bytes_written;
                 remaining -= bytes_written;
             }
 
-            if (hex_len < len && remaining > 12) {
-                snprintf(msg_ptr, remaining, "...(truncated)");
+            if (hex_len < len && remaining > 15) {
+                snprintf(msg_ptr, remaining, "\n...(truncated)");
             }
-        }    } else {
-        strncpy(message, "", sizeof(message) - 1);    }
+        }
+    } else {
+        strncpy(message, "", sizeof(message) - 1);
+    }
 
     // Determine message type for the callback
     const char* message_type;

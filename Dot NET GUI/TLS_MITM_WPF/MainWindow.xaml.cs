@@ -846,11 +846,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             // Format the display based on the message type
             if (selectedItem.Type == "Binary")
             {
-                HistoryDataTextBox.Text = $"[Binary Data]\n{selectedItem.Data}";
+                //string dataInfo = $"[Binary Data - {GetDataSizeDescription(selectedItem.Data)}]";
+                HistoryDataTextBox.Text = $"{selectedItem.Data}";
             }
             else if (selectedItem.Type == "Text")
             {
-                HistoryDataTextBox.Text = $"[Text Data]\n{selectedItem.Data}";
+                //string dataInfo = $"[Text Data - {GetDataSizeDescription(selectedItem.Data)}]";
+                HistoryDataTextBox.Text = $"{selectedItem.Data}";
             }
             else if (selectedItem.Type == "Empty")
             {
@@ -858,12 +860,27 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             }
             else
             {
-                HistoryDataTextBox.Text = $"[{selectedItem.Type}]\n{selectedItem.Data}";
+                string dataInfo = $"[{selectedItem.Type} - {GetDataSizeDescription(selectedItem.Data)}]";
+                HistoryDataTextBox.Text = $"{dataInfo}\n{selectedItem.Data}";
             }
         }
         else
         {
             HistoryDataTextBox.Text = string.Empty;
         }
+    }
+
+    // Helper method to format data size information
+    private string GetDataSizeDescription(string data)
+    {
+        if (string.IsNullOrEmpty(data))
+            return "0 bytes";
+
+        int length = data.Length;
+        bool isTruncated = data.EndsWith("...(truncated)");
+
+        return isTruncated
+            ? $"{length} bytes (truncated)"
+            : $"{length} bytes";
     }
 }
