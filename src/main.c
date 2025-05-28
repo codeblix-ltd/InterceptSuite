@@ -71,7 +71,16 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved) {
 /* Exported functions */
 
 __declspec(dllexport) BOOL start_proxy(void) {
-    send_status_update("Starting proxy initialization...");
+    send_status_update("Starting proxy initialization...");    /* Open log file if configured */
+    if (strlen(config.log_file) > 0) {
+        send_status_update("Opening log file...");
+        if (!open_log_file()) {
+            send_status_update("WARNING: Failed to open log file");
+            /* Continue anyway as this is not critical */
+        } else {
+            send_status_update("Log file opened successfully");
+        }
+    }
 
     /* Initialize Winsock */
     send_status_update("Initializing Winsock...");
@@ -184,10 +193,11 @@ __declspec(dllexport) void stop_proxy(void) {
         WaitForSingleObject(g_server.thread_handle, 5000);
         CloseHandle(g_server.thread_handle);
         g_server.thread_handle = NULL;
-    }
-
-    /* Delete critical section */
+    }    /* Delete critical section */
     DeleteCriticalSection(&g_server.cs);
+
+    /* Close log file */
+    close_log_file();
 }
 
 __declspec(dllexport) BOOL set_config(const char* bind_addr, int port, const char* log_file, int verbose_mode) {
@@ -198,13 +208,22 @@ __declspec(dllexport) BOOL set_config(const char* bind_addr, int port, const cha
     /* Validate IP address */
     if (!validate_ip_address(bind_addr)) {
         return FALSE;
-    }
+    }    /* Close existing log file if open */
+    close_log_file();
 
     /* Update configuration */
     strncpy(config.bind_addr, bind_addr, sizeof(config.bind_addr) - 1);
     config.port = port;
     strncpy(config.log_file, log_file, sizeof(config.log_file) - 1);
     config.verbose = verbose_mode;
+
+    /* Open new log file */
+    if (!open_log_file()) {
+        send_status_update("WARNING: Failed to open log file");
+        /* Continue anyway as this is not critical */
+    } else {
+        send_status_update("Log file opened successfully");
+    }
 
     return TRUE;
 }
