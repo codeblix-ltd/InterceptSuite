@@ -1,6 +1,7 @@
 // filepath: d:\Windows TLS\Dot NET GUI\TLS_MITM_WPF\DllManager.cs
 using System;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -13,12 +14,12 @@ namespace InterceptSuite
         private bool _disposed = false;
         private bool _dllLoaded = false;
         private bool _proxyRunning = false;
-        private readonly object _proxyStateLock = new object();
-        private readonly NativeMethods.LogCallbackDelegate _logCallback;
+        private readonly object _proxyStateLock = new object();        private readonly NativeMethods.LogCallbackDelegate _logCallback;
         private readonly NativeMethods.StatusCallbackDelegate _statusCallback;
         private readonly NativeMethods.ConnectionCallbackDelegate _connectionCallback;
         private readonly NativeMethods.StatsCallbackDelegate _statsCallback;
         private readonly NativeMethods.DisconnectCallbackDelegate _disconnectCallback;
+        private readonly NativeMethods.InterceptCallbackDelegate _interceptCallback;
 
         // Event handlers for callbacks
         public event Action<string, string, string, int, string, string>? OnLogMessage;
@@ -26,16 +27,16 @@ namespace InterceptSuite
         public event Action<string, int, string, int, int>? OnConnection;
         public event Action<int, int, int>? OnStats;
         public event Action<int, string>? OnDisconnect;
+        public event Action<int, string, string, string, int, byte[]>? OnIntercept;
 
         public bool IsLoaded => _dllLoaded;
-        public bool IsProxyRunning => _proxyRunning;
-
-        public DllManager(
+        public bool IsProxyRunning => _proxyRunning;        public DllManager(
             Action<string, string, string, int, string, string> logCallback,
             Action<string> statusCallback,
             Action<string, int, string, int, int> connectionCallback,
             Action<int, int, int> statsCallback,
-            Action<int, string> disconnectCallback)
+            Action<int, string> disconnectCallback,
+            Action<int, string, string, string, int, byte[]> interceptCallback)
         {
             // Store references to the callback methods to prevent garbage collection
             _logCallback = (timestamp, srcIp, dstIp, dstPort, msgType, data) =>
@@ -48,10 +49,19 @@ namespace InterceptSuite
                 OnConnection?.Invoke(clientIp, clientPort, targetHost, targetPort, connectionId);
 
             _statsCallback = (totalConnections, activeConnections, totalBytesTransferred) =>
-                OnStats?.Invoke(totalConnections, activeConnections, totalBytesTransferred);
-
-            _disconnectCallback = (connectionId, reason) =>
+                OnStats?.Invoke(totalConnections, activeConnections, totalBytesTransferred);            _disconnectCallback = (connectionId, reason) =>
                 OnDisconnect?.Invoke(connectionId, reason);
+
+            _interceptCallback = (connectionId, direction, srcIp, dstIp, dstPort, dataPtr, dataLength) =>
+            {
+                // Convert IntPtr to byte array
+                byte[] data = new byte[dataLength];
+                if (dataPtr != IntPtr.Zero && dataLength > 0)
+                {
+                    System.Runtime.InteropServices.Marshal.Copy(dataPtr, data, 0, dataLength);
+                }
+                OnIntercept?.Invoke(connectionId, direction, srcIp, dstIp, dstPort, data);
+            };
 
             // Register events
             OnLogMessage += logCallback;
@@ -59,14 +69,15 @@ namespace InterceptSuite
             OnConnection += connectionCallback;
             OnStats += statsCallback;
             OnDisconnect += disconnectCallback;
+            OnIntercept += interceptCallback;
         }
 
         public async Task<(bool success, string message)> LoadDllAsync()
         {
             return await Task.Run(() =>
-            {
-                try
-                {                    string? dllPath = FindDllPath();
+            {                try
+                {                    
+                    string? dllPath = FindDllPath();
                     if (dllPath == null)
                     {
                         return (false, "Could not find Intercept.dll");
@@ -79,24 +90,31 @@ namespace InterceptSuite
                         NativeMethods.AddDllDirectory(dllDirectory);
                     }
 
+                    // Load the DLL explicitly
+                    IntPtr hModule = NativeMethods.LoadLibrary(dllPath);
+                    if (hModule == IntPtr.Zero)
+                    {
+                        int error = Marshal.GetLastWin32Error();
+                        return (false, $"Failed to load DLL at {dllPath}. Error code: {error}");
+                    }
+
                     // Set callbacks
                     NativeMethods.set_log_callback(_logCallback);
                     NativeMethods.set_status_callback(_statusCallback);
                     NativeMethods.set_connection_callback(_connectionCallback);
                     NativeMethods.set_stats_callback(_statsCallback);
                     NativeMethods.set_disconnect_callback(_disconnectCallback);
+                    NativeMethods.set_intercept_callback(_interceptCallback);
 
                     _dllLoaded = true;
-                    return (true, "DLL loaded successfully");
+                    return (true, $"DLL loaded successfully from {dllPath}");
                 }
                 catch (Exception ex)
                 {
                     return (false, $"Failed to load DLL: {ex.Message}");
                 }
             });
-        }
-
-    // Helper to find DLL in possible locations
+        }    // Helper to find DLL in possible locations
         private string? FindDllPath()
         {
             // Try possible paths
@@ -104,6 +122,8 @@ namespace InterceptSuite
             {
                 @"d:\Windows TLS\build\Debug\Intercept.dll",
                 @"d:\Windows TLS\build\Release\Intercept.dll",
+                @"d:\Windows TLS\build\RelWithDebInfo\Intercept.dll",
+                @"d:\Windows TLS\build\MinSizeRel\Intercept.dll",
                 Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Intercept.dll"),
                 "Intercept.dll"
             };
@@ -111,11 +131,15 @@ namespace InterceptSuite
             foreach (string path in possiblePaths)
             {
                 if (File.Exists(path))
+                {
+                    Console.WriteLine($"Found DLL at: {path}");
                     return path;
+                }
             }
 
+            Console.WriteLine("DLL not found in any of the expected locations");
             return null;
-        }        // Public proxy API methods
+        }// Public proxy API methods
         public bool StartProxy()
         {
             lock (_proxyStateLock)
@@ -169,7 +193,31 @@ namespace InterceptSuite
             _dllLoaded && NativeMethods.get_proxy_config(bindAddress, ref port, logFile, ref verboseMode);
 
         public bool GetProxyStats(ref int connections, ref int bytes) =>
-            _dllLoaded && NativeMethods.get_proxy_stats(ref connections, ref bytes);        protected virtual void Dispose(bool disposing)
+            _dllLoaded && NativeMethods.get_proxy_stats(ref connections, ref bytes);        // Interception control methods
+        public void SetInterceptEnabled(bool enabled)
+        {
+            if (_dllLoaded)
+            {
+                NativeMethods.set_intercept_enabled(enabled);
+            }
+        }
+
+        public void SetInterceptDirection(int direction)
+        {
+            if (_dllLoaded)
+            {
+                NativeMethods.set_intercept_direction(direction);
+            }
+        }
+
+        public void RespondToIntercept(int connectionId, int action, byte[]? modifiedData = null)
+        {
+            if (_dllLoaded)
+            {
+                int dataLength = modifiedData?.Length ?? 0;
+                NativeMethods.respond_to_intercept(connectionId, action, modifiedData, dataLength);
+            }
+        }        protected virtual void Dispose(bool disposing)
         {
             if (!_disposed)
             {

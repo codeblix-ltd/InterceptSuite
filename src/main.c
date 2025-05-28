@@ -25,11 +25,21 @@ X509 *ca_cert = NULL;
 EVP_PKEY *ca_key = NULL;
 
 /* Global callback functions */
-static log_callback_t g_log_callback = NULL;
-static status_callback_t g_status_callback = NULL;
-static connection_callback_t g_connection_callback = NULL;
-static stats_callback_t g_stats_callback = NULL;
-static disconnect_callback_t g_disconnect_callback = NULL;
+log_callback_t g_log_callback = NULL;
+status_callback_t g_status_callback = NULL;
+connection_callback_t g_connection_callback = NULL;
+stats_callback_t g_stats_callback = NULL;
+disconnect_callback_t g_disconnect_callback = NULL;
+
+/* Global interception configuration */
+intercept_config_t g_intercept_config = {0};
+
+/* Global interception callback */
+intercept_callback_t g_intercept_callback = NULL;
+
+/* Active interception data storage */
+intercept_data_t* g_active_intercepts[100] = {0}; // Support up to 100 concurrent intercepts
+int g_intercept_count = 0;
 
 /* Statistics */
 static int g_total_connections = 0;
@@ -41,9 +51,15 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved) {
         case DLL_PROCESS_ATTACH:
             /* Initialize with default settings */
             init_config();
+            /* Initialize interception configuration */
+            g_intercept_config.enabled_directions = INTERCEPT_NONE;
+            g_intercept_config.is_interception_enabled = 0;
+            InitializeCriticalSection(&g_intercept_config.intercept_cs);
             break;
 
         case DLL_PROCESS_DETACH:
+            /* Clean up interception */
+            DeleteCriticalSection(&g_intercept_config.intercept_cs);
             /* Clean up */
             cleanup_winsock();
             cleanup_openssl();
@@ -330,6 +346,80 @@ __declspec(dllexport) void set_stats_callback(stats_callback_t callback) {
 
 __declspec(dllexport) void set_disconnect_callback(disconnect_callback_t callback) {
     g_disconnect_callback = callback;
+}
+
+/* Interception callback and control functions */
+
+__declspec(dllexport) void set_intercept_callback(intercept_callback_t callback) {
+    g_intercept_callback = callback;
+}
+
+__declspec(dllexport) void set_intercept_enabled(int enabled) {
+    EnterCriticalSection(&g_intercept_config.intercept_cs);
+    g_intercept_config.is_interception_enabled = enabled;
+    LeaveCriticalSection(&g_intercept_config.intercept_cs);
+    
+    if (g_status_callback) {
+        char status_msg[256];
+        snprintf(status_msg, sizeof(status_msg), "Interception %s", enabled ? "enabled" : "disabled");
+        g_status_callback(status_msg);
+    }
+}
+
+__declspec(dllexport) void set_intercept_direction(int direction) {
+    EnterCriticalSection(&g_intercept_config.intercept_cs);
+    g_intercept_config.enabled_directions = (intercept_direction_t)direction;
+    LeaveCriticalSection(&g_intercept_config.intercept_cs);
+    
+    if (g_status_callback) {
+        char status_msg[256];
+        const char* dir_str = "None";
+        switch(direction) {
+            case INTERCEPT_CLIENT_TO_SERVER: dir_str = "Client->Server"; break;
+            case INTERCEPT_SERVER_TO_CLIENT: dir_str = "Server->Client"; break;
+            case INTERCEPT_BOTH: dir_str = "Both directions"; break;
+        }
+        snprintf(status_msg, sizeof(status_msg), "Intercept direction set to: %s", dir_str);
+        g_status_callback(status_msg);
+    }
+}
+
+__declspec(dllexport) void respond_to_intercept(int connection_id, int action, const unsigned char* modified_data, int modified_length) {
+    EnterCriticalSection(&g_intercept_config.intercept_cs);
+    
+    // Find the intercept data for this connection
+    for (int i = 0; i < g_intercept_count; i++) {
+        if (g_active_intercepts[i] && g_active_intercepts[i]->connection_id == connection_id && 
+            g_active_intercepts[i]->is_waiting_for_response) {
+            
+            intercept_data_t* intercept = g_active_intercepts[i];
+            intercept->action = (intercept_action_t)action;
+            
+            // Handle modified data if provided
+            if (action == INTERCEPT_ACTION_MODIFY && modified_data && modified_length > 0) {
+                // Free existing modified data if any
+                if (intercept->modified_data) {
+                    free(intercept->modified_data);
+                }
+                
+                // Allocate and copy new data
+                intercept->modified_data = malloc(modified_length);
+                if (intercept->modified_data) {
+                    memcpy(intercept->modified_data, modified_data, modified_length);
+                    intercept->modified_length = modified_length;
+                } else {
+                    // Fall back to forward if allocation fails
+                    intercept->action = INTERCEPT_ACTION_FORWARD;
+                }
+            }
+            
+            intercept->is_waiting_for_response = 0;
+            SetEvent(intercept->response_event);
+            break;
+        }
+    }
+    
+    LeaveCriticalSection(&g_intercept_config.intercept_cs);
 }
 
 /* Get system IP addresses */

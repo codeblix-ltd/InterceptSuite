@@ -6,6 +6,7 @@
 #include "../include/cert_utils.h"
 #include "../include/socks5.h"
 #include "../include/utils.h"
+#include "../include/tls_proxy_dll.h"
 #include <ctype.h>  /* For isprint() */
 
 /* External callback functions from main.c */
@@ -13,6 +14,10 @@ extern void send_log_entry(const char* src_ip, const char* dst_ip, int dst_port,
 extern void send_status_update(const char* message);
 extern void send_connection_notification(const char* client_ip, int client_port, const char* target_host, int target_port, int connection_id);
 extern void send_disconnect_notification(int connection_id, const char* reason);
+
+/* External interception data arrays from main.c */
+extern intercept_data_t* g_active_intercepts[100];
+extern int g_intercept_count;
 
 /* Global connection ID counter */
 static int g_connection_id_counter = 0;
@@ -313,10 +318,92 @@ void forward_data(SSL *src, SSL *dst, const char *direction, const char *src_ip,
                 print_openssl_error();
             }
             break;
-        }
-
-        // Print the intercepted data
+        }        // Print the intercepted data
         pretty_print_data(direction, buffer, len, src_ip, dst_ip, dst_port);
+
+        // Check if we should intercept this data
+        if (should_intercept_data(direction, connection_id)) {
+            // Create intercept data structure
+            intercept_data_t intercept_data = {0};
+            intercept_data.connection_id = connection_id;
+            strncpy(intercept_data.direction, direction, sizeof(intercept_data.direction) - 1);
+            strncpy(intercept_data.src_ip, src_ip, sizeof(intercept_data.src_ip) - 1);
+            strncpy(intercept_data.dst_ip, dst_ip, sizeof(intercept_data.dst_ip) - 1);
+            intercept_data.dst_port = dst_port;
+            intercept_data.data_length = len;
+            intercept_data.is_waiting_for_response = 1;
+            intercept_data.action = INTERCEPT_ACTION_FORWARD;
+            intercept_data.modified_data = NULL;
+            intercept_data.modified_length = 0;
+            
+            // Create response event
+            intercept_data.response_event = CreateEvent(NULL, FALSE, FALSE, NULL);
+            if (!intercept_data.response_event) {
+                send_status_update("Error: Failed to create intercept response event");
+                break;
+            }
+            
+            // Copy data to intercept structure
+            intercept_data.data = malloc(len);
+            if (!intercept_data.data) {
+                CloseHandle(intercept_data.response_event);
+                send_status_update("Error: Failed to allocate memory for intercept data");
+                break;
+            }
+            memcpy(intercept_data.data, buffer, len);
+            
+            // Store in global array for response handling
+            EnterCriticalSection(&g_intercept_config.intercept_cs);
+            if (g_intercept_count < 100) {
+                g_active_intercepts[g_intercept_count] = &intercept_data;
+                g_intercept_count++;
+            }
+            LeaveCriticalSection(&g_intercept_config.intercept_cs);
+            
+            // Send data to GUI for interception
+            send_intercept_data(connection_id, direction, src_ip, dst_ip, dst_port, buffer, len);
+            
+            // Wait for user response
+            if (!wait_for_intercept_response(&intercept_data)) {
+                // Cleanup on error
+                free(intercept_data.data);
+                if (intercept_data.modified_data) free(intercept_data.modified_data);
+                CloseHandle(intercept_data.response_event);
+                break;
+            }
+            
+            // Remove from active intercepts array
+            EnterCriticalSection(&g_intercept_config.intercept_cs);
+            for (int i = 0; i < g_intercept_count; i++) {
+                if (g_active_intercepts[i] == &intercept_data) {
+                    // Shift remaining elements
+                    for (int j = i; j < g_intercept_count - 1; j++) {
+                        g_active_intercepts[j] = g_active_intercepts[j + 1];
+                    }
+                    g_intercept_count--;
+                    break;
+                }
+            }
+            LeaveCriticalSection(&g_intercept_config.intercept_cs);
+            
+            // Handle user response
+            if (intercept_data.action == INTERCEPT_ACTION_DROP) {
+                // Drop the data - don't forward it
+                free(intercept_data.data);
+                if (intercept_data.modified_data) free(intercept_data.modified_data);
+                CloseHandle(intercept_data.response_event);
+                continue; // Skip forwarding and go to next iteration
+            } else if (intercept_data.action == INTERCEPT_ACTION_MODIFY && intercept_data.modified_data) {
+                // Use modified data instead of original
+                memcpy(buffer, intercept_data.modified_data, intercept_data.modified_length);
+                len = intercept_data.modified_length;
+            }
+            
+            // Cleanup intercept data
+            free(intercept_data.data);
+            if (intercept_data.modified_data) free(intercept_data.modified_data);
+            CloseHandle(intercept_data.response_event);
+        }
 
         // Additional SSL state validation before write
         if (!SSL_is_init_finished(dst)) {
@@ -432,10 +519,92 @@ void forward_tcp_data(socket_t src, socket_t dst, const char *direction, const c
                 }
             }
             break;
-        }
-
-        // Print the intercepted data
+        }        // Print the intercepted data
         pretty_print_data(direction, buffer, len, src_ip, dst_ip, dst_port);
+
+        // Check if we should intercept this data
+        if (should_intercept_data(direction, connection_id)) {
+            // Create intercept data structure
+            intercept_data_t intercept_data = {0};
+            intercept_data.connection_id = connection_id;
+            strncpy(intercept_data.direction, direction, sizeof(intercept_data.direction) - 1);
+            strncpy(intercept_data.src_ip, src_ip, sizeof(intercept_data.src_ip) - 1);
+            strncpy(intercept_data.dst_ip, dst_ip, sizeof(intercept_data.dst_ip) - 1);
+            intercept_data.dst_port = dst_port;
+            intercept_data.data_length = len;
+            intercept_data.is_waiting_for_response = 1;
+            intercept_data.action = INTERCEPT_ACTION_FORWARD;
+            intercept_data.modified_data = NULL;
+            intercept_data.modified_length = 0;
+            
+            // Create response event
+            intercept_data.response_event = CreateEvent(NULL, FALSE, FALSE, NULL);
+            if (!intercept_data.response_event) {
+                send_status_update("Error: Failed to create intercept response event");
+                break;
+            }
+            
+            // Copy data to intercept structure
+            intercept_data.data = malloc(len);
+            if (!intercept_data.data) {
+                CloseHandle(intercept_data.response_event);
+                send_status_update("Error: Failed to allocate memory for intercept data");
+                break;
+            }
+            memcpy(intercept_data.data, buffer, len);
+            
+            // Store in global array for response handling
+            EnterCriticalSection(&g_intercept_config.intercept_cs);
+            if (g_intercept_count < 100) {
+                g_active_intercepts[g_intercept_count] = &intercept_data;
+                g_intercept_count++;
+            }
+            LeaveCriticalSection(&g_intercept_config.intercept_cs);
+            
+            // Send data to GUI for interception
+            send_intercept_data(connection_id, direction, src_ip, dst_ip, dst_port, buffer, len);
+            
+            // Wait for user response
+            if (!wait_for_intercept_response(&intercept_data)) {
+                // Cleanup on error
+                free(intercept_data.data);
+                if (intercept_data.modified_data) free(intercept_data.modified_data);
+                CloseHandle(intercept_data.response_event);
+                break;
+            }
+            
+            // Remove from active intercepts array
+            EnterCriticalSection(&g_intercept_config.intercept_cs);
+            for (int i = 0; i < g_intercept_count; i++) {
+                if (g_active_intercepts[i] == &intercept_data) {
+                    // Shift remaining elements
+                    for (int j = i; j < g_intercept_count - 1; j++) {
+                        g_active_intercepts[j] = g_active_intercepts[j + 1];
+                    }
+                    g_intercept_count--;
+                    break;
+                }
+            }
+            LeaveCriticalSection(&g_intercept_config.intercept_cs);
+            
+            // Handle user response
+            if (intercept_data.action == INTERCEPT_ACTION_DROP) {
+                // Drop the data - don't forward it
+                free(intercept_data.data);
+                if (intercept_data.modified_data) free(intercept_data.modified_data);
+                CloseHandle(intercept_data.response_event);
+                continue; // Skip forwarding and go to next iteration
+            } else if (intercept_data.action == INTERCEPT_ACTION_MODIFY && intercept_data.modified_data) {
+                // Use modified data instead of original
+                memcpy(buffer, intercept_data.modified_data, intercept_data.modified_length);
+                len = intercept_data.modified_length;
+            }
+            
+            // Cleanup intercept data
+            free(intercept_data.data);
+            if (intercept_data.modified_data) free(intercept_data.modified_data);
+            CloseHandle(intercept_data.response_event);
+        }
 
         // Forward to the destination
         int sent = 0;
@@ -1096,9 +1265,9 @@ THREAD_RETURN_TYPE handle_client(void *arg) {
     if (!client_to_server) {
         fprintf(stderr, "Memory allocation failed\n");
         goto cleanup;
-    }    client_to_server->src = server_ssl;
-    client_to_server->dst = client_ssl;
-    strncpy(client_to_server->direction, "client->server", sizeof(client_to_server->direction)-1);
+    }        client_to_server->src = server_ssl;
+        client_to_server->dst = client_ssl;
+        strncpy(client_to_server->direction, "Client->Server", sizeof(client_to_server->direction)-1);
     client_to_server->direction[sizeof(client_to_server->direction)-1] = '\0';
     strncpy(client_to_server->src_ip, client_ip, MAX_IP_ADDR_LEN-1);
     strncpy(client_to_server->dst_ip, server_ip, MAX_IP_ADDR_LEN-1);
@@ -1114,7 +1283,7 @@ THREAD_RETURN_TYPE handle_client(void *arg) {
         goto cleanup;
     }    server_to_client->src = client_ssl;
     server_to_client->dst = server_ssl;
-    strncpy(server_to_client->direction, "server->client", sizeof(server_to_client->direction)-1);
+    strncpy(server_to_client->direction, "Server->Client", sizeof(server_to_client->direction)-1);
     server_to_client->direction[sizeof(server_to_client->direction)-1] = '\0';
     strncpy(server_to_client->src_ip, server_ip, MAX_IP_ADDR_LEN-1);
     strncpy(server_to_client->dst_ip, client_ip, MAX_IP_ADDR_LEN-1);
@@ -1160,11 +1329,9 @@ THREAD_RETURN_TYPE handle_client(void *arg) {
         if (!client_to_server) {
             fprintf(stderr, "Memory allocation failed\n");
             goto cleanup;
-        }
-
-        client_to_server->src = client_sock;
+        }        client_to_server->src = client_sock;
         client_to_server->dst = server_sock;
-        strncpy(client_to_server->direction, "client->server", sizeof(client_to_server->direction)-1);
+        strncpy(client_to_server->direction, "Client->Server", sizeof(client_to_server->direction)-1);
         client_to_server->direction[sizeof(client_to_server->direction)-1] = '\0';
         strncpy(client_to_server->src_ip, client_ip, MAX_IP_ADDR_LEN-1);
         strncpy(client_to_server->dst_ip, server_ip, MAX_IP_ADDR_LEN-1);
@@ -1177,11 +1344,9 @@ THREAD_RETURN_TYPE handle_client(void *arg) {
             fprintf(stderr, "Memory allocation failed\n");
             free(client_to_server); // Don't leak memory
             goto cleanup;
-        }
-
-        server_to_client->src = server_sock;
+        }        server_to_client->src = server_sock;
         server_to_client->dst = client_sock;
-        strncpy(server_to_client->direction, "server->client", sizeof(server_to_client->direction)-1);
+        strncpy(server_to_client->direction, "Server->Client", sizeof(server_to_client->direction)-1);
         server_to_client->direction[sizeof(server_to_client->direction)-1] = '\0';
         strncpy(server_to_client->src_ip, server_ip, MAX_IP_ADDR_LEN-1);
         strncpy(server_to_client->dst_ip, client_ip, MAX_IP_ADDR_LEN-1);
@@ -1308,4 +1473,50 @@ cleanup:
     }
 
     THREAD_RETURN;
+}
+
+/* Interception support functions */
+
+int should_intercept_data(const char* direction, int connection_id) {
+    if (!g_intercept_config.is_interception_enabled) {
+        return 0;
+    }
+    
+    EnterCriticalSection(&g_intercept_config.intercept_cs);
+    
+    int should_intercept = 0;
+    if (strcmp(direction, "Client->Server") == 0 && 
+        (g_intercept_config.enabled_directions & INTERCEPT_CLIENT_TO_SERVER)) {
+        should_intercept = 1;
+    } else if (strcmp(direction, "Server->Client") == 0 && 
+               (g_intercept_config.enabled_directions & INTERCEPT_SERVER_TO_CLIENT)) {
+        should_intercept = 1;
+    }
+    
+    LeaveCriticalSection(&g_intercept_config.intercept_cs);
+    return should_intercept;
+}
+
+void send_intercept_data(int connection_id, const char* direction, const char* src_ip, const char* dst_ip, int dst_port, const unsigned char* data, int data_length) {
+    if (g_intercept_callback) {
+        g_intercept_callback(connection_id, direction, src_ip, dst_ip, dst_port, data, data_length);
+    }
+}
+
+int wait_for_intercept_response(intercept_data_t* intercept_data) {
+    if (!intercept_data || !intercept_data->response_event) {
+        return 0;
+    }
+    
+    // Wait for user response with a reasonable timeout (60 seconds)
+    DWORD wait_result = WaitForSingleObject(intercept_data->response_event, 60000);    if (wait_result == WAIT_TIMEOUT) {
+        // Timeout - default to forwarding
+        intercept_data->action = INTERCEPT_ACTION_FORWARD;
+        intercept_data->is_waiting_for_response = 0;
+        if (g_status_callback) {
+            g_status_callback("Intercept timeout - data forwarded automatically");
+        }
+    }
+    
+    return (wait_result == WAIT_OBJECT_0 || wait_result == WAIT_TIMEOUT);
 }

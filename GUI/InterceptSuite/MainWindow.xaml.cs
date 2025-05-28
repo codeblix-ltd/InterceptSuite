@@ -171,6 +171,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     // Timer for UI updates
     private DispatcherTimer? _updateTimer = null;
 
+    // Interception state
+    private bool _isInterceptionEnabled = false;
+    private int _interceptDirection = 0; // 0=None, 1=Client->Server, 2=Server->Client, 3=Both
+    private int _currentInterceptConnectionId = -1;
+    private string _currentInterceptDirection = "";
+    private string _currentInterceptSrcIp = "";
+    private string _currentInterceptDstIp = "";
+    private int _currentInterceptDstPort = 0;
+    private byte[] _currentInterceptData = Array.Empty<byte>();
+    private bool _isWaitingForInterceptResponse = false;
+    private bool _isInterceptDataModified = false;
+
     public event PropertyChangedEventHandler? PropertyChanged;
     protected virtual void OnPropertyChanged(string propertyName) =>
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));    public MainWindow()
@@ -178,15 +190,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         InitializeComponent();
 
         // Apply dark title bar when window loads
-        Loaded += MainWindow_Loaded;
-
-        // Initialize DLL manager with callbacks
+        Loaded += MainWindow_Loaded;        // Initialize DLL manager with callbacks
         _dllManager = new DllManager(
             ProxyDataCallback, // was LogCallback
             StatusCallback,
             ConnectionCallback,
             StatsCallback,
-            DisconnectCallback
+            DisconnectCallback,
+            InterceptCallback
         );
 
         // Initialize ListViews
@@ -530,38 +541,49 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         // Trim status messages if too many
         if (_statusMessages.Count > 1000)
             _statusMessages.RemoveAt(0);
-    }private void NavigationButton_Click(object sender, RoutedEventArgs e)
+    }    private void NavigationButton_Click(object sender, RoutedEventArgs e)
     {
         if (sender is Button button && button.Tag is string tag)
         {
-            // Reset all buttons
-            ProxyControlButton.IsEnabled = true;
-            ConnectionsButton.IsEnabled = true;
-            ProxyHistoryButton.IsEnabled = true;
-
-            // Mark selected button
-            button.IsEnabled = false;
-
-            // Hide all panels
-            ProxyControlPanel.Visibility = Visibility.Collapsed;
-            ConnectionsPanel.Visibility = Visibility.Collapsed;
-            ProxyHistoryPanel.Visibility = Visibility.Collapsed;
-
-            // Show the selected panel
-            switch (tag)
-            {
-                case "ProxyControl":
-                    ProxyControlPanel.Visibility = Visibility.Visible;
-                    break;
-                case "Connections":
-                    ConnectionsPanel.Visibility = Visibility.Visible;
-                    break;
-                case "ProxyHistory":
-                    ProxyHistoryPanel.Visibility = Visibility.Visible;
-                    break;
-            }
+            NavigateToPanel(tag);
         }
+    }
+    
+    private void NavigateToPanel(string panelName)
+    {
+        // Reset all buttons
+        ProxyControlButton.IsEnabled = true;
+        InterceptButton.IsEnabled = true;
+        ConnectionsButton.IsEnabled = true;
+        ProxyHistoryButton.IsEnabled = true;
+
+        // Hide all panels
+        ProxyControlPanel.Visibility = Visibility.Collapsed;
+        InterceptPanel.Visibility = Visibility.Collapsed;
+        ConnectionsPanel.Visibility = Visibility.Collapsed;
+        ProxyHistoryPanel.Visibility = Visibility.Collapsed;
+
+        // Show the selected panel and mark button as selected
+        switch (panelName)
+        {
+            case "ProxyControl":
+                ProxyControlPanel.Visibility = Visibility.Visible;
+                ProxyControlButton.IsEnabled = false;
+                break;
+            case "Intercept":
+                InterceptPanel.Visibility = Visibility.Visible;
+                InterceptButton.IsEnabled = false;
+                break;
+            case "Connections":
+                ConnectionsPanel.Visibility = Visibility.Visible;
+                ConnectionsButton.IsEnabled = false;
+                break;
+            case "ProxyHistory":
+                ProxyHistoryPanel.Visibility = Visibility.Visible;
+                ProxyHistoryButton.IsEnabled = false;
+                break;
         }
+    }
 
     private void StartProxy_Click(object sender, RoutedEventArgs e)
     {
@@ -743,8 +765,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     {
         // Make sure to stop the proxy and dispose resources when the window closes
         Dispose();
-        base.OnClosing(e);
-    }
+        base.OnClosing(e);    }
 
     // Apply dark title bar to the window
     private void MainWindow_Loaded(object sender, RoutedEventArgs e)
@@ -754,6 +775,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
         // Update window chrome
         UpdateWindowChrome();
+        
+        // Initialize intercept UI
+        InitializeInterceptUI();
     }
 
     // Apply dark title bar to the window
@@ -882,5 +906,229 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         return isTruncated
             ? $"{length} bytes (truncated)"
             : $"{length} bytes";
+    }
+    
+    private void InterceptCallback(int connectionId, string direction, string srcIp, 
+                                  string dstIp, int dstPort, byte[] data)
+    {
+        // Need to dispatch to UI thread
+        Dispatcher.Invoke(() =>
+        {
+            // Store current intercept data
+            _currentInterceptConnectionId = connectionId;
+            _currentInterceptDirection = direction;
+            _currentInterceptSrcIp = srcIp;
+            _currentInterceptDstIp = dstIp;
+            _currentInterceptDstPort = dstPort;
+            _currentInterceptData = data;
+            _isWaitingForInterceptResponse = true;
+            _isInterceptDataModified = false;
+            
+            // Update UI
+            UpdateInterceptUI();
+            
+            // Switch to intercept tab automatically
+            NavigateToPanel("Intercept");
+        });
+    }
+
+    private void UpdateInterceptUI()
+    {
+        if (_isWaitingForInterceptResponse)
+        {
+            // Update status
+            InterceptStatusText.Text = $"Intercepted data from connection {_currentInterceptConnectionId}";
+            
+            // Update connection info
+            ConnectionIdText.Text = _currentInterceptConnectionId.ToString();
+            DirectionText.Text = _currentInterceptDirection;
+            EndpointText.Text = $"{_currentInterceptSrcIp} → {_currentInterceptDstIp}:{_currentInterceptDstPort}";
+            
+            // Update data view
+            UpdateInterceptDataView();
+            
+            // Enable action buttons
+            ForwardButton.IsEnabled = true;
+            DropButton.IsEnabled = true;
+            ForwardModifiedButton.IsEnabled = true;
+        }
+        else
+        {
+            // Reset UI
+            InterceptStatusText.Text = "No intercept pending";
+            ConnectionIdText.Text = "-";
+            DirectionText.Text = "-";
+            EndpointText.Text = "-";
+            InterceptDataTextBox.Text = "";
+            
+            // Disable action buttons
+            ForwardButton.IsEnabled = false;
+            DropButton.IsEnabled = false;
+            ForwardModifiedButton.IsEnabled = false;
+        }
+    }
+
+    private void UpdateInterceptDataView()
+    {
+        if (_currentInterceptData.Length == 0)
+        {
+            InterceptDataTextBox.Text = "";
+            return;
+        }
+        
+        if (TextViewRadio.IsChecked == true)
+        {
+            // Text view - try to display as text
+            try
+            {
+                InterceptDataTextBox.Text = System.Text.Encoding.UTF8.GetString(_currentInterceptData);
+            }
+            catch
+            {
+                // Fall back to hex if not valid UTF-8
+                InterceptDataTextBox.Text = BitConverter.ToString(_currentInterceptData).Replace("-", " ");
+            }
+        }
+        else if (HexViewRadio.IsChecked == true)
+        {
+            // Hex view
+            InterceptDataTextBox.Text = BitConverter.ToString(_currentInterceptData).Replace("-", " ");
+        }
+    }
+
+    // Intercept event handlers
+    private void InterceptEnabled_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_dllManager != null && CheckBox.ReferenceEquals(sender, InterceptEnabledCheckBox))
+        {
+            _isInterceptionEnabled = InterceptEnabledCheckBox.IsChecked == true;
+            _dllManager.SetInterceptEnabled(_isInterceptionEnabled);
+            
+            if (_isInterceptionEnabled)
+            {
+                AddStatusMessage("Interception enabled");
+            }
+            else
+            {
+                AddStatusMessage("Interception disabled");
+                // Clear any pending intercept
+                if (_isWaitingForInterceptResponse)
+                {
+                    RespondToCurrentIntercept(0); // Forward
+                }
+            }
+        }
+    }
+
+    private void InterceptDirection_Changed(object sender, SelectionChangedEventArgs e)
+    {
+        if (_dllManager != null && ComboBox.ReferenceEquals(sender, InterceptDirectionComboBox))
+        {
+            var selectedItem = InterceptDirectionComboBox.SelectedItem as ComboBoxItem;
+            if (selectedItem?.Tag is string tagValue && int.TryParse(tagValue, out int direction))
+            {
+                _interceptDirection = direction;
+                _dllManager.SetInterceptDirection(direction);
+                
+                string directionText = direction switch
+                {
+                    0 => "None",
+                    1 => "Client → Server",
+                    2 => "Server → Client",
+                    3 => "Both directions",
+                    _ => "Unknown"
+                };
+                AddStatusMessage($"Intercept direction set to: {directionText}");
+            }
+        }
+    }
+
+    private void Forward_Click(object sender, RoutedEventArgs e)
+    {
+        RespondToCurrentIntercept(0); // INTERCEPT_ACTION_FORWARD
+    }
+
+    private void Drop_Click(object sender, RoutedEventArgs e)
+    {
+        RespondToCurrentIntercept(1); // INTERCEPT_ACTION_DROP
+    }
+
+    private void ForwardModified_Click(object sender, RoutedEventArgs e)
+    {
+        RespondToCurrentIntercept(2); // INTERCEPT_ACTION_MODIFY
+    }
+
+    private void ViewMode_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_isWaitingForInterceptResponse)
+        {
+            UpdateInterceptDataView();
+        }
+    }
+
+    private void InterceptDataTextBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        _isInterceptDataModified = true;
+    }
+
+    private void RespondToCurrentIntercept(int action)
+    {
+        if (!_isWaitingForInterceptResponse || _dllManager == null)
+            return;
+        
+        byte[]? modifiedData = null;
+        
+        if (action == 2 && _isInterceptDataModified) // INTERCEPT_ACTION_MODIFY
+        {
+            try
+            {
+                if (TextViewRadio.IsChecked == true)
+                {
+                    // Convert text back to bytes
+                    modifiedData = System.Text.Encoding.UTF8.GetBytes(InterceptDataTextBox.Text);
+                }
+                else if (HexViewRadio.IsChecked == true)
+                {
+                    // Convert hex string back to bytes
+                    string hexText = InterceptDataTextBox.Text.Replace(" ", "").Replace("-", "");
+                    modifiedData = new byte[hexText.Length / 2];
+                    for (int i = 0; i < modifiedData.Length; i++)
+                    {
+                        modifiedData[i] = Convert.ToByte(hexText.Substring(i * 2, 2), 16);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                AddStatusMessage($"Error parsing modified data: {ex.Message}");
+                return;
+            }
+        }
+        
+        _dllManager.RespondToIntercept(_currentInterceptConnectionId, action, modifiedData);
+        
+        string actionText = action switch
+        {
+            0 => "forwarded",
+            1 => "dropped",
+            2 => "forwarded with modifications",
+            _ => "processed"
+        };
+        AddStatusMessage($"Intercepted data {actionText}");
+        
+        // Reset intercept state
+        _isWaitingForInterceptResponse = false;
+        _isInterceptDataModified = false;
+        UpdateInterceptUI();
+    }
+
+    private void InitializeInterceptUI()
+    {
+        // Set default values
+        InterceptDirectionComboBox.SelectedIndex = 0; // None
+        TextViewRadio.IsChecked = true;
+        
+        // Initialize intercept state
+        UpdateInterceptUI();
     }
 }

@@ -55,9 +55,30 @@ namespace InterceptSuite
         [DllImport("Intercept.dll", CallingConvention = CallingConvention.Cdecl)]
         internal static extern void set_disconnect_callback(DisconnectCallbackDelegate callback);
 
+        // Interception control functions
+        [DllImport("Intercept.dll", CallingConvention = CallingConvention.Cdecl)]
+        internal static extern void set_intercept_callback(InterceptCallbackDelegate callback);
+
+        [DllImport("Intercept.dll", CallingConvention = CallingConvention.Cdecl)]
+        internal static extern void set_intercept_enabled([MarshalAs(UnmanagedType.Bool)] bool enabled);
+
+        [DllImport("Intercept.dll", CallingConvention = CallingConvention.Cdecl)]
+        internal static extern void set_intercept_direction(int direction);
+
+        [DllImport("Intercept.dll", CallingConvention = CallingConvention.Cdecl)]
+        internal static extern void respond_to_intercept(int connection_id, int action, byte[] modified_data, int modified_length);
+
         // Win32 API for DLL loading
         [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
         internal static extern bool AddDllDirectory(string lpPathName);
+
+        // Windows API functions for DLL loading
+        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+        internal static extern IntPtr LoadLibrary(string lpFileName);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static extern bool FreeLibrary(IntPtr hModule);
 
         // Callback function delegates
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
@@ -89,6 +110,14 @@ namespace InterceptSuite
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         internal delegate void DisconnectCallbackDelegate(
             int connection_id,
-            [MarshalAs(UnmanagedType.LPStr)] string reason);
+            [MarshalAs(UnmanagedType.LPStr)] string reason);        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        internal delegate void InterceptCallbackDelegate(
+            int connection_id,
+            [MarshalAs(UnmanagedType.LPStr)] string direction,
+            [MarshalAs(UnmanagedType.LPStr)] string src_ip,
+            [MarshalAs(UnmanagedType.LPStr)] string dst_ip,
+            int dst_port,
+            IntPtr data,
+            int data_length);
     }
 }

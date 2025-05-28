@@ -57,20 +57,20 @@ jobs:
           echo "❌ Intercept.dll not found in build output"
           exit 1
         }
-        
+
         # Check for OpenSSL DLLs
         if (Test-Path -Path "build\${{ env.BUILD_TYPE }}\libcrypto-3-x64.dll") {
           echo "✅ libcrypto-3-x64.dll found in build output"
         } else {
           echo "❌ libcrypto-3-x64.dll not found (may be copied later)"
         }
-        
+
         if (Test-Path -Path "build\${{ env.BUILD_TYPE }}\libssl-3-x64.dll") {
           echo "✅ libssl-3-x64.dll found in build output"
         } else {
           echo "❌ libssl-3-x64.dll not found (may be copied later)"
         }
-        
+
         # Create output directory for DLLs
         New-Item -Path "dll-output" -ItemType Directory -Force
         Copy-Item -Path "build\${{ env.BUILD_TYPE }}\*.dll" -Destination "dll-output\" -Force
@@ -82,29 +82,29 @@ jobs:
         path: dll-output
         if-no-files-found: error
         retention-days: 1
-        
+
   build-gui:
     runs-on: windows-latest
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: 8.0.x
-    
+
     - name: Restore dependencies
       run: dotnet restore GUI/InterceptSuite/InterceptSuite.csproj
-      
+
     - name: Clean
       run: dotnet clean GUI/InterceptSuite/InterceptSuite.csproj --configuration Release
-    
+
     - name: Build
       run: dotnet build GUI/InterceptSuite/InterceptSuite.csproj --configuration Release
-    
+
     - name: Publish
       run: dotnet publish GUI/InterceptSuite/InterceptSuite.csproj --configuration Release --self-contained true -p:PublishSingleFile=true --runtime win-x64 --output publish
-    
+
     - name: Upload GUI artifacts
       uses: actions/upload-artifact@v4
       with:
@@ -118,19 +118,19 @@ jobs:
     runs-on: windows-latest
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Download DLL artifacts
       uses: actions/download-artifact@v4
       with:
         name: Intercept-DLL
         path: combined/dll
-    
+
     - name: Download GUI artifacts
       uses: actions/download-artifact@v4
       with:
         name: InterceptSuite-GUI
         path: combined
-    
+
     - name: Organize files for packaging
       run: |
         # Move DLLs to top level of combined directory
@@ -140,15 +140,15 @@ jobs:
           }
           Remove-Item -Path "combined/dll" -Recurse -Force
         }
-        
+
         # Add the readme and docs
         Copy-Item -Path "README.md" -Destination "combined\" -ErrorAction SilentlyContinue
         Copy-Item -Path "USAGE_GUIDE.md" -Destination "combined\" -ErrorAction SilentlyContinue
-        
+
         # Get the version from the GUI executable
         $versionInfo = [System.Diagnostics.FileVersionInfo]::GetVersionInfo("${{ github.workspace }}\combined\InterceptSuite.exe")
         $version = "$($versionInfo.FileMajorPart).$($versionInfo.FileMinorPart).$($versionInfo.FileBuildPart)"
-        
+
         # In case version info can't be read, use a default version or tag
         if (-not $version -or $version -eq "..") {
           if ("${{ github.ref_type }}" -eq "tag" -and "${{ github.ref_name }}".StartsWith("v")) {
@@ -162,14 +162,14 @@ jobs:
           $version = "${{ github.event.release.tag_name }}".TrimStart('v')
           echo "Using release version: $version"
         }
-        
+
         echo "PACKAGE_VERSION=$version" >> $env:GITHUB_ENV
-        
+
     - name: Create combined package
       run: |
         Compress-Archive -Path "combined\*" -DestinationPath "InterceptSuite-v${{ env.PACKAGE_VERSION }}-win-x64.zip"
         echo "✅ Combined package created: InterceptSuite-v${{ env.PACKAGE_VERSION }}-win-x64.zip"
-    
+
     # Always upload as artifact so it's available even for non-tag builds
     - name: Upload combined package as artifact
       uses: actions/upload-artifact@v4
@@ -186,19 +186,19 @@ jobs:
         name: "InterceptSuite v${{ env.PACKAGE_VERSION }}"
         body: |
           # InterceptSuite v${{ env.PACKAGE_VERSION }}
-          
+
           TLS MITM Proxy Intercept Suite - Windows x64 Release
-          
+
           ## What's Included
           - Windows 64-bit GUI application (self-contained, no .NET installation required)
           - Intercept native DLL with OpenSSL dependencies
           - Documentation
-          
+
           ## Installation
           1. Download the ZIP file
           2. Extract all files to a directory
           3. Run InterceptSuite.exe
-          
+
           ## System Requirements
           - Windows 10/11 64-bit
         files: InterceptSuite-v${{ env.PACKAGE_VERSION }}-win-x64.zip

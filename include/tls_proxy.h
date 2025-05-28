@@ -27,6 +27,9 @@
 #include <openssl/bio.h>
 #include <openssl/rsa.h>
 
+/* Include DLL interface header for callback typedefs */
+#include "tls_proxy_dll.h"
+
 /* Define certificate error codes if not available in this OpenSSL version */
 #ifndef SSL_R_TLSV1_ALERT_BAD_CERTIFICATE
 #define SSL_R_TLSV1_ALERT_BAD_CERTIFICATE 0x304
@@ -135,6 +138,46 @@ typedef struct {
     socket_t server_sock;        /* Server socket */
 } server_thread_t;
 
+/* Interception support structures and enums */
+
+/* Interception direction flags */
+typedef enum {
+    INTERCEPT_NONE = 0,
+    INTERCEPT_CLIENT_TO_SERVER = 1,
+    INTERCEPT_SERVER_TO_CLIENT = 2,
+    INTERCEPT_BOTH = 3
+} intercept_direction_t;
+
+/* Interception response actions */
+typedef enum {
+    INTERCEPT_ACTION_FORWARD = 0,
+    INTERCEPT_ACTION_DROP = 1,
+    INTERCEPT_ACTION_MODIFY = 2
+} intercept_action_t;
+
+/* Interception data structure */
+typedef struct {
+    int connection_id;
+    char direction[32];
+    char src_ip[MAX_IP_ADDR_LEN];
+    char dst_ip[MAX_IP_ADDR_LEN];
+    int dst_port;
+    unsigned char *data;
+    int data_length;
+    int is_waiting_for_response;
+    HANDLE response_event;
+    intercept_action_t action;
+    unsigned char *modified_data;
+    int modified_length;
+} intercept_data_t;
+
+/* Global interception configuration */
+typedef struct {
+    intercept_direction_t enabled_directions;
+    int is_interception_enabled;
+    CRITICAL_SECTION intercept_cs;
+} intercept_config_t;
+
 /* Global certificate references */
 extern X509 *ca_cert;
 extern EVP_PKEY *ca_key;
@@ -142,6 +185,17 @@ extern EVP_PKEY *ca_key;
 /* Global configuration */
 extern proxy_config config;
 extern server_thread_t g_server;
+
+/* Global interception configuration */
+extern intercept_config_t g_intercept_config;
+
+/* Global callback functions (defined in main.c) */
+extern log_callback_t g_log_callback;
+extern status_callback_t g_status_callback;
+extern connection_callback_t g_connection_callback;
+extern stats_callback_t g_stats_callback;
+extern disconnect_callback_t g_disconnect_callback;
+extern intercept_callback_t g_intercept_callback;
 
 /* Function prototypes */
 int init_winsock(void);

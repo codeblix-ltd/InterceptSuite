@@ -300,6 +300,11 @@
         <Style x:Key="DarkCheckBoxStyle" TargetType="CheckBox">
             <Setter Property="Foreground" Value="{StaticResource TextColor}"/>
         </Style>
+        
+        <!-- RadioButton Style -->
+        <Style x:Key="DarkRadioButtonStyle" TargetType="RadioButton">
+            <Setter Property="Foreground" Value="{StaticResource TextColor}"/>
+        </Style>
           <!-- Standard Button Style for all regular buttons (non-menu buttons) -->
         <Style x:Key="DarkButtonStyle" TargetType="Button">
             <Setter Property="Background" Value="#2D2D30"/>
@@ -426,12 +431,15 @@
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">                    <Button Name="ProxyControlButton" Content="Proxy Control"
                             Style="{StaticResource DarkMenuButtonStyle}"
                             Click="NavigationButton_Click" Tag="ProxyControl"/>
+                    <Button Name="InterceptButton" Content="Intercept"
+                            Style="{StaticResource DarkMenuButtonStyle}"
+                            Click="NavigationButton_Click" Tag="Intercept"/>
                     <Button Name="ConnectionsButton" Content="Connections"
                             Style="{StaticResource DarkMenuButtonStyle}"
                             Click="NavigationButton_Click" Tag="Connections"/>
                     <Button Name="ProxyHistoryButton" Content="Proxy History"
                             Style="{StaticResource DarkMenuButtonStyle}"
-                            Click="NavigationButton_Click" Tag="ProxyHistory"/>                </StackPanel>
+                            Click="NavigationButton_Click" Tag="ProxyHistory"/></StackPanel>
             </Grid>
         </Border>        <!-- Main Content Area -->
         <Grid Grid.Row="1" Margin="20">
@@ -497,10 +505,161 @@
                                     Style="{StaticResource GreenButtonStyle}"/>
                             <Button Name="StopProxyButton" Content="Stop Proxy" Margin="0,0,10,0"
                                     Click="StopProxy_Click" IsEnabled="False"
-                                    Style="{StaticResource RedButtonStyle}"/>
-                        </StackPanel>
+                                    Style="{StaticResource RedButtonStyle}"/>                        </StackPanel>
                     </StackPanel>
-                </Grid></Grid>            <!-- Connections Panel --><Grid Name="ConnectionsPanel" Visibility="Collapsed">
+                </Grid>
+            </Grid>
+
+            <!-- Intercept Panel -->
+            <Grid Name="InterceptPanel" Visibility="Collapsed">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <TextBlock Text="Intercept" FontSize="24" FontWeight="Bold" Margin="0,0,0,20"
+                          Style="{StaticResource DarkTextBlockStyle}" Grid.Row="0"/>
+
+                <!-- Intercept Controls -->
+                <Grid Grid.Row="1" Margin="0,0,0,20">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    
+                    <!-- Intercept Enable/Disable -->
+                    <GroupBox Header="Intercept Control" Grid.Row="0" Margin="0,0,0,15" 
+                              Style="{StaticResource DarkGroupBoxStyle}">
+                        <StackPanel Margin="10">
+                            <CheckBox Name="InterceptEnabledCheckBox" Content="Intercept is on" 
+                                     Style="{StaticResource DarkCheckBoxStyle}" 
+                                     Checked="InterceptEnabled_Changed" 
+                                     Unchecked="InterceptEnabled_Changed"/>
+                            
+                            <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                <TextBlock Text="Intercept Direction:" Margin="0,0,10,0" 
+                                          VerticalAlignment="Center"
+                                          Style="{StaticResource DarkTextBlockStyle}"/>
+                                <ComboBox Name="InterceptDirectionComboBox" Width="200" Height="25"
+                                         Style="{StaticResource DarkComboBoxStyle}"
+                                         SelectionChanged="InterceptDirection_Changed">
+                                    <ComboBoxItem Content="None" Tag="0"/>
+                                    <ComboBoxItem Content="Client → Server" Tag="1"/>
+                                    <ComboBoxItem Content="Server → Client" Tag="2"/>
+                                    <ComboBoxItem Content="Both Directions" Tag="3"/>
+                                </ComboBox>
+                            </StackPanel>
+                        </StackPanel>
+                    </GroupBox>
+
+                    <!-- Current Intercept Status -->
+                    <GroupBox Header="Current Intercept" Grid.Row="1" Margin="0,0,0,15"
+                              Style="{StaticResource DarkGroupBoxStyle}">
+                        <StackPanel Margin="10">
+                            <TextBlock Name="InterceptStatusText" Text="No intercept pending" 
+                                      Style="{StaticResource DarkTextBlockStyle}"/>
+                        </StackPanel>
+                    </GroupBox>
+
+                    <!-- Action Buttons -->
+                    <GroupBox Header="Actions" Grid.Row="2" 
+                              Style="{StaticResource DarkGroupBoxStyle}">
+                        <StackPanel Orientation="Horizontal" Margin="10">
+                            <Button Name="ForwardButton" Content="Forward" 
+                                   Click="Forward_Click" IsEnabled="False"
+                                   Style="{StaticResource GreenButtonStyle}" 
+                                   Margin="0,0,10,0"/>
+                            <Button Name="DropButton" Content="Drop" 
+                                   Click="Drop_Click" IsEnabled="False"
+                                   Style="{StaticResource RedButtonStyle}" 
+                                   Margin="0,0,10,0"/>
+                            <Button Name="ForwardModifiedButton" Content="Forward Modified" 
+                                   Click="ForwardModified_Click" IsEnabled="False"
+                                   Style="{StaticResource DarkButtonStyle}"/>
+                        </StackPanel>
+                    </GroupBox>
+                </Grid>
+
+                <!-- Intercepted Data View -->
+                <Grid Grid.Row="2">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Connection Info -->
+                    <GroupBox Header="Connection Information" Grid.Row="0" Margin="0,0,0,10"
+                              Style="{StaticResource DarkGroupBoxStyle}">
+                        <Grid Margin="10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            
+                            <TextBlock Text="Connection ID:" Grid.Column="0" Margin="0,0,10,0"
+                                      VerticalAlignment="Center" Style="{StaticResource DarkTextBlockStyle}"/>
+                            <TextBlock Name="ConnectionIdText" Text="-" Grid.Column="1" Margin="0,0,20,0"
+                                      VerticalAlignment="Center" Style="{StaticResource DarkTextBlockStyle}"/>
+                            
+                            <TextBlock Text="Direction:" Grid.Column="2" Margin="0,0,10,0"
+                                      VerticalAlignment="Center" Style="{StaticResource DarkTextBlockStyle}"/>
+                            <TextBlock Name="DirectionText" Text="-" Grid.Column="3" Margin="0,0,20,0"
+                                      VerticalAlignment="Center" Style="{StaticResource DarkTextBlockStyle}"/>
+                            
+                            <TextBlock Text="Endpoint:" Grid.Column="4" Margin="0,0,10,0"
+                                      VerticalAlignment="Center" Style="{StaticResource DarkTextBlockStyle}"/>
+                            <TextBlock Name="EndpointText" Text="-" Grid.Column="5"
+                                      VerticalAlignment="Center" Style="{StaticResource DarkTextBlockStyle}"/>
+                        </Grid>
+                    </GroupBox>
+
+                    <!-- Data Editor -->
+                    <GroupBox Header="Intercepted Data" Grid.Row="1" 
+                              Style="{StaticResource DarkGroupBoxStyle}">
+                        <Grid Margin="10">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                              <!-- View Mode Toggle -->
+                            <StackPanel Orientation="Horizontal" Grid.Row="0" Margin="0,0,0,10">
+                                <RadioButton Name="TextViewRadio" Content="Text View" 
+                                           GroupName="ViewMode" IsChecked="True"
+                                           Checked="ViewMode_Changed"
+                                           Style="{StaticResource DarkRadioButtonStyle}"/>
+                                <RadioButton Name="HexViewRadio" Content="Hex View" 
+                                           GroupName="ViewMode" Margin="20,0,0,0"
+                                           Checked="ViewMode_Changed"
+                                           Style="{StaticResource DarkRadioButtonStyle}"/>
+                            </StackPanel>
+                            
+                            <!-- Data Text Box -->
+                            <TextBox Name="InterceptDataTextBox" Grid.Row="1"
+                                    Style="{StaticResource DarkTextBoxStyle}"
+                                    TextWrapping="NoWrap"
+                                    AcceptsReturn="True"
+                                    FontFamily="Consolas"
+                                    FontSize="12"
+                                    Background="#1E1E1E"
+                                    Foreground="#E0E0E0"
+                                    BorderThickness="1"
+                                    Padding="8"
+                                    HorizontalScrollBarVisibility="Auto"
+                                    VerticalScrollBarVisibility="Auto"
+                                    TextChanged="InterceptDataTextBox_TextChanged"/>
+                        </Grid>
+                    </GroupBox>
+                </Grid>
+            </Grid>
+
+            <!-- Connections Panel -->
+            <Grid Name="ConnectionsPanel" Visibility="Collapsed">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
@@ -627,6 +786,5 @@
                 <TextBlock Grid.Column="3" Name="CurrentTimeText" Text="" VerticalAlignment="Center"
                            Foreground="{StaticResource SecondaryAccent}" Margin="10,0,0,0"/>
             </Grid>
-        </Border>
-    </Grid>
+        </Border>    </Grid>
 </Window>

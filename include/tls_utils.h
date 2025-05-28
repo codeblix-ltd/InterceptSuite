@@ -28,4 +28,9 @@ THREAD_RETURN_TYPE handle_client(void *arg);
 void send_log_entry(const char* src_ip, const char* dst_ip, int dst_port, const char* message_type, const char* data);
 void send_status_update(const char* message);
 
+/* Interception support functions */
+int should_intercept_data(const char* direction, int connection_id);
+int wait_for_intercept_response(intercept_data_t* intercept_data);
+void send_intercept_data(int connection_id, const char* direction, const char* src_ip, const char* dst_ip, int dst_port, const unsigned char* data, int data_length);
+
 #endif /* TLS_UTILS_H */
