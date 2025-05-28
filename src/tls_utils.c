@@ -335,14 +335,14 @@ void forward_data(SSL *src, SSL *dst, const char *direction, const char *src_ip,
             intercept_data.action = INTERCEPT_ACTION_FORWARD;
             intercept_data.modified_data = NULL;
             intercept_data.modified_length = 0;
-            
+
             // Create response event
             intercept_data.response_event = CreateEvent(NULL, FALSE, FALSE, NULL);
             if (!intercept_data.response_event) {
                 send_status_update("Error: Failed to create intercept response event");
                 break;
             }
-            
+
             // Copy data to intercept structure
             intercept_data.data = malloc(len);
             if (!intercept_data.data) {
@@ -351,7 +351,7 @@ void forward_data(SSL *src, SSL *dst, const char *direction, const char *src_ip,
                 break;
             }
             memcpy(intercept_data.data, buffer, len);
-            
+
             // Store in global array for response handling
             EnterCriticalSection(&g_intercept_config.intercept_cs);
             if (g_intercept_count < 100) {
@@ -359,10 +359,10 @@ void forward_data(SSL *src, SSL *dst, const char *direction, const char *src_ip,
                 g_intercept_count++;
             }
             LeaveCriticalSection(&g_intercept_config.intercept_cs);
-            
+
             // Send data to GUI for interception
             send_intercept_data(connection_id, direction, src_ip, dst_ip, dst_port, buffer, len);
-            
+
             // Wait for user response
             if (!wait_for_intercept_response(&intercept_data)) {
                 // Cleanup on error
@@ -371,7 +371,7 @@ void forward_data(SSL *src, SSL *dst, const char *direction, const char *src_ip,
                 CloseHandle(intercept_data.response_event);
                 break;
             }
-            
+
             // Remove from active intercepts array
             EnterCriticalSection(&g_intercept_config.intercept_cs);
             for (int i = 0; i < g_intercept_count; i++) {
@@ -385,7 +385,7 @@ void forward_data(SSL *src, SSL *dst, const char *direction, const char *src_ip,
                 }
             }
             LeaveCriticalSection(&g_intercept_config.intercept_cs);
-            
+
             // Handle user response
             if (intercept_data.action == INTERCEPT_ACTION_DROP) {
                 // Drop the data - don't forward it
@@ -398,7 +398,7 @@ void forward_data(SSL *src, SSL *dst, const char *direction, const char *src_ip,
                 memcpy(buffer, intercept_data.modified_data, intercept_data.modified_length);
                 len = intercept_data.modified_length;
             }
-            
+
             // Cleanup intercept data
             free(intercept_data.data);
             if (intercept_data.modified_data) free(intercept_data.modified_data);
@@ -536,14 +536,14 @@ void forward_tcp_data(socket_t src, socket_t dst, const char *direction, const c
             intercept_data.action = INTERCEPT_ACTION_FORWARD;
             intercept_data.modified_data = NULL;
             intercept_data.modified_length = 0;
-            
+
             // Create response event
             intercept_data.response_event = CreateEvent(NULL, FALSE, FALSE, NULL);
             if (!intercept_data.response_event) {
                 send_status_update("Error: Failed to create intercept response event");
                 break;
             }
-            
+
             // Copy data to intercept structure
             intercept_data.data = malloc(len);
             if (!intercept_data.data) {
@@ -552,7 +552,7 @@ void forward_tcp_data(socket_t src, socket_t dst, const char *direction, const c
                 break;
             }
             memcpy(intercept_data.data, buffer, len);
-            
+
             // Store in global array for response handling
             EnterCriticalSection(&g_intercept_config.intercept_cs);
             if (g_intercept_count < 100) {
@@ -560,10 +560,10 @@ void forward_tcp_data(socket_t src, socket_t dst, const char *direction, const c
                 g_intercept_count++;
             }
             LeaveCriticalSection(&g_intercept_config.intercept_cs);
-            
+
             // Send data to GUI for interception
             send_intercept_data(connection_id, direction, src_ip, dst_ip, dst_port, buffer, len);
-            
+
             // Wait for user response
             if (!wait_for_intercept_response(&intercept_data)) {
                 // Cleanup on error
@@ -572,7 +572,7 @@ void forward_tcp_data(socket_t src, socket_t dst, const char *direction, const c
                 CloseHandle(intercept_data.response_event);
                 break;
             }
-            
+
             // Remove from active intercepts array
             EnterCriticalSection(&g_intercept_config.intercept_cs);
             for (int i = 0; i < g_intercept_count; i++) {
@@ -586,7 +586,7 @@ void forward_tcp_data(socket_t src, socket_t dst, const char *direction, const c
                 }
             }
             LeaveCriticalSection(&g_intercept_config.intercept_cs);
-            
+
             // Handle user response
             if (intercept_data.action == INTERCEPT_ACTION_DROP) {
                 // Drop the data - don't forward it
@@ -599,7 +599,7 @@ void forward_tcp_data(socket_t src, socket_t dst, const char *direction, const c
                 memcpy(buffer, intercept_data.modified_data, intercept_data.modified_length);
                 len = intercept_data.modified_length;
             }
-            
+
             // Cleanup intercept data
             free(intercept_data.data);
             if (intercept_data.modified_data) free(intercept_data.modified_data);
@@ -1481,18 +1481,18 @@ int should_intercept_data(const char* direction, int connection_id) {
     if (!g_intercept_config.is_interception_enabled) {
         return 0;
     }
-    
+
     EnterCriticalSection(&g_intercept_config.intercept_cs);
-    
+
     int should_intercept = 0;
-    if (strcmp(direction, "Client->Server") == 0 && 
+    if (strcmp(direction, "Client->Server") == 0 &&
         (g_intercept_config.enabled_directions & INTERCEPT_CLIENT_TO_SERVER)) {
         should_intercept = 1;
-    } else if (strcmp(direction, "Server->Client") == 0 && 
+    } else if (strcmp(direction, "Server->Client") == 0 &&
                (g_intercept_config.enabled_directions & INTERCEPT_SERVER_TO_CLIENT)) {
         should_intercept = 1;
     }
-    
+
     LeaveCriticalSection(&g_intercept_config.intercept_cs);
     return should_intercept;
 }
@@ -1507,7 +1507,7 @@ int wait_for_intercept_response(intercept_data_t* intercept_data) {
     if (!intercept_data || !intercept_data->response_event) {
         return 0;
     }
-    
+
     // Wait for user response with a reasonable timeout (60 seconds)
     DWORD wait_result = WaitForSingleObject(intercept_data->response_event, 60000);    if (wait_result == WAIT_TIMEOUT) {
         // Timeout - default to forwarding
@@ -1517,6 +1517,6 @@ int wait_for_intercept_response(intercept_data_t* intercept_data) {
             g_status_callback("Intercept timeout - data forwarded automatically");
         }
     }
-    
+
     return (wait_result == WAIT_OBJECT_0 || wait_result == WAIT_TIMEOUT);
 }

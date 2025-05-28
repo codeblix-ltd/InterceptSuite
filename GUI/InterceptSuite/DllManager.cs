@@ -76,7 +76,7 @@ namespace InterceptSuite
         {
             return await Task.Run(() =>
             {                try
-                {                    
+                {
                     string? dllPath = FindDllPath();
                     if (dllPath == null)
                     {

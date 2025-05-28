@@ -358,7 +358,7 @@ __declspec(dllexport) void set_intercept_enabled(int enabled) {
     EnterCriticalSection(&g_intercept_config.intercept_cs);
     g_intercept_config.is_interception_enabled = enabled;
     LeaveCriticalSection(&g_intercept_config.intercept_cs);
-    
+
     if (g_status_callback) {
         char status_msg[256];
         snprintf(status_msg, sizeof(status_msg), "Interception %s", enabled ? "enabled" : "disabled");
@@ -370,7 +370,7 @@ __declspec(dllexport) void set_intercept_direction(int direction) {
     EnterCriticalSection(&g_intercept_config.intercept_cs);
     g_intercept_config.enabled_directions = (intercept_direction_t)direction;
     LeaveCriticalSection(&g_intercept_config.intercept_cs);
-    
+
     if (g_status_callback) {
         char status_msg[256];
         const char* dir_str = "None";
@@ -386,22 +386,22 @@ __declspec(dllexport) void set_intercept_direction(int direction) {
 
 __declspec(dllexport) void respond_to_intercept(int connection_id, int action, const unsigned char* modified_data, int modified_length) {
     EnterCriticalSection(&g_intercept_config.intercept_cs);
-    
+
     // Find the intercept data for this connection
     for (int i = 0; i < g_intercept_count; i++) {
-        if (g_active_intercepts[i] && g_active_intercepts[i]->connection_id == connection_id && 
+        if (g_active_intercepts[i] && g_active_intercepts[i]->connection_id == connection_id &&
             g_active_intercepts[i]->is_waiting_for_response) {
-            
+
             intercept_data_t* intercept = g_active_intercepts[i];
             intercept->action = (intercept_action_t)action;
-            
+
             // Handle modified data if provided
             if (action == INTERCEPT_ACTION_MODIFY && modified_data && modified_length > 0) {
                 // Free existing modified data if any
                 if (intercept->modified_data) {
                     free(intercept->modified_data);
                 }
-                
+
                 // Allocate and copy new data
                 intercept->modified_data = malloc(modified_length);
                 if (intercept->modified_data) {
@@ -412,13 +412,13 @@ __declspec(dllexport) void respond_to_intercept(int connection_id, int action, c
                     intercept->action = INTERCEPT_ACTION_FORWARD;
                 }
             }
-            
+
             intercept->is_waiting_for_response = 0;
             SetEvent(intercept->response_event);
             break;
         }
     }
-    
+
     LeaveCriticalSection(&g_intercept_config.intercept_cs);
 }
 

@@ -300,7 +300,7 @@
         <Style x:Key="DarkCheckBoxStyle" TargetType="CheckBox">
             <Setter Property="Foreground" Value="{StaticResource TextColor}"/>
         </Style>
-        
+
         <!-- RadioButton Style -->
         <Style x:Key="DarkRadioButtonStyle" TargetType="RadioButton">
             <Setter Property="Foreground" Value="{StaticResource TextColor}"/>
@@ -528,18 +528,18 @@
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
-                    
+
                     <!-- Intercept Enable/Disable -->
-                    <GroupBox Header="Intercept Control" Grid.Row="0" Margin="0,0,0,15" 
+                    <GroupBox Header="Intercept Control" Grid.Row="0" Margin="0,0,0,15"
                               Style="{StaticResource DarkGroupBoxStyle}">
                         <StackPanel Margin="10">
-                            <CheckBox Name="InterceptEnabledCheckBox" Content="Intercept is on" 
-                                     Style="{StaticResource DarkCheckBoxStyle}" 
-                                     Checked="InterceptEnabled_Changed" 
+                            <CheckBox Name="InterceptEnabledCheckBox" Content="Intercept is on"
+                                     Style="{StaticResource DarkCheckBoxStyle}"
+                                     Checked="InterceptEnabled_Changed"
                                      Unchecked="InterceptEnabled_Changed"/>
-                            
+
                             <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
-                                <TextBlock Text="Intercept Direction:" Margin="0,0,10,0" 
+                                <TextBlock Text="Intercept Direction:" Margin="0,0,10,0"
                                           VerticalAlignment="Center"
                                           Style="{StaticResource DarkTextBlockStyle}"/>
                                 <ComboBox Name="InterceptDirectionComboBox" Width="200" Height="25"
@@ -558,24 +558,24 @@
                     <GroupBox Header="Current Intercept" Grid.Row="1" Margin="0,0,0,15"
                               Style="{StaticResource DarkGroupBoxStyle}">
                         <StackPanel Margin="10">
-                            <TextBlock Name="InterceptStatusText" Text="No intercept pending" 
+                            <TextBlock Name="InterceptStatusText" Text="No intercept pending"
                                       Style="{StaticResource DarkTextBlockStyle}"/>
                         </StackPanel>
                     </GroupBox>
 
                     <!-- Action Buttons -->
-                    <GroupBox Header="Actions" Grid.Row="2" 
+                    <GroupBox Header="Actions" Grid.Row="2"
                               Style="{StaticResource DarkGroupBoxStyle}">
                         <StackPanel Orientation="Horizontal" Margin="10">
-                            <Button Name="ForwardButton" Content="Forward" 
+                            <Button Name="ForwardButton" Content="Forward"
                                    Click="Forward_Click" IsEnabled="False"
-                                   Style="{StaticResource GreenButtonStyle}" 
+                                   Style="{StaticResource GreenButtonStyle}"
                                    Margin="0,0,10,0"/>
-                            <Button Name="DropButton" Content="Drop" 
+                            <Button Name="DropButton" Content="Drop"
                                    Click="Drop_Click" IsEnabled="False"
-                                   Style="{StaticResource RedButtonStyle}" 
+                                   Style="{StaticResource RedButtonStyle}"
                                    Margin="0,0,10,0"/>
-                            <Button Name="ForwardModifiedButton" Content="Forward Modified" 
+                            <Button Name="ForwardModifiedButton" Content="Forward Modified"
                                    Click="ForwardModified_Click" IsEnabled="False"
                                    Style="{StaticResource DarkButtonStyle}"/>
                         </StackPanel>
@@ -601,17 +601,17 @@
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
-                            
+
                             <TextBlock Text="Connection ID:" Grid.Column="0" Margin="0,0,10,0"
                                       VerticalAlignment="Center" Style="{StaticResource DarkTextBlockStyle}"/>
                             <TextBlock Name="ConnectionIdText" Text="-" Grid.Column="1" Margin="0,0,20,0"
                                       VerticalAlignment="Center" Style="{StaticResource DarkTextBlockStyle}"/>
-                            
+
                             <TextBlock Text="Direction:" Grid.Column="2" Margin="0,0,10,0"
                                       VerticalAlignment="Center" Style="{StaticResource DarkTextBlockStyle}"/>
                             <TextBlock Name="DirectionText" Text="-" Grid.Column="3" Margin="0,0,20,0"
                                       VerticalAlignment="Center" Style="{StaticResource DarkTextBlockStyle}"/>
-                            
+
                             <TextBlock Text="Endpoint:" Grid.Column="4" Margin="0,0,10,0"
                                       VerticalAlignment="Center" Style="{StaticResource DarkTextBlockStyle}"/>
                             <TextBlock Name="EndpointText" Text="-" Grid.Column="5"
@@ -620,7 +620,7 @@
                     </GroupBox>
 
                     <!-- Data Editor -->
-                    <GroupBox Header="Intercepted Data" Grid.Row="1" 
+                    <GroupBox Header="Intercepted Data" Grid.Row="1"
                               Style="{StaticResource DarkGroupBoxStyle}">
                         <Grid Margin="10">
                             <Grid.RowDefinitions>
@@ -629,16 +629,16 @@
                             </Grid.RowDefinitions>
                               <!-- View Mode Toggle -->
                             <StackPanel Orientation="Horizontal" Grid.Row="0" Margin="0,0,0,10">
-                                <RadioButton Name="TextViewRadio" Content="Text View" 
+                                <RadioButton Name="TextViewRadio" Content="Text View"
                                            GroupName="ViewMode" IsChecked="True"
                                            Checked="ViewMode_Changed"
                                            Style="{StaticResource DarkRadioButtonStyle}"/>
-                                <RadioButton Name="HexViewRadio" Content="Hex View" 
+                                <RadioButton Name="HexViewRadio" Content="Hex View"
                                            GroupName="ViewMode" Margin="20,0,0,0"
                                            Checked="ViewMode_Changed"
                                            Style="{StaticResource DarkRadioButtonStyle}"/>
                             </StackPanel>
-                            
+
                             <!-- Data Text Box -->
                             <TextBox Name="InterceptDataTextBox" Grid.Row="1"
                                     Style="{StaticResource DarkTextBoxStyle}"

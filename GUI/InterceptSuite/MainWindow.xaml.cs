@@ -548,7 +548,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             NavigateToPanel(tag);
         }
     }
-    
+
     private void NavigateToPanel(string panelName)
     {
         // Reset all buttons
@@ -775,7 +775,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
         // Update window chrome
         UpdateWindowChrome();
-        
+
         // Initialize intercept UI
         InitializeInterceptUI();
     }
@@ -907,8 +907,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             ? $"{length} bytes (truncated)"
             : $"{length} bytes";
     }
-    
-    private void InterceptCallback(int connectionId, string direction, string srcIp, 
+
+    private void InterceptCallback(int connectionId, string direction, string srcIp,
                                   string dstIp, int dstPort, byte[] data)
     {
         // Need to dispatch to UI thread
@@ -923,10 +923,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             _currentInterceptData = data;
             _isWaitingForInterceptResponse = true;
             _isInterceptDataModified = false;
-            
+
             // Update UI
             UpdateInterceptUI();
-            
+
             // Switch to intercept tab automatically
             NavigateToPanel("Intercept");
         });
@@ -938,15 +938,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         {
             // Update status
             InterceptStatusText.Text = $"Intercepted data from connection {_currentInterceptConnectionId}";
-            
+
             // Update connection info
             ConnectionIdText.Text = _currentInterceptConnectionId.ToString();
             DirectionText.Text = _currentInterceptDirection;
             EndpointText.Text = $"{_currentInterceptSrcIp} → {_currentInterceptDstIp}:{_currentInterceptDstPort}";
-            
+
             // Update data view
             UpdateInterceptDataView();
-            
+
             // Enable action buttons
             ForwardButton.IsEnabled = true;
             DropButton.IsEnabled = true;
@@ -960,7 +960,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             DirectionText.Text = "-";
             EndpointText.Text = "-";
             InterceptDataTextBox.Text = "";
-            
+
             // Disable action buttons
             ForwardButton.IsEnabled = false;
             DropButton.IsEnabled = false;
@@ -975,7 +975,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             InterceptDataTextBox.Text = "";
             return;
         }
-        
+
         if (TextViewRadio.IsChecked == true)
         {
             // Text view - try to display as text
@@ -1003,7 +1003,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         {
             _isInterceptionEnabled = InterceptEnabledCheckBox.IsChecked == true;
             _dllManager.SetInterceptEnabled(_isInterceptionEnabled);
-            
+
             if (_isInterceptionEnabled)
             {
                 AddStatusMessage("Interception enabled");
@@ -1029,7 +1029,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             {
                 _interceptDirection = direction;
                 _dllManager.SetInterceptDirection(direction);
-                
+
                 string directionText = direction switch
                 {
                     0 => "None",
@@ -1075,9 +1075,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     {
         if (!_isWaitingForInterceptResponse || _dllManager == null)
             return;
-        
+
         byte[]? modifiedData = null;
-        
+
         if (action == 2 && _isInterceptDataModified) // INTERCEPT_ACTION_MODIFY
         {
             try
@@ -1104,9 +1104,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 return;
             }
         }
-        
+
         _dllManager.RespondToIntercept(_currentInterceptConnectionId, action, modifiedData);
-        
+
         string actionText = action switch
         {
             0 => "forwarded",
@@ -1115,7 +1115,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             _ => "processed"
         };
         AddStatusMessage($"Intercepted data {actionText}");
-        
+
         // Reset intercept state
         _isWaitingForInterceptResponse = false;
         _isInterceptDataModified = false;
@@ -1127,7 +1127,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         // Set default values
         InterceptDirectionComboBox.SelectedIndex = 0; // None
         TextViewRadio.IsChecked = true;
-        
+
         // Initialize intercept state
         UpdateInterceptUI();
     }
