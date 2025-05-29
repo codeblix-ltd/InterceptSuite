@@ -3,8 +3,9 @@ name: Create Combined Release Package
 on:
   release:
     types: [published, created]
-  tags:
-    - 'v*'  # Run when tag is pushed matching pattern v*, like v1.0.0
+  push:
+    tags:
+      - 'v*'  # Run when tag is pushed matching pattern v*, like v1.0.0
   workflow_dispatch:  # Allow manual trigger
 
 permissions:
