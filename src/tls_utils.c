@@ -627,6 +627,17 @@ void forward_tcp_data(socket_t src, socket_t dst, const char *direction, const c
  * Detect protocol type (TLS, HTTP, or other TCP)
  * Returns PROTOCOL_TLS, PROTOCOL_HTTP, or PROTOCOL_PLAIN_TCP
  */
+/*
+ * Detect protocol based on first bytes of data
+ * Uses universal detection approach that works with any protocol
+ *
+ * Returns:
+ *   PROTOCOL_TLS - If connection starts with TLS handshake
+ *   PROTOCOL_PLAIN_TCP - For all other protocols (including HTTP, PostgreSQL, SMTP, etc)
+ *
+ * Note: This function no longer identifies HTTP separately.
+ *       HTTP is treated as PROTOCOL_PLAIN_TCP and can upgrade to TLS later.
+ */
 int detect_protocol(socket_t sock) {
     unsigned char peek_buffer[8] = {0};
     int bytes_peeked;
@@ -643,27 +654,17 @@ int detect_protocol(socket_t sock) {
     // TLS handshake starts with 0x16 (handshake message) followed by 0x03 (SSL/TLS version)
     if (bytes_peeked >= 3 && peek_buffer[0] == 0x16 &&
         (peek_buffer[1] == 0x03 || peek_buffer[1] == 0x02 || peek_buffer[1] == 0x01)) {
+        if (config.verbose) {
+            fprintf(stderr, "TLS protocol detected immediately\n");
+        }
         return PROTOCOL_TLS;
     }
 
-    // Check for HTTP
-    if (bytes_peeked >= 4) {
-        // Check for common HTTP methods at the start
-        if ((peek_buffer[0] == 'G' && peek_buffer[1] == 'E' && peek_buffer[2] == 'T' && peek_buffer[3] == ' ') ||
-            (peek_buffer[0] == 'P' && peek_buffer[1] == 'O' && peek_buffer[2] == 'S' && peek_buffer[3] == 'T') ||
-            (peek_buffer[0] == 'H' && peek_buffer[1] == 'E' && peek_buffer[2] == 'A' && peek_buffer[3] == 'D') ||
-            (peek_buffer[0] == 'P' && peek_buffer[1] == 'U' && peek_buffer[2] == 'T' && peek_buffer[3] == ' ') ||
-            (peek_buffer[0] == 'D' && peek_buffer[1] == 'E' && peek_buffer[2] == 'L' && peek_buffer[3] == 'E')) {
-            return PROTOCOL_HTTP;
-        }
-
-        // Check for HTTP response
-        if ((peek_buffer[0] == 'H' && peek_buffer[1] == 'T' && peek_buffer[2] == 'T' && peek_buffer[3] == 'P')) {
-            return PROTOCOL_HTTP;
-        }
+    // For all other protocols (including HTTP, PostgreSQL, SMTP, etc.)
+    // Return PROTOCOL_PLAIN_TCP and handle potential TLS upgrades later
+    if (config.verbose) {
+        fprintf(stderr, "Non-TLS protocol detected, treating as plain TCP\n");
     }
-
-    // Otherwise assume plain TCP
     return PROTOCOL_PLAIN_TCP;
 }
 
@@ -911,13 +912,10 @@ void forward_data_with_detection(SSL *src, SSL *dst, const char *src_ip, const c
                 }
 
                 total_written += bytes_written;
-            }
-        } else if (protocol == PROTOCOL_HTTP) {
-            // For HTTP, we might want to handle differently in the future
-            // For now, just forward as TCP
-            forward_tcp_data(fd, SSL_get_fd(dst), "??", src_ip, dst_ip, dst_port, connection_id);
-        } else {
-            // Plain TCP, forward directly
+            }        } else {
+            // For any non-TLS protocol, forward as plain TCP
+            // This includes HTTP, PostgreSQL, SMTP, etc.
+            // TLS upgrade detection is handled separately in protocol_detector.c
             forward_tcp_data(fd, SSL_get_fd(dst), "??", src_ip, dst_ip, dst_port, connection_id);
         }
     }
@@ -1305,20 +1303,13 @@ THREAD_RETURN_TYPE handle_client(void *arg) {
     if (thread_id2 != NULL) JOIN_THREAD(thread_id2);    if (config.verbose) {
         printf("Connection to %s:%d closed\n", target_host, target_port);
     }
-    }
-    else if (protocol_type == PROTOCOL_HTTP || protocol_type == PROTOCOL_PLAIN_TCP) {
-        // Non-TLS handling path (HTTP or plain TCP)
-        if (protocol_type == PROTOCOL_HTTP) {
-            if (config.verbose) {
-                printf("Detected HTTP protocol, forwarding as plain TCP\n");
-            }
-            send_status_update("Forwarding HTTP traffic");
-        } else {
-            if (config.verbose) {
-                printf("Detected plain TCP protocol\n");
-            }
-            send_status_update("Forwarding plain TCP traffic");
+    }    else if (protocol_type == PROTOCOL_PLAIN_TCP) {
+        // Non-TLS handling path (any protocol that doesn't start with TLS)
+        // This includes HTTP, PostgreSQL, SMTP, and any protocol that might upgrade to TLS later
+        if (config.verbose) {
+            printf("Detected plain TCP protocol (may upgrade to TLS later)\n");
         }
+        send_status_update("Forwarding plain TCP traffic with protocol upgrade detection");
 
         if (config.verbose) {
             printf("Setting up direct TCP forwarding between client and %s:%d\n", target_host, target_port);
