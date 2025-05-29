@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
@@ -32,6 +33,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         private int _port;
         private string _type = "";
         private string _data = "";
+        private string _originalData = "";  // Store original data before modification
+        private bool _wasModified = false;  // Flag to indicate if this message was modified
 
         public string Timestamp
         {
@@ -68,6 +71,20 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             get => _data;
             set { _data = value; OnPropertyChanged(nameof(Data)); }
         }
+        
+        public string OriginalData
+        {
+            get => _originalData;
+            set { _originalData = value; OnPropertyChanged(nameof(OriginalData)); }
+        }
+        
+        public bool WasModified
+        {
+            get => _wasModified;
+            set { _wasModified = value; OnPropertyChanged(nameof(WasModified)); OnPropertyChanged(nameof(ModifiedIndicator)); }
+        }
+        
+        public string ModifiedIndicator => WasModified ? "✓" : "";
 
         public event PropertyChangedEventHandler? PropertyChanged;
         protected virtual void OnPropertyChanged(string propertyName) =>
@@ -185,7 +202,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     public event PropertyChangedEventHandler? PropertyChanged;
     protected virtual void OnPropertyChanged(string propertyName) =>
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));    public MainWindow()
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        
+    public MainWindow()
     {
         InitializeComponent();
 
@@ -404,36 +423,52 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         catch (Exception)
         {
             // Just use loopback in case of error
-        }
-
-        BindAddressComboBox.SelectedIndex = 0;
+        }        BindAddressComboBox.SelectedIndex = 0;
     }
-
+    
     // Rename LogCallback to ProxyDataCallback
     private void ProxyDataCallback(string timestamp, string src_ip, string dst_ip, int dst_port,
                             string message_type, string data)
     {
+        // Validate inputs to prevent null reference exceptions
+        if (string.IsNullOrEmpty(timestamp)) timestamp = DateTime.Now.ToString("HH:mm:ss");
+        if (string.IsNullOrEmpty(src_ip)) src_ip = "unknown";
+        if (string.IsNullOrEmpty(dst_ip)) dst_ip = "unknown";
+        if (string.IsNullOrEmpty(message_type)) message_type = "Unknown";
+        if (data == null) data = string.Empty;
+        
         // Need to dispatch to UI thread
         Dispatcher.Invoke(() =>
         {
-            var logEvent = new LogEvent
+            try
             {
-                Timestamp = timestamp,
-                SourceIp = src_ip,
-                DestinationIp = dst_ip,
-                Port = dst_port,
-                Type = message_type,
-                Data = data
-            };
+                var logEvent = new LogEvent
+                {
+                    Timestamp = timestamp,
+                    SourceIp = src_ip,
+                    DestinationIp = dst_ip,
+                    Port = dst_port,
+                    Type = message_type,
+                    Data = data,
+                    OriginalData = data,  // Initialize OriginalData with the same data
+                    WasModified = false   // Initially, the data is not modified
+                };
 
-            _historyEvents.Add(logEvent);            // Trim history if too large
-            if (_historyEvents.Count > 1000)
-                _historyEvents.RemoveAt(0);
+                _historyEvents.Add(logEvent);
+                
+                // Trim history if too large
+                if (_historyEvents.Count > 1000)
+                    _historyEvents.RemoveAt(0);
 
-            // Auto-scroll the history list
-            if (HistoryList.Items.Count > 0)
+                // Auto-scroll the history list
+                if (HistoryList.Items.Count > 0)
+                {
+                    HistoryList.ScrollIntoView(HistoryList.Items[HistoryList.Items.Count - 1]);
+                }
+            }
+            catch (Exception ex)
             {
-                HistoryList.ScrollIntoView(HistoryList.Items[HistoryList.Items.Count - 1]);
+                AddStatusMessage($"Error in ProxyDataCallback: {ex.Message}");
             }
         });
     }
@@ -859,38 +894,96 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 AddStatusMessage($"[CONFIG] Log file: {logFile}, Verbose mode: {(verboseMode != 0 ? "On" : "Off")}");
             }
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex)        {
             AddStatusMessage($"[ERROR] Failed to load configuration: {ex.Message}");
         }
-    }    private void HistoryList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    }
+    
+    private void HistoryList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (HistoryList.SelectedItem is LogEvent selectedItem)
         {
+            string displayText;
+            
             // Format the display based on the message type
             if (selectedItem.Type == "Binary")
             {
-                //string dataInfo = $"[Binary Data - {GetDataSizeDescription(selectedItem.Data)}]";
-                HistoryDataTextBox.Text = $"{selectedItem.Data}";
+                displayText = $"{selectedItem.Data}";
             }
             else if (selectedItem.Type == "Text")
             {
-                //string dataInfo = $"[Text Data - {GetDataSizeDescription(selectedItem.Data)}]";
-                HistoryDataTextBox.Text = $"{selectedItem.Data}";
+                displayText = $"{selectedItem.Data}";
             }
             else if (selectedItem.Type == "Empty")
             {
-                HistoryDataTextBox.Text = "[Empty Data]";
+                displayText = "[Empty Data]";
             }
             else
             {
                 string dataInfo = $"[{selectedItem.Type} - {GetDataSizeDescription(selectedItem.Data)}]";
-                HistoryDataTextBox.Text = $"{dataInfo}\n{selectedItem.Data}";
+                displayText = $"{dataInfo}\n{selectedItem.Data}";
+            }
+            
+            // Check if this message was modified
+            if (selectedItem.WasModified && !string.IsNullOrEmpty(selectedItem.OriginalData))
+            {
+                // Show both original and modified data in split view
+                OriginalDataPanel.Visibility = Visibility.Visible;
+                DataSplitter.Visibility = Visibility.Visible;
+                
+                // Configure grid column layout for split view
+                Grid.SetColumn(ModifiedDataPanel, 2);
+                
+                // Update labels and content
+                CurrentDataLabel.Text = "Modified Data";
+                HistoryDataTextBox.Text = displayText;
+                
+                string originalDisplayText;
+                
+                // Format the original data display similarly
+                if (selectedItem.Type == "Binary")
+                {
+                    originalDisplayText = $"{selectedItem.OriginalData}";
+                }
+                else if (selectedItem.Type == "Text")
+                {
+                    originalDisplayText = $"{selectedItem.OriginalData}";
+                }
+                else if (selectedItem.Type == "Empty")
+                {
+                    originalDisplayText = "[Empty Data]";
+                }
+                else
+                {
+                    string dataInfo = $"[{selectedItem.Type} - {GetDataSizeDescription(selectedItem.OriginalData)}]";
+                    originalDisplayText = $"{dataInfo}\n{selectedItem.OriginalData}";
+                }
+                
+                OriginalDataTextBox.Text = originalDisplayText;
+            }
+            else
+            {                // Show only the current data (no split view)
+                OriginalDataPanel.Visibility = Visibility.Collapsed;
+                DataSplitter.Visibility = Visibility.Collapsed;
+                
+                // Configure grid for single view
+                Grid.SetColumn(ModifiedDataPanel, 0);
+                Grid.SetColumnSpan(ModifiedDataPanel, 3);
+                
+                // Update label and content
+                CurrentDataLabel.Text = "Data";
+                HistoryDataTextBox.Text = displayText;
             }
         }
         else
-        {
+        {            // No selection, clear everything
             HistoryDataTextBox.Text = string.Empty;
+            OriginalDataTextBox.Text = string.Empty;
+            OriginalDataPanel.Visibility = Visibility.Collapsed;
+            DataSplitter.Visibility = Visibility.Collapsed;
+            Grid.SetColumn(ModifiedDataPanel, 0);
+            Grid.SetColumnSpan(ModifiedDataPanel, 3);
+            CurrentDataLabel.Text = "Data";
         }
     }
 
@@ -906,21 +999,36 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         return isTruncated
             ? $"{length} bytes (truncated)"
             : $"{length} bytes";
-    }
-
-    private void InterceptCallback(int connectionId, string direction, string srcIp,
+    }    private void InterceptCallback(int connectionId, string direction, string srcIp,
                                   string dstIp, int dstPort, byte[] data)
     {
         // Need to dispatch to UI thread
         Dispatcher.Invoke(() =>
         {
+            // Clean up previous intercept data if it exists
+            if (_currentInterceptData != null)
+            {
+                _currentInterceptData = null;
+            }
+            
             // Store current intercept data
             _currentInterceptConnectionId = connectionId;
             _currentInterceptDirection = direction;
             _currentInterceptSrcIp = srcIp;
             _currentInterceptDstIp = dstIp;
             _currentInterceptDstPort = dstPort;
-            _currentInterceptData = data;
+            
+            // Create a new copy of the data instead of using Clone()
+            if (data != null && data.Length > 0)
+            {
+                _currentInterceptData = new byte[data.Length];
+                Buffer.BlockCopy(data, 0, _currentInterceptData, 0, data.Length);
+            }
+            else
+            {
+                _currentInterceptData = new byte[0];
+            }
+            
             _isWaitingForInterceptResponse = true;
             _isInterceptDataModified = false;
 
@@ -966,11 +1074,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             DropButton.IsEnabled = false;
             ForwardModifiedButton.IsEnabled = false;
         }
-    }
-
-    private void UpdateInterceptDataView()
+    }    private void UpdateInterceptDataView()
     {
-        if (_currentInterceptData.Length == 0)
+        if (_currentInterceptData == null || _currentInterceptData.Length == 0)
         {
             InterceptDataTextBox.Text = "";
             return;
@@ -983,16 +1089,25 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             {
                 InterceptDataTextBox.Text = System.Text.Encoding.UTF8.GetString(_currentInterceptData);
             }
-            catch
+            catch (Exception ex)
             {
                 // Fall back to hex if not valid UTF-8
                 InterceptDataTextBox.Text = BitConverter.ToString(_currentInterceptData).Replace("-", " ");
+                AddStatusMessage($"Warning: Failed to convert intercepted data to text: {ex.Message}");
             }
         }
         else if (HexViewRadio.IsChecked == true)
         {
-            // Hex view
-            InterceptDataTextBox.Text = BitConverter.ToString(_currentInterceptData).Replace("-", " ");
+            try
+            {
+                // Hex view
+                InterceptDataTextBox.Text = BitConverter.ToString(_currentInterceptData).Replace("-", " ");
+            }
+            catch (Exception ex)
+            {
+                InterceptDataTextBox.Text = "[Error displaying hex data]";
+                AddStatusMessage($"Warning: Failed to convert intercepted data to hex: {ex.Message}");
+            }
         }
     }
 
@@ -1065,61 +1180,142 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             UpdateInterceptDataView();
         }
     }
-
+    
     private void InterceptDataTextBox_TextChanged(object sender, TextChangedEventArgs e)
     {
         _isInterceptDataModified = true;
     }
-
+    
     private void RespondToCurrentIntercept(int action)
     {
-        if (!_isWaitingForInterceptResponse || _dllManager == null)
+        if (!_isWaitingForInterceptResponse || _dllManager == null || _currentInterceptData == null)
             return;
 
         byte[]? modifiedData = null;
+        string originalDataStr = null;
+        string modifiedDataStr = null;
 
-        if (action == 2 && _isInterceptDataModified) // INTERCEPT_ACTION_MODIFY
+        try
         {
+            // Convert the original intercept data to string for storage
             try
             {
-                if (TextViewRadio.IsChecked == true)
+                // Try UTF-8 first
+                originalDataStr = System.Text.Encoding.UTF8.GetString(_currentInterceptData);
+                
+                // If it contains unprintable characters, use hex format instead
+                if (originalDataStr.Any(c => char.IsControl(c) && c != '\r' && c != '\n' && c != '\t'))
                 {
-                    // Convert text back to bytes
-                    modifiedData = System.Text.Encoding.UTF8.GetBytes(InterceptDataTextBox.Text);
-                }
-                else if (HexViewRadio.IsChecked == true)
-                {
-                    // Convert hex string back to bytes
-                    string hexText = InterceptDataTextBox.Text.Replace(" ", "").Replace("-", "");
-                    modifiedData = new byte[hexText.Length / 2];
-                    for (int i = 0; i < modifiedData.Length; i++)
-                    {
-                        modifiedData[i] = Convert.ToByte(hexText.Substring(i * 2, 2), 16);
-                    }
+                    originalDataStr = BitConverter.ToString(_currentInterceptData).Replace("-", " ");
                 }
             }
-            catch (Exception ex)
+            catch
             {
-                AddStatusMessage($"Error parsing modified data: {ex.Message}");
-                return;
+                // Fallback to hex if UTF-8 conversion fails
+                originalDataStr = BitConverter.ToString(_currentInterceptData).Replace("-", " ");
+            }
+
+            if (action == 2 && _isInterceptDataModified) // INTERCEPT_ACTION_MODIFY
+            {
+                try
+                {
+                    // Store the modified data string for history
+                    modifiedDataStr = InterceptDataTextBox.Text;
+                    
+                    if (TextViewRadio.IsChecked == true)
+                    {
+                        // Convert text back to bytes
+                        modifiedData = System.Text.Encoding.UTF8.GetBytes(InterceptDataTextBox.Text);
+                    }
+                    else if (HexViewRadio.IsChecked == true)
+                    {
+                        // Convert hex string back to bytes
+                        string hexText = InterceptDataTextBox.Text.Replace(" ", "").Replace("-", "");
+                        modifiedData = new byte[hexText.Length / 2];
+                        for (int i = 0; i < modifiedData.Length; i++)
+                        {
+                            modifiedData[i] = Convert.ToByte(hexText.Substring(i * 2, 2), 16);
+                        }
+                    }
+                    
+                    // Add to history with original and modified data
+                    AddModifiedMessageToHistory(originalDataStr, modifiedDataStr);
+                }
+                catch (Exception ex)
+                {
+                    AddStatusMessage($"Error parsing modified data: {ex.Message}");
+                    return;
+                }
+            }
+
+            // Send the response to the DLL
+            _dllManager.RespondToIntercept(_currentInterceptConnectionId, action, modifiedData);
+
+            string actionText = action switch
+            {
+                0 => "forwarded",
+                1 => "dropped",
+                2 => "forwarded with modifications",
+                _ => "processed"
+            };
+            AddStatusMessage($"Intercepted data {actionText}");
+        }
+        finally
+        {
+            // Clean up the intercept data - it's no longer needed
+            _currentInterceptData = null;
+            
+            // Reset intercept state
+            _isWaitingForInterceptResponse = false;
+            _isInterceptDataModified = false;
+            UpdateInterceptUI();
+        }
+    }
+      // Helper method to add a modified message to history
+    private void AddModifiedMessageToHistory(string originalData, string modifiedData)
+    {
+        try
+        {
+            // Validate inputs
+            if (string.IsNullOrEmpty(originalData)) originalData = "[Empty]";
+            if (string.IsNullOrEmpty(modifiedData)) modifiedData = "[Empty]";
+            
+            // Ensure direction is valid
+            string messageType = "Modified";
+            if (!string.IsNullOrEmpty(_currentInterceptDirection))
+            {
+                messageType = _currentInterceptDirection == "C->S" ? "Request" : "Response";
+            }
+            
+            var logEvent = new LogEvent
+            {
+                Timestamp = DateTime.Now.ToString("HH:mm:ss"),
+                SourceIp = string.IsNullOrEmpty(_currentInterceptSrcIp) ? "unknown" : _currentInterceptSrcIp,
+                DestinationIp = string.IsNullOrEmpty(_currentInterceptDstIp) ? "unknown" : _currentInterceptDstIp,
+                Port = _currentInterceptDstPort,
+                Type = messageType,
+                OriginalData = originalData,
+                Data = modifiedData,
+                WasModified = true
+            };
+            
+            // Add to history list
+            _historyEvents.Add(logEvent);
+            
+            // Trim history if too large
+            if (_historyEvents.Count > 1000)
+                _historyEvents.RemoveAt(0);
+                
+            // Auto-scroll the history list if on history tab
+            if (ProxyHistoryPanel.Visibility == Visibility.Visible && HistoryList.Items.Count > 0)
+            {
+                HistoryList.ScrollIntoView(HistoryList.Items[HistoryList.Items.Count - 1]);
             }
         }
-
-        _dllManager.RespondToIntercept(_currentInterceptConnectionId, action, modifiedData);
-
-        string actionText = action switch
+        catch (Exception ex)
         {
-            0 => "forwarded",
-            1 => "dropped",
-            2 => "forwarded with modifications",
-            _ => "processed"
-        };
-        AddStatusMessage($"Intercepted data {actionText}");
-
-        // Reset intercept state
-        _isWaitingForInterceptResponse = false;
-        _isInterceptDataModified = false;
-        UpdateInterceptUI();
+            AddStatusMessage($"Error adding modified message to history: {ex.Message}");
+        }
     }
 
     private void InitializeInterceptUI()

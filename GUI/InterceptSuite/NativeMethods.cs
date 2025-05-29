@@ -66,7 +66,7 @@ namespace InterceptSuite
         internal static extern void set_intercept_direction(int direction);
 
         [DllImport("Intercept.dll", CallingConvention = CallingConvention.Cdecl)]
-        internal static extern void respond_to_intercept(int connection_id, int action, byte[] modified_data, int modified_length);
+        internal static extern void respond_to_intercept(int connection_id, int action, [MarshalAs(UnmanagedType.LPArray)] byte[] modified_data, int modified_length);
 
         // Win32 API for DLL loading
         [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]

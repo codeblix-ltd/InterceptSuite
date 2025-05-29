@@ -208,14 +208,20 @@ namespace InterceptSuite
             {
                 NativeMethods.set_intercept_direction(direction);
             }
-        }
-
-        public void RespondToIntercept(int connectionId, int action, byte[]? modifiedData = null)
+        }        public void RespondToIntercept(int connectionId, int action, byte[]? modifiedData = null)
         {
             if (_dllLoaded)
             {
                 int dataLength = modifiedData?.Length ?? 0;
-                NativeMethods.respond_to_intercept(connectionId, action, modifiedData, dataLength);
+                if (modifiedData != null && dataLength > 0)
+                {
+                    NativeMethods.respond_to_intercept(connectionId, action, modifiedData, dataLength);
+                }
+                else
+                {
+                    // Pass null and zero length when no modified data is available
+                    NativeMethods.respond_to_intercept(connectionId, action, null, 0);
+                }
             }
         }        protected virtual void Dispose(bool disposing)
         {
@@ -229,6 +235,7 @@ namespace InterceptSuite
                     OnConnection = null;
                     OnStats = null;
                     OnDisconnect = null;
+                    OnIntercept = null;
                 }
 
                 // Free unmanaged resources (unmanaged objects) and override finalizer

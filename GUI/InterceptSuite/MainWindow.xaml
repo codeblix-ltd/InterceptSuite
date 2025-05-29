@@ -710,9 +710,7 @@
                     <Button Name="ExportHistoryButton" Content="Export History"
                            Click="ExportHistory_Click"
                            Style="{StaticResource DarkButtonStyle}"/>
-                </StackPanel>
-
-                <ListView Name="HistoryList" Style="{StaticResource DarkListViewStyle}" Grid.Row="2"
+                </StackPanel>                <ListView Name="HistoryList" Style="{StaticResource DarkListViewStyle}" Grid.Row="2"
                           VerticalAlignment="Stretch" HorizontalAlignment="Stretch"
                           SelectionChanged="HistoryList_SelectionChanged">
                     <ListView.View>
@@ -721,28 +719,76 @@
                             <GridViewColumn Header="Source IP" Width="120" DisplayMemberBinding="{Binding SourceIp}"/>
                             <GridViewColumn Header="Destination IP" Width="120" DisplayMemberBinding="{Binding DestinationIp}"/>
                             <GridViewColumn Header="Port" Width="60" DisplayMemberBinding="{Binding Port}"/>
-                            <GridViewColumn Header="Type" Width="100" DisplayMemberBinding="{Binding Type}"/>
+                            <GridViewColumn Header="Type" Width="80" DisplayMemberBinding="{Binding Type}"/>
+                            <GridViewColumn Header="Modified" Width="60" DisplayMemberBinding="{Binding ModifiedIndicator}"/>
                         </GridView>
                     </ListView.View>
                 </ListView>
 
                 <!-- Splitter between history list and data view -->
                 <GridSplitter Grid.Row="3" Height="5" HorizontalAlignment="Stretch"
-                              Background="#3F3F46" ResizeBehavior="PreviousAndNext"/>
-                  <!-- Data view pane (similar to Burp Suite) -->
-                <TextBox Name="HistoryDataTextBox" Grid.Row="4"
-                         Style="{StaticResource DarkTextBoxStyle}"
-                         TextWrapping="NoWrap"
-                         AcceptsReturn="True"
-                         IsReadOnly="True"
-                         FontFamily="Consolas"
-                         FontSize="12"
-                         Background="#1E1E1E"
-                         Foreground="#E0E0E0"
-                         BorderThickness="1"
-                         Padding="8"
-                         HorizontalScrollBarVisibility="Auto"
-                         VerticalScrollBarVisibility="Auto"/>
+                              Background="#3F3F46" ResizeBehavior="PreviousAndNext"/>                <!-- Data view pane with split display for original and modified -->
+                <Grid Grid.Row="4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="5"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    
+                    <!-- Original data panel (only shown when modified) -->
+                    <Grid Grid.Column="0" x:Name="OriginalDataPanel" Visibility="Collapsed">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        
+                        <TextBlock Text="Original Data" Grid.Row="0" Margin="5,0,0,5"
+                                  Style="{StaticResource DarkTextBlockStyle}" FontWeight="Bold"/>
+                        
+                        <TextBox Name="OriginalDataTextBox" Grid.Row="1"
+                                Style="{StaticResource DarkTextBoxStyle}"
+                                TextWrapping="NoWrap"
+                                AcceptsReturn="True"
+                                IsReadOnly="True"
+                                FontFamily="Consolas"
+                                FontSize="12"
+                                Background="#1E1E1E"
+                                Foreground="#E0E0E0"
+                                BorderThickness="1"
+                                Padding="8"
+                                HorizontalScrollBarVisibility="Auto"
+                                VerticalScrollBarVisibility="Auto"/>
+                    </Grid>
+                    
+                    <!-- Splitter between original and modified data -->
+                    <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Stretch"
+                                  Background="#3F3F46" Visibility="Collapsed" x:Name="DataSplitter"/>
+                    
+                    <!-- Modified data panel (or regular data when not modified) -->
+                    <Grid Grid.Column="2" x:Name="ModifiedDataPanel">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        
+                        <TextBlock Name="CurrentDataLabel" Text="Data" Grid.Row="0" Margin="5,0,0,5"
+                                  Style="{StaticResource DarkTextBlockStyle}" FontWeight="Bold"/>
+                        
+                        <TextBox Name="HistoryDataTextBox" Grid.Row="1"
+                                Style="{StaticResource DarkTextBoxStyle}"
+                                TextWrapping="NoWrap"
+                                AcceptsReturn="True"
+                                IsReadOnly="True"
+                                FontFamily="Consolas"
+                                FontSize="12"
+                                Background="#1E1E1E"
+                                Foreground="#E0E0E0"
+                                BorderThickness="1"
+                                Padding="8"
+                                HorizontalScrollBarVisibility="Auto"
+                                VerticalScrollBarVisibility="Auto"/>
+                    </Grid>
+                </Grid>
             </Grid>
         </Grid><!-- Bottom Status Bar -->
         <Border Grid.Row="2" Background="{StaticResource MenuBackground}" BorderBrush="#444444"
