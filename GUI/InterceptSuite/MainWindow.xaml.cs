@@ -15,6 +15,9 @@ using System.Windows.Controls;
 using System.Windows.Threading;
 using Microsoft.Win32;
 using System.Windows.Interop;
+using InterceptSuite.Models;
+using InterceptSuite.Helpers;
+using InterceptSuite.ViewModels;
 
 namespace InterceptSuite;
 
@@ -23,131 +26,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     // DLL imports for dark title bar
     [DllImport("dwmapi.dll")]
     private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
-
-    // Data models for logs
-    public class LogEvent : INotifyPropertyChanged
-    {
-        private string _timestamp = "";
-        private string _sourceIp = "";
-        private string _destinationIp = "";
-        private int _port;
-        private string _type = "";
-        private string _data = "";
-        private string _originalData = "";  // Store original data before modification
-        private bool _wasModified = false;  // Flag to indicate if this message was modified
-
-        public string Timestamp
-        {
-            get => _timestamp;
-            set { _timestamp = value; OnPropertyChanged(nameof(Timestamp)); }
-        }
-
-        public string SourceIp
-        {
-            get => _sourceIp;
-            set { _sourceIp = value; OnPropertyChanged(nameof(SourceIp)); }
-        }
-
-        public string DestinationIp
-        {
-            get => _destinationIp;
-            set { _destinationIp = value; OnPropertyChanged(nameof(DestinationIp)); }
-        }
-
-        public int Port
-        {
-            get => _port;
-            set { _port = value; OnPropertyChanged(nameof(Port)); }
-        }
-
-        public string Type
-        {
-            get => _type;
-            set { _type = value; OnPropertyChanged(nameof(Type)); }
-        }
-
-        public string Data
-        {
-            get => _data;
-            set { _data = value; OnPropertyChanged(nameof(Data)); }
-        }
-
-        public string OriginalData
-        {
-            get => _originalData;
-            set { _originalData = value; OnPropertyChanged(nameof(OriginalData)); }
-        }
-
-        public bool WasModified
-        {
-            get => _wasModified;
-            set { _wasModified = value; OnPropertyChanged(nameof(WasModified)); OnPropertyChanged(nameof(ModifiedIndicator)); }
-        }
-
-        public string ModifiedIndicator => WasModified ? "✓" : "";
-
-        public event PropertyChangedEventHandler? PropertyChanged;
-        protected virtual void OnPropertyChanged(string propertyName) =>
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-    }
-
-    // Data models for connection events
-    public class ConnectionEvent : INotifyPropertyChanged
-    {
-        private string _timestamp = "";
-        private string _event = "";
-        private int _connectionId;
-        private string _sourceIp = "";
-        private int _sourcePort;
-        private string _destinationIp = "";
-        private int _destinationPort;
-
-        public string Timestamp
-        {
-            get => _timestamp;
-            set { _timestamp = value; OnPropertyChanged(nameof(Timestamp)); }
-        }
-
-        public string Event
-        {
-            get => _event;
-            set { _event = value; OnPropertyChanged(nameof(Event)); }
-        }
-
-        public int ConnectionId
-        {
-            get => _connectionId;
-            set { _connectionId = value; OnPropertyChanged(nameof(ConnectionId)); }
-        }
-
-        public string SourceIp
-        {
-            get => _sourceIp;
-            set { _sourceIp = value; OnPropertyChanged(nameof(SourceIp)); }
-        }
-
-        public int SourcePort
-        {
-            get => _sourcePort;
-            set { _sourcePort = value; OnPropertyChanged(nameof(SourcePort)); }
-        }
-
-        public string DestinationIp
-        {
-            get => _destinationIp;
-            set { _destinationIp = value; OnPropertyChanged(nameof(DestinationIp)); }
-        }
-
-        public int DestinationPort
-        {
-            get => _destinationPort;
-            set { _destinationPort = value; OnPropertyChanged(nameof(DestinationPort)); }
-        }
-
-        public event PropertyChangedEventHandler? PropertyChanged;
-        protected virtual void OnPropertyChanged(string propertyName) =>
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-    }
 
     // Collections
     private readonly ObservableCollection<ConnectionEvent> _connectionEvents = new();
@@ -419,21 +297,19 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         {
             // Just use loopback in case of error
         }        BindAddressComboBox.SelectedIndex = 0;
-    }
-
-    // Rename LogCallback to ProxyDataCallback
+    }    // Rename LogCallback to ProxyDataCallback
     private void ProxyDataCallback(string timestamp, string src_ip, string dst_ip, int dst_port,
                             string message_type, string data)
     {
-
-        if (string.IsNullOrEmpty(timestamp)) timestamp = DateTime.Now.ToString("HH:mm:ss");
-        if (string.IsNullOrEmpty(src_ip)) src_ip = "unknown";
-        if (string.IsNullOrEmpty(dst_ip)) dst_ip = "unknown";
-        if (string.IsNullOrEmpty(message_type)) message_type = "Unknown";
-        if (data == null) data = string.Empty;
+        // Validate and sanitize inputs using helper
+        timestamp = DataHelper.ValidateString(timestamp, DateTime.Now.ToString("HH:mm:ss"));
+        src_ip = DataHelper.ValidateString(src_ip, "unknown");
+        dst_ip = DataHelper.ValidateString(dst_ip, "unknown");
+        message_type = DataHelper.ValidateString(message_type, "Unknown");
+        data = DataHelper.ValidateString(data, "");
 
         // Need to dispatch to UI thread
-        Dispatcher.Invoke(() =>
+        UIHelper.SafeInvoke(Dispatcher, () =>
         {
             try
             {
@@ -456,32 +332,23 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                     _historyEvents.RemoveAt(0);
 
                 // Auto-scroll the history list
-                if (HistoryList.Items.Count > 0)
-                {
-                    HistoryList.ScrollIntoView(HistoryList.Items[HistoryList.Items.Count - 1]);
-                }
+                UIHelper.AutoScrollToEnd(HistoryList);
             }
             catch (Exception ex)
             {
                 AddStatusMessage($"Error in ProxyDataCallback: {ex.Message}");
             }
         });
-    }
-
-    private void StatusCallback(string message)
+    }    private void StatusCallback(string message)
     {
         // Need to dispatch to UI thread
-        Dispatcher.Invoke(() =>
-        {
-            AddStatusMessage(message);
-        });
+        UIHelper.SafeInvoke(Dispatcher, () => AddStatusMessage(message));
     }
 
     private void ConnectionCallback(string client_ip, int client_port, string target_host,
                                    int target_port, int connection_id)
     {
-
-        Dispatcher.Invoke(() =>
+        UIHelper.SafeInvoke(Dispatcher, () =>
         {
             var connectionEvent = new ConnectionEvent
             {
@@ -504,10 +371,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 _connectionEvents.RemoveAt(0);
 
             // Auto-scroll if enabled
-            if (ConnectionsList.Items.Count > 0)
-            {
-                ConnectionsList.ScrollIntoView(ConnectionsList.Items[ConnectionsList.Items.Count - 1]);
-            }
+            UIHelper.AutoScrollToEnd(ConnectionsList);
         });
     }
 
@@ -527,12 +391,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             BytesSentText.Text = BytesSent.ToString();
             BytesReceivedText.Text = BytesReceived.ToString();
         });
-    }
-
-    private void DisconnectCallback(int connection_id, string reason)
+    }    private void DisconnectCallback(int connection_id, string reason)
     {
         // Need to dispatch to UI thread
-        Dispatcher.Invoke(() =>
+        UIHelper.SafeInvoke(Dispatcher, () =>
         {
             var connectionEvent = new ConnectionEvent
             {
@@ -556,12 +418,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 _connectionEvents.RemoveAt(0);
 
             // Auto-scroll if enabled
-            if (ConnectionsList.Items.Count > 0)
-            {
-                ConnectionsList.ScrollIntoView(ConnectionsList.Items[ConnectionsList.Items.Count - 1]);
-            }
+            UIHelper.AutoScrollToEnd(ConnectionsList);
         });
-    }    private void AddStatusMessage(string message)
+    }private void AddStatusMessage(string message)
     {
         _statusMessages.Add(message);
 
@@ -579,38 +438,19 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
     }    private void NavigateToPanel(string panelName)
     {
-        // Reset all buttons
-        SettingsButton.IsEnabled = true;
-        InterceptButton.IsEnabled = true;
-        ConnectionsButton.IsEnabled = true;
-        ProxyHistoryButton.IsEnabled = true;
+        var allPanels = new FrameworkElement[] { SettingsPanel, InterceptPanel, ConnectionsPanel, ProxyHistoryPanel };
+        var allButtons = new Button[] { SettingsButton, InterceptButton, ConnectionsButton, ProxyHistoryButton };
 
-        // Hide all panels
-        SettingsPanel.Visibility = Visibility.Collapsed;
-        InterceptPanel.Visibility = Visibility.Collapsed;
-        ConnectionsPanel.Visibility = Visibility.Collapsed;
-        ProxyHistoryPanel.Visibility = Visibility.Collapsed;
-
-        // Show the selected panel and mark button as selected
-        switch (panelName)
+        var (targetPanel, targetButton) = panelName switch
         {
-            case "Settings":
-                SettingsPanel.Visibility = Visibility.Visible;
-                SettingsButton.IsEnabled = false;
-                break;
-            case "Intercept":
-                InterceptPanel.Visibility = Visibility.Visible;
-                InterceptButton.IsEnabled = false;
-                break;
-            case "Connections":
-                ConnectionsPanel.Visibility = Visibility.Visible;
-                ConnectionsButton.IsEnabled = false;
-                break;
-            case "ProxyHistory":
-                ProxyHistoryPanel.Visibility = Visibility.Visible;
-                ProxyHistoryButton.IsEnabled = false;
-                break;
-        }
+            "Settings" => (SettingsPanel, SettingsButton),
+            "Intercept" => (InterceptPanel, InterceptButton),
+            "Connections" => (ConnectionsPanel, ConnectionsButton),
+            "ProxyHistory" => (ProxyHistoryPanel, ProxyHistoryButton),
+            _ => (InterceptPanel, InterceptButton) // Default fallback
+        };
+
+        UIHelper.NavigateToPanel(targetPanel, targetButton, allPanels, allButtons);
     }
 
     private void StartProxy_Click(object sender, RoutedEventArgs e)
@@ -659,20 +499,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         catch (Exception ex)
         {
             MessageBox.Show($"Error: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-        }    }
-
-    private void BrowseLogFile_Click(object sender, RoutedEventArgs e)
+        }    }    private void BrowseLogFile_Click(object sender, RoutedEventArgs e)
     {
-        SaveFileDialog saveFileDialog = new SaveFileDialog
+        var selectedFile = FileHelper.BrowseForLogFile(LogFileTextBox.Text);
+        if (selectedFile != null)
         {
-            Filter = "Log files (*.log)|*.log|All files (*.*)|*.*",
-            DefaultExt = ".log",
-            FileName = LogFileTextBox.Text
-        };
-
-        if (saveFileDialog.ShowDialog() == true)
-        {
-            LogFileTextBox.Text = saveFileDialog.FileName;
+            LogFileTextBox.Text = selectedFile;
         }
     }
 
@@ -680,37 +512,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     {
         _connectionEvents.Clear();
         AddStatusMessage("[SYSTEM] Connection history cleared");
-    }
-
-    private void ExportConnections_Click(object sender, RoutedEventArgs e)
+    }    private void ExportConnections_Click(object sender, RoutedEventArgs e)
     {
-        SaveFileDialog saveFileDialog = new SaveFileDialog
-        {
-            Filter = "CSV files (*.csv)|*.csv|All files (*.*)|*.*",
-            DefaultExt = ".csv",
-            FileName = $"tls_proxy_connections_{DateTime.Now:yyyyMMdd_HHmmss}.csv"
-        };
-
-        if (saveFileDialog.ShowDialog() == true)
-        {
-            try
-            {
-                using StreamWriter writer = new StreamWriter(saveFileDialog.FileName);
-                writer.WriteLine("Timestamp,Event,ConnectionID,SourceIP,SourcePort,DestinationIP,DestinationPort");
-
-                foreach (ConnectionEvent evt in _connectionEvents)
-                {
-                    writer.WriteLine($"{evt.Timestamp},{evt.Event},{evt.ConnectionId},{evt.SourceIp},{evt.SourcePort},{evt.DestinationIp},{evt.DestinationPort}");
-                }
-
-                AddStatusMessage($"[SYSTEM] Connections exported to {saveFileDialog.FileName}");
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Failed to export connections: {ex.Message}",
-                               "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-        }
+        FileHelper.ExportToCsv(
+            _connectionEvents,
+            "Timestamp,Event,ConnectionID,SourceIP,SourcePort,DestinationIP,DestinationPort",
+            evt => $"{evt.Timestamp},{evt.Event},{evt.ConnectionId},{evt.SourceIp},{evt.SourcePort},{evt.DestinationIp},{evt.DestinationPort}",
+            FileHelper.GenerateTimestampedFilename("tls_proxy_connections", ".csv"),
+            AddStatusMessage);
     }
 
     private void ClearHistory_Click(object sender, RoutedEventArgs e)
@@ -719,33 +528,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         AddStatusMessage("[SYSTEM] Proxy history cleared");
     }    private void ExportHistory_Click(object sender, RoutedEventArgs e)
     {
-        SaveFileDialog saveFileDialog = new SaveFileDialog
-        {
-            Filter = "CSV files (*.csv)|*.csv|All files (*.*)|*.*",
-            DefaultExt = ".csv",
-            FileName = $"tls_proxy_history_{DateTime.Now:yyyyMMdd_HHmmss}.csv"
-        };
-
-        if (saveFileDialog.ShowDialog() == true)
-        {
-            try
-            {
-                using StreamWriter writer = new StreamWriter(saveFileDialog.FileName);
-                writer.WriteLine("Timestamp,SourceIP,DestinationIP,Port,Type,Data");
-
-                foreach (LogEvent evt in _historyEvents)
-                {
-                    writer.WriteLine($"{evt.Timestamp},{evt.SourceIp},{evt.DestinationIp},{evt.Port},{evt.Type},{evt.Data}");
-                }
-
-                AddStatusMessage($"[SYSTEM] History exported to {saveFileDialog.FileName}");
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Failed to export history: {ex.Message}",
-                               "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-        }
+        FileHelper.ExportToCsv(
+            _historyEvents,
+            "Timestamp,SourceIP,DestinationIP,Port,Type,Modified,Data",
+            evt => $"{evt.Timestamp},{evt.SourceIp},{evt.DestinationIp},{evt.Port},{evt.Type},{evt.ModifiedIndicator},\"{evt.Data.Replace("\"", "\"\"")}\"",
+            FileHelper.GenerateTimestampedFilename("tls_proxy_history", ".csv"),
+            AddStatusMessage);
     }
 
     // IDisposable implementation
@@ -978,21 +766,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             Grid.SetColumnSpan(ModifiedDataPanel, 3);
             CurrentDataLabel.Text = "Data";
         }
-    }
-
-    // Helper method to format data size information
+    }    // Helper method to format data size information - now uses DataHelper
     private string GetDataSizeDescription(string data)
     {
-        if (string.IsNullOrEmpty(data))
-            return "0 bytes";
-
-        int length = data.Length;
-        bool isTruncated = data.EndsWith("...(truncated)");
-
-        return isTruncated
-            ? $"{length} bytes (truncated)"
-            : $"{length} bytes";
-    }    private void InterceptCallback(int connectionId, string direction, string srcIp,
+        return DataHelper.GetDataSizeDescription(data);
+    }private void InterceptCallback(int connectionId, string direction, string srcIp,
                                   string dstIp, int dstPort, byte[] data)
     {
         // Need to dispatch to UI thread
@@ -1077,30 +855,22 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
         if (TextViewRadio.IsChecked == true)
         {
-            // Text view - try to display as text
+            // Text view - use DataHelper for safe conversion
             try
             {
-                InterceptDataTextBox.Text = System.Text.Encoding.UTF8.GetString(_currentInterceptData);
+                InterceptDataTextBox.Text = DataHelper.SafeToText(_currentInterceptData);
             }
             catch (Exception ex)
             {
-                // Fall back to hex if not valid UTF-8
-                InterceptDataTextBox.Text = BitConverter.ToString(_currentInterceptData).Replace("-", " ");
+                // Fall back to hex if conversion fails
+                InterceptDataTextBox.Text = DataHelper.ToHexString(_currentInterceptData);
                 AddStatusMessage($"Warning: Failed to convert intercepted data to text: {ex.Message}");
             }
         }
         else if (HexViewRadio.IsChecked == true)
         {
-            try
-            {
-                // Hex view
-                InterceptDataTextBox.Text = BitConverter.ToString(_currentInterceptData).Replace("-", " ");
-            }
-            catch (Exception ex)
-            {
-                InterceptDataTextBox.Text = "[Error displaying hex data]";
-                AddStatusMessage($"Warning: Failed to convert intercepted data to hex: {ex.Message}");
-            }
+            // Hex view - use DataHelper for consistent hex formatting
+            InterceptDataTextBox.Text = DataHelper.ToHexString(_currentInterceptData);
         }
     }
 
@@ -1126,9 +896,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 }
             }
         }
-    }
-
-    private void InterceptDirection_Changed(object sender, SelectionChangedEventArgs e)
+    }    private void InterceptDirection_Changed(object sender, SelectionChangedEventArgs e)
     {
         if (_dllManager != null && ComboBox.ReferenceEquals(sender, InterceptDirectionComboBox))
         {
@@ -1138,14 +906,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 _interceptDirection = direction;
                 _dllManager.SetInterceptDirection(direction);
 
-                string directionText = direction switch
-                {
-                    0 => "None",
-                    1 => "Client → Server",
-                    2 => "Server → Client",
-                    3 => "Both directions",
-                    _ => "Unknown"
-                };
+                // Use DataHelper for consistent direction formatting
+                string directionText = DataHelper.FormatInterceptDirection(direction);
                 AddStatusMessage($"Intercept direction set to: {directionText}");
             }
         }
@@ -1260,31 +1022,27 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
             // Reset intercept state
             _isWaitingForInterceptResponse = false;
-            _isInterceptDataModified = false;
-            UpdateInterceptUI();
+            _isInterceptDataModified = false;        UpdateInterceptUI();
         }
     }
-      // Helper method to add a modified message to history
+
+    // Helper method to add a modified message to history
     private void AddModifiedMessageToHistory(string originalData, string modifiedData)
     {
         try
         {
-            // Validate inputs
-            if (string.IsNullOrEmpty(originalData)) originalData = "[Empty]";
-            if (string.IsNullOrEmpty(modifiedData)) modifiedData = "[Empty]";
+            // Validate inputs using DataHelper
+            originalData = DataHelper.ValidateString(originalData, "[Empty]");
+            modifiedData = DataHelper.ValidateString(modifiedData, "[Empty]");
 
-            // Ensure direction is valid
-            string messageType = "Modified";
-            if (!string.IsNullOrEmpty(_currentInterceptDirection))
-            {
-                messageType = _currentInterceptDirection == "C->S" ? "Request" : "Response";
-            }
+            // Use DataHelper to determine message type
+            string messageType = DataHelper.GetMessageType(_currentInterceptDirection);
 
             var logEvent = new LogEvent
             {
                 Timestamp = DateTime.Now.ToString("HH:mm:ss"),
-                SourceIp = string.IsNullOrEmpty(_currentInterceptSrcIp) ? "unknown" : _currentInterceptSrcIp,
-                DestinationIp = string.IsNullOrEmpty(_currentInterceptDstIp) ? "unknown" : _currentInterceptDstIp,
+                SourceIp = DataHelper.ValidateString(_currentInterceptSrcIp, "unknown"),
+                DestinationIp = DataHelper.ValidateString(_currentInterceptDstIp, "unknown"),
                 Port = _currentInterceptDstPort,
                 Type = messageType,
                 OriginalData = originalData,
@@ -1299,11 +1057,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             if (_historyEvents.Count > 1000)
                 _historyEvents.RemoveAt(0);
 
-            // Auto-scroll the history list if on history tab
-            if (ProxyHistoryPanel.Visibility == Visibility.Visible && HistoryList.Items.Count > 0)
-            {
-                HistoryList.ScrollIntoView(HistoryList.Items[HistoryList.Items.Count - 1]);
-            }
+            // Auto-scroll using UIHelper
+            UIHelper.AutoScrollToEnd(HistoryList);
         }
         catch (Exception ex)
         {

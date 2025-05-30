@@ -10,8 +10,7 @@ namespace InterceptSuite
     /// Helper class for diagnostics and network utility functions
     /// </summary>
     public static class DiagnosticsHelper
-    {
-        /// <summary>
+    {        /// <summary>
         /// Checks if a port is available on the specified IP address
         /// </summary>
         /// <param name="ipAddress">IP address to check</param>
@@ -34,6 +33,47 @@ namespace InterceptSuite
             }
             catch (Exception)
             {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Checks if a port is available on any interface (overload for convenience)
+        /// </summary>
+        /// <param name="port">Port to check</param>
+        /// <returns>True if the port is available, false otherwise</returns>
+        public static bool IsPortAvailable(int port)
+        {
+            try
+            {
+                // Check for TCP listeners on the port
+                IPGlobalProperties ipGlobalProperties = IPGlobalProperties.GetIPGlobalProperties();
+                TcpConnectionInformation[] tcpConnInfoArray = ipGlobalProperties.GetActiveTcpConnections();
+
+                foreach (TcpConnectionInformation tcpi in tcpConnInfoArray)
+                {
+                    if (tcpi.LocalEndPoint.Port == port)
+                    {
+                        return false;
+                    }
+                }
+
+                // Check for TCP listeners
+                System.Net.IPEndPoint[] tcpListeners = ipGlobalProperties.GetActiveTcpListeners();
+
+                foreach (System.Net.IPEndPoint endpoint in tcpListeners)
+                {
+                    if (endpoint.Port == port)
+                    {
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+            catch (Exception)
+            {
+                // If we can't check, assume the port is not available
                 return false;
             }
         }
