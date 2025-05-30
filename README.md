@@ -8,6 +8,27 @@ InterceptSuite is a powerful network traffic interception tool designed for TLS/
 
 The original idea behind InterceptSuite was to solve a challenging problem in Windows application penetration testing. With limited options to intercept network traffic of Windows applications, it's often difficult for security professionals to perform packet or traffic analysis of thick clients.
 
+[![Build and Upload .NET GUI App](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/dotnet-gui.yml/badge.svg)](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/dotnet-gui.yml)
+[![Build Intercept Suite DLL](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/Build-DLL.yml/badge.svg)](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/Build-DLL.yml)
+[![Create Installer](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/release-installer.yml/badge.svg)](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/release-installer.yml)
+[![Create Release Package](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/release.yml/badge.svg)](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/release.yml)
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Features](#features)
+- [Getting Started](#getting-started)
+  - [Prerequisites](#prerequisites)
+  - [Installation](#installation)
+- [Usage](#usage)
+- [Windows Proxy Configuration](#windows-proxy-configuration)
+- [Current Limitations](#current-limitations)
+- [When to Use InterceptSuite vs. HTTP-Specific Tools](#when-to-use-interceptsuite-vs-http-specific-tools)
+- [Images](#images)
+- [Development](#development)
+- [License](#license)
+- [Acknowledgments](#acknowledgments)
+
 ## Features
 
 - **Protocol-Agnostic TLS Interception**: Intercept TLS/SSL traffic from any application or protocol
@@ -29,9 +50,9 @@ The original idea behind InterceptSuite was to solve a challenging problem in Wi
 
 ### Installation
 
-1. Download the latest release from the [Releases page](https://github.com/anof-cyber/InterceptSuite/releases)
-2. Extract the zip file to your preferred location
-3. Run `InterceptSuite.exe`
+1. Download the `InterceptSuite_Installer.exe` from the [Releases page](https://github.com/anof-cyber/InterceptSuite/releases)
+2. Run the installer and follow the on-screen instructions
+3. Launch InterceptSuite from your desktop or start menu
 
 For detailed build instructions, see the [Build Guide](Build.md).
 
@@ -46,7 +67,10 @@ For detailed build instructions, see the [Build Guide](Build.md).
 4. Configure your client application to use the proxy
 5. Begin intercepting TLS traffic
 
+For detailed usage instructions and features explanation, see the [Usage Guide](Usage.md).
+
 For more details on integration with your own applications, see the [DLL Integration Guide](DLL_INTEGRATION.md).
+
 
 ## Windows Proxy Configuration
 
@@ -80,7 +104,8 @@ This combination creates a powerful setup for intercepting network traffic from 
 
 ## When to Use InterceptSuite vs. HTTP-Specific Tools
 
-> **Note:** While InterceptSuite can handle HTTP/HTTPS traffic, it is strongly recommended to use HTTP-specific tools like Burp Suite or OWASP ZAP for web traffic inspection. These tools provide specialized features optimized for HTTP-based protocols.
+> [!Note]
+> While InterceptSuite can handle HTTP/HTTPS traffic, it is strongly recommended to use HTTP-specific tools like Burp Suite or OWASP ZAP for web traffic inspection. These tools provide specialized features optimized for HTTP-based protocols.
 
 - **Use InterceptSuite when**:
   - Working with non-HTTP TLS-encrypted protocols
@@ -92,6 +117,28 @@ This combination creates a powerful setup for intercepting network traffic from 
   - Testing web applications
   - Performing web security assessments
   - When HTTP-specific features (like request repeating, scanning, etc.) are needed
+
+
+## Images
+
+Below are screenshots of the main tabs in InterceptSuite:
+
+### Intercept Tab
+![Intercept Tab](Images/Intercept.png)
+*The Intercept tab allows you to view and modify network packets in real-time.*
+
+### Proxy History Tab
+![Proxy History Tab](Images/Prxoy-History.png)
+*The Proxy History tab shows all messages that have passed through the SOCKS5 proxy.*
+
+### Settings Tab
+![Settings Tab](Images/Settings.png)
+*The Settings tab provides configuration options for the proxy server, logging, and interception rules.*
+
+### Connections Tab
+![Connections Tab](Images/Connections.png)
+*The Connections tab displays TCP connection details and allows for exporting connection data.*
+
 
 ## Development
 
