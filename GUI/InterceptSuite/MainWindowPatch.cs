@@ -6,7 +6,6 @@ using System.Text;
 
 namespace InterceptSuite
 {
-    // This is a partial class containing patched methods
     public partial class MainWindow
     {
         private void RefreshInterfaces_Click(object sender, RoutedEventArgs e)

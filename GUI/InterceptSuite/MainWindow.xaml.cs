@@ -71,19 +71,19 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             get => _data;
             set { _data = value; OnPropertyChanged(nameof(Data)); }
         }
-        
+
         public string OriginalData
         {
             get => _originalData;
             set { _originalData = value; OnPropertyChanged(nameof(OriginalData)); }
         }
-        
+
         public bool WasModified
         {
             get => _wasModified;
             set { _wasModified = value; OnPropertyChanged(nameof(WasModified)); OnPropertyChanged(nameof(ModifiedIndicator)); }
         }
-        
+
         public string ModifiedIndicator => WasModified ? "✓" : "";
 
         public event PropertyChangedEventHandler? PropertyChanged;
@@ -203,7 +203,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     public event PropertyChangedEventHandler? PropertyChanged;
     protected virtual void OnPropertyChanged(string propertyName) =>
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-        
+
     public MainWindow()
     {
         InitializeComponent();
@@ -228,14 +228,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         _updateTimer.Start();        // Initial navigation selection
         InterceptButton.IsEnabled = false;  // Mark as selected
 
-        // Try to load DLL automatically first, then update network interfaces when DLL is loaded
+
         _ = LoadDllAndInitializeAsync();
     }    private void UpdateTimer_Tick(object? sender, EventArgs e)
     {
         // Update current time in status bar
         CurrentTimeText.Text = DateTime.Now.ToString("HH:mm:ss");
 
-        // Update UI elements with latest data
         if (_dllManager != null && _dllManager.IsLoaded && _proxyRunning)
         {
             int connections = 0;
@@ -244,8 +243,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             {
                 TotalConnections = connections;
                 ActiveConnections = connections; // In a real app, these might be different
-                BytesSent = bytes / 2; // Approximate division for demo
-                BytesReceived = bytes / 2; // Approximate division for demo
+                BytesSent = bytes / 2;
+                BytesReceived = bytes / 2;
 
                 // Update UI elements
                 ActiveConnectionsText.Text = ActiveConnections.ToString();
@@ -297,10 +296,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 DllStatusText.Foreground = System.Windows.Media.Brushes.Green;
                 AddStatusMessage("[SYSTEM] DLL loaded successfully");
 
-                // Now that DLL is loaded, refresh network interfaces and load config
                 RefreshNetworkInterfaces();
 
-                // Load existing configuration including verbose mode
                 LoadProxyConfigFromDll();
             }
             else
@@ -309,7 +306,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 DllStatusText.Foreground = System.Windows.Media.Brushes.Red;
                 AddStatusMessage($"[ERROR] {result.message}");
 
-                // Use fallback method if DLL loading failed
+
                 RefreshNetworkInterfaces_Fallback();
             }
         });
@@ -321,7 +318,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             BindAddressComboBox.Items.Clear();
             try
             {
-                // Get all network interfaces with IPv4 addresses
+
                 foreach (NetworkInterface ni in NetworkInterface.GetAllNetworkInterfaces())
                 {
                     if (ni.OperationalStatus == OperationalStatus.Up)
@@ -423,18 +420,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             // Just use loopback in case of error
         }        BindAddressComboBox.SelectedIndex = 0;
     }
-    
+
     // Rename LogCallback to ProxyDataCallback
     private void ProxyDataCallback(string timestamp, string src_ip, string dst_ip, int dst_port,
                             string message_type, string data)
     {
-        // Validate inputs to prevent null reference exceptions
+
         if (string.IsNullOrEmpty(timestamp)) timestamp = DateTime.Now.ToString("HH:mm:ss");
         if (string.IsNullOrEmpty(src_ip)) src_ip = "unknown";
         if (string.IsNullOrEmpty(dst_ip)) dst_ip = "unknown";
         if (string.IsNullOrEmpty(message_type)) message_type = "Unknown";
         if (data == null) data = string.Empty;
-        
+
         // Need to dispatch to UI thread
         Dispatcher.Invoke(() =>
         {
@@ -453,7 +450,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 };
 
                 _historyEvents.Add(logEvent);
-                
+
                 // Trim history if too large
                 if (_historyEvents.Count > 1000)
                     _historyEvents.RemoveAt(0);
@@ -483,7 +480,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     private void ConnectionCallback(string client_ip, int client_port, string target_host,
                                    int target_port, int connection_id)
     {
-        // Need to dispatch to UI thread
+
         Dispatcher.Invoke(() =>
         {
             var connectionEvent = new ConnectionEvent
@@ -521,8 +518,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         {
             TotalConnections = total_connections;
             ActiveConnections = active_connections;
-            BytesSent = total_bytes_transferred / 2; // Approximate division for demo
-            BytesReceived = total_bytes_transferred / 2; // Approximate division for demo
+            BytesSent = total_bytes_transferred / 2;
+            BytesReceived = total_bytes_transferred / 2;
 
             // Update UI elements
             ActiveConnectionsText.Text = ActiveConnections.ToString();
@@ -894,13 +891,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             AddStatusMessage($"[ERROR] Failed to load configuration: {ex.Message}");
         }
     }
-    
+
     private void HistoryList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (HistoryList.SelectedItem is LogEvent selectedItem)
         {
             string displayText;
-            
+
             // Format the display based on the message type
             if (selectedItem.Type == "Binary")
             {
@@ -919,23 +916,23 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 string dataInfo = $"[{selectedItem.Type} - {GetDataSizeDescription(selectedItem.Data)}]";
                 displayText = $"{dataInfo}\n{selectedItem.Data}";
             }
-            
+
             // Check if this message was modified
             if (selectedItem.WasModified && !string.IsNullOrEmpty(selectedItem.OriginalData))
             {
                 // Show both original and modified data in split view
                 OriginalDataPanel.Visibility = Visibility.Visible;
                 DataSplitter.Visibility = Visibility.Visible;
-                
+
                 // Configure grid column layout for split view
                 Grid.SetColumn(ModifiedDataPanel, 2);
-                
+
                 // Update labels and content
                 CurrentDataLabel.Text = "Modified Data";
                 HistoryDataTextBox.Text = displayText;
-                
+
                 string originalDisplayText;
-                
+
                 // Format the original data display similarly
                 if (selectedItem.Type == "Binary")
                 {
@@ -954,18 +951,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                     string dataInfo = $"[{selectedItem.Type} - {GetDataSizeDescription(selectedItem.OriginalData)}]";
                     originalDisplayText = $"{dataInfo}\n{selectedItem.OriginalData}";
                 }
-                
+
                 OriginalDataTextBox.Text = originalDisplayText;
             }
             else
             {                // Show only the current data (no split view)
                 OriginalDataPanel.Visibility = Visibility.Collapsed;
                 DataSplitter.Visibility = Visibility.Collapsed;
-                
+
                 // Configure grid for single view
                 Grid.SetColumn(ModifiedDataPanel, 0);
                 Grid.SetColumnSpan(ModifiedDataPanel, 3);
-                
+
                 // Update label and content
                 CurrentDataLabel.Text = "Data";
                 HistoryDataTextBox.Text = displayText;
@@ -1006,14 +1003,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             {
                 _currentInterceptData = null;
             }
-            
+
             // Store current intercept data
             _currentInterceptConnectionId = connectionId;
             _currentInterceptDirection = direction;
             _currentInterceptSrcIp = srcIp;
             _currentInterceptDstIp = dstIp;
             _currentInterceptDstPort = dstPort;
-            
+
             // Create a new copy of the data instead of using Clone()
             if (data != null && data.Length > 0)
             {
@@ -1024,7 +1021,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             {
                 _currentInterceptData = new byte[0];
             }
-            
+
             _isWaitingForInterceptResponse = true;
             _isInterceptDataModified = false;
 
@@ -1176,12 +1173,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             UpdateInterceptDataView();
         }
     }
-    
+
     private void InterceptDataTextBox_TextChanged(object sender, TextChangedEventArgs e)
     {
         _isInterceptDataModified = true;
     }
-    
+
     private void RespondToCurrentIntercept(int action)
     {
         if (!_isWaitingForInterceptResponse || _dllManager == null || _currentInterceptData == null)
@@ -1198,7 +1195,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             {
                 // Try UTF-8 first
                 originalDataStr = System.Text.Encoding.UTF8.GetString(_currentInterceptData);
-                
+
                 // If it contains unprintable characters, use hex format instead
                 if (originalDataStr.Any(c => char.IsControl(c) && c != '\r' && c != '\n' && c != '\t'))
                 {
@@ -1217,7 +1214,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 {
                     // Store the modified data string for history
                     modifiedDataStr = InterceptDataTextBox.Text;
-                    
+
                     if (TextViewRadio.IsChecked == true)
                     {
                         // Convert text back to bytes
@@ -1233,7 +1230,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                             modifiedData[i] = Convert.ToByte(hexText.Substring(i * 2, 2), 16);
                         }
                     }
-                    
+
                     // Add to history with original and modified data
                     AddModifiedMessageToHistory(originalDataStr, modifiedDataStr);
                 }
@@ -1260,7 +1257,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         {
             // Clean up the intercept data - it's no longer needed
             _currentInterceptData = null;
-            
+
             // Reset intercept state
             _isWaitingForInterceptResponse = false;
             _isInterceptDataModified = false;
@@ -1275,14 +1272,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             // Validate inputs
             if (string.IsNullOrEmpty(originalData)) originalData = "[Empty]";
             if (string.IsNullOrEmpty(modifiedData)) modifiedData = "[Empty]";
-            
+
             // Ensure direction is valid
             string messageType = "Modified";
             if (!string.IsNullOrEmpty(_currentInterceptDirection))
             {
                 messageType = _currentInterceptDirection == "C->S" ? "Request" : "Response";
             }
-            
+
             var logEvent = new LogEvent
             {
                 Timestamp = DateTime.Now.ToString("HH:mm:ss"),
@@ -1294,14 +1291,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 Data = modifiedData,
                 WasModified = true
             };
-            
+
             // Add to history list
             _historyEvents.Add(logEvent);
-            
+
             // Trim history if too large
             if (_historyEvents.Count > 1000)
                 _historyEvents.RemoveAt(0);
-                
+
             // Auto-scroll the history list if on history tab
             if (ProxyHistoryPanel.Visibility == Visibility.Visible && HistoryList.Items.Count > 0)
             {
