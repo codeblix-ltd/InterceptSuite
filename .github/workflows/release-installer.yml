@@ -88,13 +88,13 @@ jobs:
               Result := '';
           end;
 
-          function CheckDotNet48: Boolean;
+          function CheckDotNet8: Boolean;
           var
             ResultCode: Integer;
             PowerShellPath: string;
             PowerShellArgs: string;
           begin
-            // Check if .NET Framework 4.8 is installed using PowerShell
+            // Check if .NET 8.0 is installed using PowerShell
             PowerShellPath := GetPowerShellPath();
             if PowerShellPath = '' then
             begin
@@ -102,8 +102,8 @@ jobs:
               Exit;
             end;
 
-            // PowerShell command to check .NET Framework 4.8
-            PowerShellArgs := '-NoProfile -ExecutionPolicy Bypass -Command "$dotNet = Get-ChildItem ''HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP'' -Recurse | Get-ItemProperty -Name Version -ErrorAction SilentlyContinue | Where-Object { $_.PSChildName -eq ''Full'' } | Select-Object -ExpandProperty Version; [System.Version]$version = ''4.8''; [System.Version]$installedVersion = $dotNet; if ($installedVersion -ge $version) { exit 0 } else { exit 1 }"';
+            // PowerShell command to check .NET 8.0 Runtime
+            PowerShellArgs := '-NoProfile -ExecutionPolicy Bypass -Command "if (Get-Command dotnet -ErrorAction SilentlyContinue) { $versions = dotnet --list-runtimes | Where-Object { $_ -like ''Microsoft.WindowsDesktop.App 8.*'' }; if ($versions) { exit 0 } else { exit 1 } } else { exit 1 }"';
 
             if Exec(PowerShellPath, PowerShellArgs, '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
               Result := (ResultCode = 0)
@@ -130,22 +130,22 @@ jobs:
           begin
             Result := True;
 
-            // Check if .NET Framework 4.8 is installed
-            if not CheckDotNet48() then
+            // Check if .NET 8.0 is installed
+            if not CheckDotNet8() then
             begin
-              if MsgBox('This application requires .NET Framework 4.8.'#13#10'Do you want to download and install it now?', mbConfirmation, MB_YESNO) = IDYES then
+              if MsgBox('This application requires .NET 8.0 Runtime.'#13#10'Do you want to download and install it now?', mbConfirmation, MB_YESNO) = IDYES then
               begin
-                // Download .NET Framework installer
+                // Download .NET 8.0 installer
                 if not ForceDirectories(ExpandConstant('{tmp}\NetFx')) then
                 begin
-                  MsgBox('Error creating temporary directory for .NET Framework download.', mbError, MB_OK);
+                  MsgBox('Error creating temporary directory for .NET 8.0 download.', mbError, MB_OK);
                   Result := False;
                   Exit;
                 end;
 
-                // .NET Framework 4.8 download URL
-                DotNetURL := 'https://go.microsoft.com/fwlink/?LinkId=2085155';
-                DotNetInstaller := ExpandConstant('{tmp}\NetFx\NetFramework48.exe');
+                // .NET 8.0 Desktop Runtime download URL
+                DotNetURL := 'https://dotnet.microsoft.com/download/dotnet/thank-you/runtime-desktop-8.0.0-windows-x64-installer';
+                DotNetInstaller := ExpandConstant('{tmp}\NetFx\dotnet-desktop-8.0.0.exe');
 
                 if not DownloadFileWithUrlmon(DotNetURL, DotNetInstaller) then
                 begin
