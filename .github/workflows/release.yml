@@ -29,7 +29,9 @@ jobs:
           !${{ github.workspace }}/vcpkg/buildtrees
           !${{ github.workspace }}/vcpkg/packages
           !${{ github.workspace }}/vcpkg/downloads
-        key: vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}    - name: Setup vcpkg
+        key: vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
+
+    - name: Setup vcpkg
       uses: actions/checkout@v4
       with:
         repository: microsoft/vcpkg
@@ -67,7 +69,9 @@ jobs:
       run: dotnet publish GUI/InterceptSuite/InterceptSuite.csproj --configuration Release --no-build --output publish --self-contained true --runtime win-x64
 
     - name: Copy DLL files
-      run: Copy-Item -Path "build\Release\*.dll" -Destination "publish\" -Force    - name: Create ZIP package
+      run: Copy-Item -Path "build\Release\*.dll" -Destination "publish\" -Force
+
+    - name: Create ZIP package
       run: |
         $version = "${{ github.ref_name }}".Substring(1)
         Compress-Archive -Path "publish\*" -DestinationPath "InterceptSuite-v$version-win-x64.zip" -Force

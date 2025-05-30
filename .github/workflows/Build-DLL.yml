@@ -29,7 +29,8 @@ jobs:
           !${{ github.workspace }}/vcpkg/buildtrees
           !${{ github.workspace }}/vcpkg/packages
           !${{ github.workspace }}/vcpkg/downloads
-        key: vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}    - name: Setup vcpkg
+        key: vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
+    - name: Setup vcpkg
       uses: actions/checkout@v4
       with:
         repository: microsoft/vcpkg
