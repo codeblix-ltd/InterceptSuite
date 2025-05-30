@@ -558,9 +558,7 @@
                             <TextBlock Name="InterceptStatusText" Text="No intercept pending"
                                       Style="{StaticResource DarkTextBlockStyle}"/>
                         </StackPanel>
-                    </GroupBox>
-
-                    <!-- Action Buttons -->
+                    </GroupBox>                    <!-- Action Buttons -->
                     <GroupBox Header="Actions" Grid.Row="2"
                               Style="{StaticResource DarkGroupBoxStyle}">
                         <StackPanel Orientation="Horizontal" Margin="10">
@@ -570,11 +568,7 @@
                                    Margin="0,0,10,0"/>
                             <Button Name="DropButton" Content="Drop"
                                    Click="Drop_Click" IsEnabled="False"
-                                   Style="{StaticResource RedButtonStyle}"
-                                   Margin="0,0,10,0"/>
-                            <Button Name="ForwardModifiedButton" Content="Forward Modified"
-                                   Click="ForwardModified_Click" IsEnabled="False"
-                                   Style="{StaticResource DarkButtonStyle}"/>
+                                   Style="{StaticResource RedButtonStyle}"/>
                         </StackPanel>
                     </GroupBox>
                 </Grid>

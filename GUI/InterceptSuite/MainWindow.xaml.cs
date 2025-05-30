@@ -809,9 +809,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             // Switch to intercept tab automatically
             NavigateToPanel("Intercept");
         });
-    }
-
-    private void UpdateInterceptUI()
+    }    private void UpdateInterceptUI()
     {
         if (_isWaitingForInterceptResponse)
         {
@@ -829,7 +827,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             // Enable action buttons
             ForwardButton.IsEnabled = true;
             DropButton.IsEnabled = true;
-            ForwardModifiedButton.IsEnabled = true;
+            
+            // Update Forward button text to indicate its dual functionality
+            ForwardButton.Content = _isInterceptDataModified ? "Forward Modified" : "Forward";
         }
         else
         {
@@ -843,9 +843,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             // Disable action buttons
             ForwardButton.IsEnabled = false;
             DropButton.IsEnabled = false;
-            ForwardModifiedButton.IsEnabled = false;
+            
+            // Reset Forward button text
+            ForwardButton.Content = "Forward";
         }
-    }    private void UpdateInterceptDataView()
+    }private void UpdateInterceptDataView()
     {
         if (_currentInterceptData == null || _currentInterceptData.Length == 0)
         {
@@ -911,21 +913,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 AddStatusMessage($"Intercept direction set to: {directionText}");
             }
         }
-    }
-
-    private void Forward_Click(object sender, RoutedEventArgs e)
+    }    private void Forward_Click(object sender, RoutedEventArgs e)
     {
-        RespondToCurrentIntercept(0); // INTERCEPT_ACTION_FORWARD
+        // Automatically determine the action based on whether data was modified
+        int action = _isInterceptDataModified ? 2 : 0; // INTERCEPT_ACTION_MODIFY : INTERCEPT_ACTION_FORWARD
+        RespondToCurrentIntercept(action);
     }
 
     private void Drop_Click(object sender, RoutedEventArgs e)
     {
         RespondToCurrentIntercept(1); // INTERCEPT_ACTION_DROP
-    }
-
-    private void ForwardModified_Click(object sender, RoutedEventArgs e)
-    {
-        RespondToCurrentIntercept(2); // INTERCEPT_ACTION_MODIFY
     }
 
     private void ViewMode_Changed(object sender, RoutedEventArgs e)
@@ -934,11 +931,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         {
             UpdateInterceptDataView();
         }
-    }
-
-    private void InterceptDataTextBox_TextChanged(object sender, TextChangedEventArgs e)
+    }    private void InterceptDataTextBox_TextChanged(object sender, TextChangedEventArgs e)
     {
+        bool wasModified = _isInterceptDataModified;
         _isInterceptDataModified = true;
+        
+        // Update UI if the modification state changed (to update button text)
+        if (!wasModified && _isWaitingForInterceptResponse)
+        {
+            UpdateInterceptUI();
+        }
     }
 
     private void RespondToCurrentIntercept(int action)
