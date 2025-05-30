@@ -21,7 +21,6 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    # Step 1: Build C DLL using same approach as Build-DLL.yml (Release build)
     - name: Cache vcpkg
       uses: actions/cache@v4
       with:
@@ -45,152 +44,35 @@ jobs:
 
     - name: Configure CMake
       run: cmake -B build -S . -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DCMAKE_TOOLCHAIN_FILE=${{ env.CMAKE_TOOLCHAIN_FILE }}
-    
     - name: Build DLL
       run: cmake --build build --config ${{ env.BUILD_TYPE }}
 
-    - name: Verify DLL Output
-      run: |
-        echo "--- Output Directory Contents ---"
-        dir build\${{ env.BUILD_TYPE }}
-        echo "--- Check for Intercept.dll and dependencies ---"
-        if (Test-Path -Path "build\${{ env.BUILD_TYPE }}\Intercept.dll") {
-          echo "✅ Intercept.dll found in build output"
-        } else {
-          echo "❌ Intercept.dll not found in build output"
-          exit 1
-        }
-        echo "--- Check for vcpkg directory ---"
-        if (Test-Path -Path "vcpkg\installed\x64-windows\bin") {
-          echo "--- vcpkg installed bin directory ---"
-          dir vcpkg\installed\x64-windows\bin
-        } else {
-          echo "vcpkg bin directory not found - OpenSSL DLLs must be from another source"
-        }
 
-    - name: Package DLL with CPack
-      run: |
-        cd build
-        cpack -C ${{ env.BUILD_TYPE }}
-        
-        # Find package file dynamically for verification
-        $packageFile = Get-ChildItem -Path "." -Filter "Intercept-*-win64.zip" | Select-Object -First 1
-        if ($packageFile) {
-          echo "✅ CPack package created successfully: $($packageFile.Name)"
-        } else {
-          echo "⚠️ CPack package not found, but continuing with DLL copy"
-        }
-
-    # Step 2: Copy C DLLs to .NET project directory so they're included in publish
-    - name: Copy C DLLs to .NET project
-      run: |
-        echo "--- Copying C DLLs to .NET project ---"
-        # Copy all DLLs from C build to .NET project directory
-        Copy-Item -Path "build\${{ env.BUILD_TYPE }}\*.dll" -Destination "GUI\InterceptSuite\" -Force
-        echo "✅ C DLLs copied to GUI\InterceptSuite\"
-
-    # Step 3: Build .NET application (Release, self-contained)
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: 8.0.x
 
-    - name: Restore .NET dependencies
+    - name: Restore dependencies
       run: dotnet restore GUI/InterceptSuite/InterceptSuite.csproj
 
-    - name: Clean .NET project
+    - name: Clean
       run: dotnet clean GUI/InterceptSuite/InterceptSuite.csproj --configuration Release
 
-    - name: Build .NET project (Release)
+    - name: Build
       run: dotnet build GUI/InterceptSuite/InterceptSuite.csproj --configuration Release
 
-    - name: Publish .NET application (Self-contained Release)
+    - name: Publish
+      run: dotnet publish GUI/InterceptSuite/InterceptSuite.csproj --configuration Release --no-build --output publish --self-contained true --runtime win-x64
+
+    - name: Copy DLL files
+      run: Copy-Item -Path "build\Release\*.dll" -Destination "publish\" -Force    - name: Create ZIP package
       run: |
-        echo "--- Publishing .NET application ---"
-        dotnet publish GUI/InterceptSuite/InterceptSuite.csproj `
-          --configuration Release `
-          --self-contained true `
-          --runtime win-x64 `
-          --output release-build `
-          /p:PublishSingleFile=false
-        echo "✅ .NET application published to release-build\"
+        $version = "${{ github.ref_name }}".Substring(1)
+        Compress-Archive -Path "publish\*" -DestinationPath "InterceptSuite-v$version-win-x64.zip" -Force
 
-    - name: Verify Release Build Contents
-      run: |
-        echo "--- Contents of release-build folder ---"
-        Get-ChildItem -Path "release-build" -Recurse | ForEach-Object {
-          if ($_.PSIsContainer) { echo "📁 $($_.FullName)" } else { echo "📄 $($_.FullName)" }
-        }
-
-    # Step 4: Create release package version
-    - name: Determine package version
-      run: |
-        # Get version from tag or default
-        if ("${{ github.ref_type }}" -eq "tag" -and "${{ github.ref_name }}".StartsWith("v")) {
-          $version = "${{ github.ref_name }}".Substring(1)  # Remove 'v' prefix
-        } elseif ("${{ github.event_name }}" -eq "release") {
-          $version = "${{ github.event.release.tag_name }}".TrimStart('v')
-        } else {
-          $version = "1.0.0"
-        }
-        echo "PACKAGE_VERSION=$version" >> $env:GITHUB_ENV
-        echo "📦 Package version: $version"
-
-    # Step 5: Create ZIP from .NET release build folder
-    - name: Create release ZIP package
-      run: |
-        echo "--- Creating release ZIP package ---"
-        # Add documentation files to release build
-        Copy-Item -Path "README.md" -Destination "release-build\" -ErrorAction SilentlyContinue
-        Copy-Item -Path "USAGE_GUIDE.md" -Destination "release-build\" -ErrorAction SilentlyContinue
-
-        # Create ZIP from entire release-build folder
-        $zipName = "InterceptSuite-v${{ env.PACKAGE_VERSION }}-win-x64.zip"
-        Compress-Archive -Path "release-build\*" -DestinationPath $zipName -Force
-        echo "✅ Release package created: $zipName"
-
-    # Step 6: Upload ZIP as artifact (always available)
-    - name: Upload release package as artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: InterceptSuite-Release-Package
-        path: InterceptSuite-v${{ env.PACKAGE_VERSION }}-win-x64.zip
-        if-no-files-found: error
-        retention-days: 90
-
-    # Step 7: Upload to GitHub Release (only when triggered by a release)
     - name: Upload to GitHub Release
       if: github.event_name == 'release'
       uses: softprops/action-gh-release@v2
       with:
-        name: "InterceptSuite v${{ env.PACKAGE_VERSION }}"
-        body: |
-          # InterceptSuite v${{ env.PACKAGE_VERSION }}
-
-          TLS MITM Proxy Intercept Suite - Windows x64 Release
-
-          ## What's Included
-          - Windows 64-bit GUI application (self-contained, no .NET installation required)
-          - Native Intercept DLL with OpenSSL dependencies
-          - All required runtime libraries
-          - Documentation
-
-          ## Installation
-          1. Download the ZIP file below
-          2. Extract all files to a directory
-          3. Run `InterceptSuite.exe`
-
-          ## System Requirements
-          - Windows 10/11 64-bit
-          - No additional software installation required
-
-          ## Features
-          - TLS MITM proxy with intercept capabilities
-          - Split view for original vs modified data
-          - Memory-safe native DLL integration
-          - Real-time traffic analysis
-
-          Built from commit: ${{ github.sha }}
-        files: InterceptSuite-v${{ env.PACKAGE_VERSION }}-win-x64.zip
-        draft: false
-        prerelease: false
+        files: InterceptSuite-v*-win-x64.zip

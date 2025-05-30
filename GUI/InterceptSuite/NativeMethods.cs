@@ -1,4 +1,3 @@
-// filepath: d:\Windows TLS\Dot NET GUI\TLS_MITM_WPF\NativeMethods.cs
 using System;
 using System.Runtime.InteropServices;
 using System.Text;

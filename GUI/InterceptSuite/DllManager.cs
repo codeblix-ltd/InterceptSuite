@@ -1,4 +1,3 @@
-// filepath: d:\Windows TLS\Dot NET GUI\TLS_MITM_WPF\DllManager.cs
 using System;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -120,10 +119,6 @@ namespace InterceptSuite
             // Try possible paths
             string[] possiblePaths = new[]
             {
-                @"d:\Windows TLS\build\Debug\Intercept.dll",
-                @"d:\Windows TLS\build\Release\Intercept.dll",
-                @"d:\Windows TLS\build\RelWithDebInfo\Intercept.dll",
-                @"d:\Windows TLS\build\MinSizeRel\Intercept.dll",
                 Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Intercept.dll"),
                 "Intercept.dll"
             };
