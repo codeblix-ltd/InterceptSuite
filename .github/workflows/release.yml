@@ -37,7 +37,8 @@ jobs:
       uses: actions/checkout@v4
       with:
         repository: microsoft/vcpkg
-        path: vcpkg    - name: Bootstrap vcpkg
+        path: vcpkg
+    - name: Bootstrap vcpkg
       run: |
         cd vcpkg
         .\bootstrap-vcpkg.bat -disableMetrics
@@ -57,7 +58,7 @@ jobs:
           echo "❌ Intercept.dll not found in build output"
           exit 1
         }
-        
+
         # List all DLLs in the Release folder
         echo "--- All DLLs in build\${{ env.BUILD_TYPE }}\ ---"
         Get-ChildItem -Path "build\${{ env.BUILD_TYPE }}" -Filter "*.dll" | ForEach-Object { echo "📄 $($_.Name)" }
@@ -99,7 +100,7 @@ jobs:
     - name: Verify Release Build Contents
       run: |
         echo "--- Contents of release-build folder ---"
-        Get-ChildItem -Path "release-build" -Recurse | ForEach-Object { 
+        Get-ChildItem -Path "release-build" -Recurse | ForEach-Object {
           if ($_.PSIsContainer) { echo "📁 $($_.FullName)" } else { echo "📄 $($_.FullName)" }
         }
 
@@ -124,7 +125,7 @@ jobs:
         # Add documentation files to release build
         Copy-Item -Path "README.md" -Destination "release-build\" -ErrorAction SilentlyContinue
         Copy-Item -Path "USAGE_GUIDE.md" -Destination "release-build\" -ErrorAction SilentlyContinue
-        
+
         # Create ZIP from entire release-build folder
         $zipName = "InterceptSuite-v${{ env.PACKAGE_VERSION }}-win-x64.zip"
         Compress-Archive -Path "release-build\*" -DestinationPath $zipName -Force
@@ -152,7 +153,7 @@ jobs:
 
           ## What's Included
           - Windows 64-bit GUI application (self-contained, no .NET installation required)
-          - Native Intercept DLL with OpenSSL dependencies  
+          - Native Intercept DLL with OpenSSL dependencies
           - All required runtime libraries
           - Documentation
 
