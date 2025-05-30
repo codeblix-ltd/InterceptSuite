@@ -1,5 +1,8 @@
 /*
  * TLS MITM Proxy - Certificate Utilities Implementation
+
+Open SSL applink needs to be handled for DLL build
+Passing Memory instead of File operations directly
  */
 
 #include "../include/cert_utils.h"
@@ -232,7 +235,7 @@ int load_or_generate_ca_cert(void) {
     X509_set_pubkey(ca_cert, ca_key);
 
     X509_NAME *name = X509_get_subject_name(ca_cert);
-    X509_NAME_add_entry_by_txt(name, "CN", MBSTRING_ASC, (unsigned char*)"TLS MITM Proxy CA", -1, -1, 0);
+    X509_NAME_add_entry_by_txt(name, "CN", MBSTRING_ASC, (unsigned char*)"Intercept Suite", -1, -1, 0);
     X509_set_issuer_name(ca_cert, name);
 
     // Add extensions

@@ -22,6 +22,7 @@
     <Company>AnoF-Cyber</Company>
     <RepositoryUrl>https://github.com/anof-cyber/InterceptSuite</RepositoryUrl>
     <Copyright>Copyright © Sourav Kalal 2025</Copyright>
+    <ApplicationIcon>logo.ico</ApplicationIcon>
   </PropertyGroup>
 
   <!-- Include the Intercept DLL -->

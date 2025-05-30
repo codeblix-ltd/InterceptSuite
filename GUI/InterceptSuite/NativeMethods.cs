@@ -14,7 +14,8 @@ namespace InterceptSuite
         [return: MarshalAs(UnmanagedType.Bool)]
         internal static extern bool start_proxy();
 
-        [DllImport("Intercept.dll", CallingConvention = CallingConvention.Cdecl)]        internal static extern void stop_proxy();
+        [DllImport("Intercept.dll", CallingConvention = CallingConvention.Cdecl)]
+        internal static extern void stop_proxy();
 
         [DllImport("Intercept.dll", CallingConvention = CallingConvention.Cdecl)]
         [return: MarshalAs(UnmanagedType.Bool)]
@@ -22,7 +23,9 @@ namespace InterceptSuite
             [MarshalAs(UnmanagedType.LPStr)] string bind_addr,
             int port,
             [MarshalAs(UnmanagedType.LPStr)] string log_file,
-            int verbose_mode);        [DllImport("Intercept.dll", CallingConvention = CallingConvention.Cdecl)]
+            int verbose_mode);
+
+        [DllImport("Intercept.dll", CallingConvention = CallingConvention.Cdecl)]
         internal static extern int get_system_ips(
             [MarshalAs(UnmanagedType.LPStr)] StringBuilder buffer,
             int buffer_size);
@@ -33,7 +36,9 @@ namespace InterceptSuite
             [MarshalAs(UnmanagedType.LPStr)] StringBuilder bind_addr,
             ref int port,
             [MarshalAs(UnmanagedType.LPStr)] StringBuilder log_file,
-            ref int verbose_mode);        [DllImport("Intercept.dll", CallingConvention = CallingConvention.Cdecl)]
+            ref int verbose_mode);
+
+        [DllImport("Intercept.dll", CallingConvention = CallingConvention.Cdecl)]
         [return: MarshalAs(UnmanagedType.Bool)]
         internal static extern bool get_proxy_stats(
             ref int connections,
@@ -110,7 +115,10 @@ namespace InterceptSuite
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         internal delegate void DisconnectCallbackDelegate(
             int connection_id,
-            [MarshalAs(UnmanagedType.LPStr)] string reason);        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+            [MarshalAs(UnmanagedType.LPStr)] string reason);
+
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         internal delegate void InterceptCallbackDelegate(
             int connection_id,
             [MarshalAs(UnmanagedType.LPStr)] string direction,

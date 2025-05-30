@@ -1,4 +1,3 @@
-// filepath: d:\Windows TLS\Dot NET GUI\TLS_MITM_WPF\DiagnosticsHelper.cs
 using System;
 using System.Net;
 using System.Net.NetworkInformation;
