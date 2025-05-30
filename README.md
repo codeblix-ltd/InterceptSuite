@@ -10,7 +10,6 @@ The original idea behind InterceptSuite was to solve a challenging problem in Wi
 
 [![Build and Upload .NET GUI App](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/dotnet-gui.yml/badge.svg)](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/dotnet-gui.yml)
 [![Build Intercept Suite DLL](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/Build-DLL.yml/badge.svg)](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/Build-DLL.yml)
-[![Create Installer](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/release-installer.yml/badge.svg)](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/release-installer.yml)
 [![Create Release Package](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/release.yml/badge.svg)](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/release.yml)
 
 ## Table of Contents
