@@ -54,7 +54,8 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: 8.0.x    - name: Restore dependencies
+        dotnet-version: 8.0.x
+    - name: Restore dependencies
       run: dotnet restore GUI/InterceptSuite/InterceptSuite.csproj --runtime win-x64
 
     - name: Clean
