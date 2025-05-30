@@ -19,7 +19,9 @@ jobs:
       BUILD_TYPE: Release
 
     steps:
-    - uses: actions/checkout@v4    - name: Cache vcpkg
+    - uses: actions/checkout@v4
+
+    - name: Cache vcpkg
       uses: actions/cache@v4
       with:
         path: |
