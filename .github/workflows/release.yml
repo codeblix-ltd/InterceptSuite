@@ -6,7 +6,6 @@ on:
   push:
     tags:
       - 'v*'  # Run when tag is pushed matching pattern v*, like v1.0.0
-  workflow_dispatch:  # Allow manual trigger
 
 permissions:
   contents: write  # Needed to create releases
@@ -22,7 +21,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    # Step 1: Build C DLL first (Release build)
+    # Step 1: Build C DLL using same approach as Build-DLL.yml (Release build)
     - name: Cache vcpkg
       uses: actions/cache@v4
       with:
@@ -38,30 +37,49 @@ jobs:
       with:
         repository: microsoft/vcpkg
         path: vcpkg
+
     - name: Bootstrap vcpkg
       run: |
         cd vcpkg
         .\bootstrap-vcpkg.bat -disableMetrics
 
-    - name: Configure CMake (Release)
+    - name: Configure CMake
       run: cmake -B build -S . -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DCMAKE_TOOLCHAIN_FILE=${{ env.CMAKE_TOOLCHAIN_FILE }}
-
-    - name: Build C DLL (Release)
+    
+    - name: Build DLL
       run: cmake --build build --config ${{ env.BUILD_TYPE }}
 
-    - name: Verify C DLL Output
+    - name: Verify DLL Output
       run: |
-        echo "--- Checking for C DLLs in Release folder ---"
+        echo "--- Output Directory Contents ---"
+        dir build\${{ env.BUILD_TYPE }}
+        echo "--- Check for Intercept.dll and dependencies ---"
         if (Test-Path -Path "build\${{ env.BUILD_TYPE }}\Intercept.dll") {
-          echo "✅ Intercept.dll found in build\${{ env.BUILD_TYPE }}\"
+          echo "✅ Intercept.dll found in build output"
         } else {
           echo "❌ Intercept.dll not found in build output"
           exit 1
         }
+        echo "--- Check for vcpkg directory ---"
+        if (Test-Path -Path "vcpkg\installed\x64-windows\bin") {
+          echo "--- vcpkg installed bin directory ---"
+          dir vcpkg\installed\x64-windows\bin
+        } else {
+          echo "vcpkg bin directory not found - OpenSSL DLLs must be from another source"
+        }
 
-        # List all DLLs in the Release folder
-        echo "--- All DLLs in build\${{ env.BUILD_TYPE }}\ ---"
-        Get-ChildItem -Path "build\${{ env.BUILD_TYPE }}" -Filter "*.dll" | ForEach-Object { echo "📄 $($_.Name)" }
+    - name: Package DLL with CPack
+      run: |
+        cd build
+        cpack -C ${{ env.BUILD_TYPE }}
+        
+        # Find package file dynamically for verification
+        $packageFile = Get-ChildItem -Path "." -Filter "Intercept-*-win64.zip" | Select-Object -First 1
+        if ($packageFile) {
+          echo "✅ CPack package created successfully: $($packageFile.Name)"
+        } else {
+          echo "⚠️ CPack package not found, but continuing with DLL copy"
+        }
 
     # Step 2: Copy C DLLs to .NET project directory so they're included in publish
     - name: Copy C DLLs to .NET project
