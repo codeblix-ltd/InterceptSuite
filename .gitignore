@@ -70,3 +70,4 @@ build-release/*
 tls_proxy.log
 *.key
 *.pem
+publish/*

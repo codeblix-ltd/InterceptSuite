@@ -1,9 +1,9 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">  <PropertyGroup>    <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
     <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <UseWPF>true</UseWPF>
+    <ImplicitUsings>enable</ImplicitUsings>    <UseWPF>true</UseWPF>
     <Platforms>x64</Platforms>
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <RootNamespace>InterceptSuite</RootNamespace>
     <AssemblyName>InterceptSuite</AssemblyName>
@@ -24,15 +24,18 @@
     <Copyright>Copyright © Sourav Kalal 2025</Copyright>
     <ApplicationIcon>logo.ico</ApplicationIcon>
   </PropertyGroup>
-
-  <!-- Include the Intercept DLL -->
-  <ItemGroup>
-    <None Include="..\..\build\Debug\Intercept.dll" CopyToOutputDirectory="PreserveNewest" Condition="Exists('..\..\build\Debug\Intercept.dll')" />
+  <!-- Include the Intercept DLL - Only Release version for Release builds -->
+  <ItemGroup Condition="'$(Configuration)' == 'Release'">
     <None Include="..\..\build\Release\Intercept.dll" CopyToOutputDirectory="PreserveNewest" Condition="Exists('..\..\build\Release\Intercept.dll')" />
-    <None Include="..\..\build\Debug\libcrypto-3-x64.dll" CopyToOutputDirectory="PreserveNewest" Condition="Exists('..\..\build\Debug\libcrypto-3-x64.dll')" />
-    <None Include="..\..\build\Debug\libssl-3-x64.dll" CopyToOutputDirectory="PreserveNewest" Condition="Exists('..\..\build\Debug\libssl-3-x64.dll')" />
     <None Include="..\..\build\Release\libcrypto-3-x64.dll" CopyToOutputDirectory="PreserveNewest" Condition="Exists('..\..\build\Release\libcrypto-3-x64.dll')" />
     <None Include="..\..\build\Release\libssl-3-x64.dll" CopyToOutputDirectory="PreserveNewest" Condition="Exists('..\..\build\Release\libssl-3-x64.dll')" />
+  </ItemGroup>
+
+  <!-- Include the Intercept DLL - Only Debug version for Debug builds -->
+  <ItemGroup Condition="'$(Configuration)' == 'Debug'">
+    <None Include="..\..\build\Debug\Intercept.dll" CopyToOutputDirectory="PreserveNewest" Condition="Exists('..\..\build\Debug\Intercept.dll')" />
+    <None Include="..\..\build\Debug\libcrypto-3-x64.dll" CopyToOutputDirectory="PreserveNewest" Condition="Exists('..\..\build\Debug\libcrypto-3-x64.dll')" />
+    <None Include="..\..\build\Debug\libssl-3-x64.dll" CopyToOutputDirectory="PreserveNewest" Condition="Exists('..\..\build\Debug\libssl-3-x64.dll')" />
   </ItemGroup>
 
 </Project>

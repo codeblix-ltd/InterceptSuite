@@ -19,9 +19,7 @@ jobs:
       BUILD_TYPE: Release
 
     steps:
-    - uses: actions/checkout@v4
-
-    - name: Cache vcpkg
+    - uses: actions/checkout@v4    - name: Cache vcpkg
       uses: actions/cache@v4
       with:
         path: |
@@ -29,7 +27,7 @@ jobs:
           !${{ github.workspace }}/vcpkg/buildtrees
           !${{ github.workspace }}/vcpkg/packages
           !${{ github.workspace }}/vcpkg/downloads
-        key: vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
+        key: vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}-v2  # Updated cache key to invalidate old cache
 
     - name: Setup vcpkg
       uses: actions/checkout@v4
@@ -54,19 +52,17 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: 8.0.x
-
-    - name: Restore dependencies
-      run: dotnet restore GUI/InterceptSuite/InterceptSuite.csproj
+        dotnet-version: 8.0.x    - name: Restore dependencies
+      run: dotnet restore GUI/InterceptSuite/InterceptSuite.csproj --runtime win-x64
 
     - name: Clean
       run: dotnet clean GUI/InterceptSuite/InterceptSuite.csproj --configuration Release
 
     - name: Build
-      run: dotnet build GUI/InterceptSuite/InterceptSuite.csproj --configuration Release
+      run: dotnet build GUI/InterceptSuite/InterceptSuite.csproj --configuration Release --runtime win-x64
 
     - name: Publish
-      run: dotnet publish GUI/InterceptSuite/InterceptSuite.csproj --configuration Release --no-build --output publish --self-contained true --runtime win-x64
+      run: dotnet publish GUI/InterceptSuite/InterceptSuite.csproj --configuration Release --output publish --self-contained false --runtime win-x64
 
     - name: Copy DLL files
       run: Copy-Item -Path "build\Release\*.dll" -Destination "publish\" -Force
