@@ -426,30 +426,29 @@
         <!-- Top Menu Bar -->
         <Border Grid.Row="0" Background="{StaticResource MenuBackground}" BorderBrush="#555555"
                 BorderThickness="0,0,0,1">
-            <Grid Margin="10,5">
-                <!-- Navigation Menu -->
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">                    <Button Name="ProxyControlButton" Content="Proxy Control"
-                            Style="{StaticResource DarkMenuButtonStyle}"
-                            Click="NavigationButton_Click" Tag="ProxyControl"/>
-                    <Button Name="InterceptButton" Content="Intercept"
+            <Grid Margin="10,5">                <!-- Navigation Menu -->
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">                    <Button Name="InterceptButton" Content="Intercept"
                             Style="{StaticResource DarkMenuButtonStyle}"
                             Click="NavigationButton_Click" Tag="Intercept"/>
-                    <Button Name="ConnectionsButton" Content="Connections"
-                            Style="{StaticResource DarkMenuButtonStyle}"
-                            Click="NavigationButton_Click" Tag="Connections"/>
                     <Button Name="ProxyHistoryButton" Content="Proxy History"
                             Style="{StaticResource DarkMenuButtonStyle}"
-                            Click="NavigationButton_Click" Tag="ProxyHistory"/></StackPanel>
+                            Click="NavigationButton_Click" Tag="ProxyHistory"/>
+                    <Button Name="SettingsButton" Content="Settings"
+                            Style="{StaticResource DarkMenuButtonStyle}"
+                            Click="NavigationButton_Click" Tag="Settings"/>
+                    <Button Name="ConnectionsButton" Content="Connections"
+                            Style="{StaticResource DarkMenuButtonStyle}"
+                            Click="NavigationButton_Click" Tag="Connections"/></StackPanel>
             </Grid>
         </Border>        <!-- Main Content Area -->
         <Grid Grid.Row="1" Margin="20">
-            <!-- Proxy Control Panel -->            <Grid Name="ProxyControlPanel" Visibility="Visible">
+            <!-- Settings Panel -->            <Grid Name="SettingsPanel" Visibility="Collapsed">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
 
-                <TextBlock Text="Proxy Control" FontSize="24" FontWeight="Bold" Margin="0,0,0,20"
+                <TextBlock Text="Settings" FontSize="24" FontWeight="Bold" Margin="0,0,0,20"
                            Grid.Row="0" Style="{StaticResource DarkTextBlockStyle}"/>
 
                 <Grid Grid.Row="1">
@@ -494,11 +493,27 @@
                         </Grid>
 
                         <CheckBox Name="VerboseModeCheckBox" Content="Verbose Mode" Margin="0,0,0,10"
-                                 Style="{StaticResource DarkCheckBoxStyle}" />
-
-                        <Button Name="ApplyConfigButton" Content="Apply Configuration" Margin="0,10,0,10"
+                                 Style="{StaticResource DarkCheckBoxStyle}" />                        <Button Name="ApplyConfigButton" Content="Apply Configuration" Margin="0,10,0,10"
                                 Click="ApplyConfig_Click" Padding="15,8" HorizontalAlignment="Left"
                                 Style="{StaticResource DarkButtonStyle}"/>
+
+                        <!-- Intercept Direction Configuration -->
+                        <TextBlock Text="Intercept Configuration" FontWeight="Bold" FontSize="16" Margin="0,20,0,10"
+                                   Style="{StaticResource DarkTextBlockStyle}"/>
+
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                            <TextBlock Text="Intercept Direction:" Margin="0,0,10,0"
+                                      VerticalAlignment="Center"
+                                      Style="{StaticResource DarkTextBlockStyle}"/>
+                            <ComboBox Name="InterceptDirectionComboBox" Width="200" Height="25"
+                                     Style="{StaticResource DarkComboBoxStyle}"
+                                     SelectionChanged="InterceptDirection_Changed">
+                                <ComboBoxItem Content="None" Tag="0"/>
+                                <ComboBoxItem Content="Client → Server" Tag="1"/>
+                                <ComboBoxItem Content="Server → Client" Tag="2"/>
+                                <ComboBoxItem Content="Both Directions" Tag="3"/>
+                            </ComboBox>
+                        </StackPanel>
 
                         <StackPanel Orientation="Horizontal" Margin="0,20,0,0">                            <Button Name="StartProxyButton" Content="Start Proxy" Margin="0,0,10,0"
                                     Click="StartProxy_Click"
@@ -508,10 +523,8 @@
                                     Style="{StaticResource RedButtonStyle}"/>                        </StackPanel>
                     </StackPanel>
                 </Grid>
-            </Grid>
-
-            <!-- Intercept Panel -->
-            <Grid Name="InterceptPanel" Visibility="Collapsed">
+            </Grid>            <!-- Intercept Panel -->
+            <Grid Name="InterceptPanel" Visibility="Visible">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
@@ -527,9 +540,7 @@
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
-
-                    <!-- Intercept Enable/Disable -->
+                    </Grid.RowDefinitions>                    <!-- Intercept Enable/Disable -->
                     <GroupBox Header="Intercept Control" Grid.Row="0" Margin="0,0,0,15"
                               Style="{StaticResource DarkGroupBoxStyle}">
                         <StackPanel Margin="10">
@@ -537,20 +548,6 @@
                                      Style="{StaticResource DarkCheckBoxStyle}"
                                      Checked="InterceptEnabled_Changed"
                                      Unchecked="InterceptEnabled_Changed"/>
-
-                            <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
-                                <TextBlock Text="Intercept Direction:" Margin="0,0,10,0"
-                                          VerticalAlignment="Center"
-                                          Style="{StaticResource DarkTextBlockStyle}"/>
-                                <ComboBox Name="InterceptDirectionComboBox" Width="200" Height="25"
-                                         Style="{StaticResource DarkComboBoxStyle}"
-                                         SelectionChanged="InterceptDirection_Changed">
-                                    <ComboBoxItem Content="None" Tag="0"/>
-                                    <ComboBoxItem Content="Client → Server" Tag="1"/>
-                                    <ComboBoxItem Content="Server → Client" Tag="2"/>
-                                    <ComboBoxItem Content="Both Directions" Tag="3"/>
-                                </ComboBox>
-                            </StackPanel>
                         </StackPanel>
                     </GroupBox>
 

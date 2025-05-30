@@ -225,10 +225,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         _updateTimer = new DispatcherTimer();
         _updateTimer.Interval = TimeSpan.FromMilliseconds(100);
         _updateTimer.Tick += UpdateTimer_Tick;
-        _updateTimer.Start();
-
-        // Initial navigation selection
-        ProxyControlButton.IsEnabled = false;  // Mark as selected
+        _updateTimer.Start();        // Initial navigation selection
+        InterceptButton.IsEnabled = false;  // Mark as selected
 
         // Try to load DLL automatically first, then update network interfaces when DLL is loaded
         _ = LoadDllAndInitializeAsync();
@@ -582,18 +580,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         {
             NavigateToPanel(tag);
         }
-    }
-
-    private void NavigateToPanel(string panelName)
+    }    private void NavigateToPanel(string panelName)
     {
         // Reset all buttons
-        ProxyControlButton.IsEnabled = true;
+        SettingsButton.IsEnabled = true;
         InterceptButton.IsEnabled = true;
         ConnectionsButton.IsEnabled = true;
         ProxyHistoryButton.IsEnabled = true;
 
         // Hide all panels
-        ProxyControlPanel.Visibility = Visibility.Collapsed;
+        SettingsPanel.Visibility = Visibility.Collapsed;
         InterceptPanel.Visibility = Visibility.Collapsed;
         ConnectionsPanel.Visibility = Visibility.Collapsed;
         ProxyHistoryPanel.Visibility = Visibility.Collapsed;
@@ -601,9 +597,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         // Show the selected panel and mark button as selected
         switch (panelName)
         {
-            case "ProxyControl":
-                ProxyControlPanel.Visibility = Visibility.Visible;
-                ProxyControlButton.IsEnabled = false;
+            case "Settings":
+                SettingsPanel.Visibility = Visibility.Visible;
+                SettingsButton.IsEnabled = false;
                 break;
             case "Intercept":
                 InterceptPanel.Visibility = Visibility.Visible;
