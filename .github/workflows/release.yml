@@ -29,18 +29,19 @@ jobs:
           !${{ github.workspace }}/vcpkg/buildtrees
           !${{ github.workspace }}/vcpkg/packages
           !${{ github.workspace }}/vcpkg/downloads
-        key: vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
-
-    - name: Setup vcpkg
+        key: vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}    - name: Setup vcpkg
       uses: actions/checkout@v4
       with:
         repository: microsoft/vcpkg
         path: vcpkg
+        fetch-depth: 0  # Fetch full history to ensure baseline commit is available
 
     - name: Bootstrap vcpkg
       run: |
         cd vcpkg
         .\bootstrap-vcpkg.bat -disableMetrics
+        # Update vcpkg to latest if there are baseline issues
+        git pull origin master
 
     - name: Configure CMake
       run: cmake -B build -S . -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DCMAKE_TOOLCHAIN_FILE=${{ env.CMAKE_TOOLCHAIN_FILE }}
