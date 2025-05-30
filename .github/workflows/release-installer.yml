@@ -109,16 +109,35 @@ jobs:
               Result := (ResultCode = 0)
             else
               Result := False;
-          end;
-
-          function DownloadFileWithUrlmon(url, destFile: String): Boolean;
+          end;          function DownloadFileWithPowerShell(url, destFile: String): Boolean;
+          var
+            PowerShellPath: String;
+            DownloadCmd: String;
+            ResultCode: Integer;
           begin
-            try
-              // Attempt to download file with URLDownloadToFile
-              URLDownloadToFile(0, url, destFile, 0, 0);
-              Result := True;
-            except
-              Result := False;
+            Result := False;
+            PowerShellPath := GetPowerShellPath();
+
+            if PowerShellPath = '' then
+              Exit;
+
+            // Create directory if it doesn't exist
+            ForceDirectories(ExtractFileDir(destFile));
+
+            // Use PowerShell with WebClient - better handling of redirects
+            DownloadCmd := Format('-NoProfile -ExecutionPolicy Bypass -Command "try { [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12; $webClient = New-Object System.Net.WebClient; $webClient.DownloadFile(''%s'', ''%s''); if($?) { exit 0 } else { exit 1 } } catch { Write-Host $_.Exception.Message; exit 1 }"', [url, destFile]);
+
+            if Exec(PowerShellPath, DownloadCmd, '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+            begin
+              Result := (ResultCode = 0) and FileExists(destFile);
+              if not Result then
+              begin
+                // Try alternative PowerShell download method
+                DownloadCmd := Format('-NoProfile -ExecutionPolicy Bypass -Command "try { [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri ''%s'' -OutFile ''%s'' -UseBasicParsing -MaximumRedirection 10; if($?) { exit 0 } else { exit 1 } } catch { Write-Host $_.Exception.Message; exit 1 }"', [url, destFile]);
+
+                if Exec(PowerShellPath, DownloadCmd, '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+                  Result := (ResultCode = 0) and FileExists(destFile);
+              end;
             end;
           end;
 
@@ -141,13 +160,11 @@ jobs:
                   MsgBox('Error creating temporary directory for .NET 8.0 download.', mbError, MB_OK);
                   Result := False;
                   Exit;
-                end;
+                end;                // .NET 8.0 Desktop Runtime direct download URL
+                DotNetURL := 'https://download.visualstudio.microsoft.com/download/pr/c629f243-5125-4751-a5bb-b7cfa0bd167e/65e127d75dc85558c7a18c7895a6f4af/windowsdesktop-runtime-8.0.3-win-x64.exe';
+                DotNetInstaller := ExpandConstant('{tmp}\NetFx\dotnet-desktop-8.0.3-win-x64.exe');
 
-                // .NET 8.0 Desktop Runtime download URL
-                DotNetURL := 'https://dotnet.microsoft.com/download/dotnet/thank-you/runtime-desktop-8.0.0-windows-x64-installer';
-                DotNetInstaller := ExpandConstant('{tmp}\NetFx\dotnet-desktop-8.0.0.exe');
-
-                if not DownloadFileWithUrlmon(DotNetURL, DotNetInstaller) then
+                if not DownloadFileWithPowerShell(DotNetURL, DotNetInstaller) then
                 begin
                   MsgBox('Error downloading .NET Framework.', mbError, MB_OK);
                   Result := False;
@@ -177,45 +194,75 @@ jobs:
                 Result := False;
               end;
             end;
-          end;
-
-          function DownloadAndInstallApp(): Boolean;
+          end;          function DownloadAndInstallApp(): Boolean;
           var
-            ZipPath: string;
-            AssetUrl: string;
-            PowerShellPath: string;
-            PowerShellArgs: string;
+            ZipPath: String;
+            AssetUrl: String;
+            PowerShellPath: String;
+            ExtractCmd: String;
+            CopyCmd: String;
+            TempDir: String;
             ResultCode: Integer;
           begin
             Result := False;
+
+            // Setup paths
             ZipPath := ExpandConstant('{tmp}\{#MyAppName}.zip');
+            TempDir := ExpandConstant('{tmp}\{#MyAppName}_temp');
+
+            // Create temp directory
+            if not ForceDirectories(TempDir) then
+            begin
+              MsgBox('Could not create temporary directory: ' + TempDir, mbError, MB_OK);
+              Exit;
+            end;
 
             // Updated asset URL to match your release pattern
             AssetUrl := 'https://github.com/{#RepoOwner}/{#RepoName}/releases/download/v{#MyAppVersion}/{#MyAppName}-v{#MyAppVersion}-win-x64.zip';
 
-            // Download the ZIP file
-            if DownloadFileWithUrlmon(AssetUrl, ZipPath) then
+            // Get PowerShell path
+            PowerShellPath := GetPowerShellPath();
+            if PowerShellPath = '' then
             begin
-              // Get PowerShell path
-              PowerShellPath := GetPowerShellPath();
-              if PowerShellPath = '' then
+              MsgBox('PowerShell not found. Cannot download or extract files.', mbError, MB_OK);
+              Exit;
+            end;
+
+            // Download the ZIP file using PowerShell for better redirect handling
+            if DownloadFileWithPowerShell(AssetUrl, ZipPath) then
+            begin
+              // Extract using PowerShell's Expand-Archive which handles zip files better
+              ExtractCmd := Format('-NoProfile -ExecutionPolicy Bypass -Command "try { Expand-Archive -Path ''%s'' -DestinationPath ''%s'' -Force; exit 0 } catch { Write-Host $_.Exception.Message; exit 1 }"', [ZipPath, TempDir]);
+
+              if not Exec(PowerShellPath, ExtractCmd, '', SW_HIDE, ewWaitUntilTerminated, ResultCode) or (ResultCode <> 0) then
               begin
-                MsgBox('PowerShell not found. Cannot extract files.', mbError, MB_OK);
-                Result := False;
+                MsgBox('Failed to extract ZIP file. Error code: ' + IntToStr(ResultCode), mbError, MB_OK);
                 Exit;
               end;
 
-              // Extract ZIP file to app directory using PowerShell
-              PowerShellArgs := '-NoProfile -ExecutionPolicy Bypass -Command "& { Add-Type -A ''System.IO.Compression.FileSystem''; [IO.Compression.ZipFile]::ExtractToDirectory(''' + ZipPath + ''', ''' + ExpandConstant('{app}') + '''); }"';
+              // Check if files are in a subdirectory (common with GitHub releases)
+              if DirExists(TempDir + '\{#MyAppName}-v{#MyAppVersion}-win-x64') then
+                TempDir := TempDir + '\{#MyAppName}-v{#MyAppVersion}-win-x64';
 
-              if Exec(PowerShellPath, PowerShellArgs, '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+              // Create app directory if it doesn't exist
+              if not ForceDirectories(ExpandConstant('{app}')) then
               begin
-                Result := True;
+                MsgBox('Could not create application directory', mbError, MB_OK);
+                Exit;
+              end;
+
+              // Copy files to the app directory
+              CopyCmd := Format('-NoProfile -ExecutionPolicy Bypass -Command "try { Copy-Item -Path ''%s\*'' -Destination ''%s'' -Recurse -Force; exit 0 } catch { Write-Host $_.Exception.Message; exit 1 }"', [TempDir, ExpandConstant('{app}')]);
+
+              if Exec(PowerShellPath, CopyCmd, '', SW_HIDE, ewWaitUntilTerminated, ResultCode) and (ResultCode = 0) then
+              begin
+                if FileExists(ExpandConstant('{app}\{#MyAppExeName}')) then
+                  Result := True
+                else
+                  MsgBox('Application files copied but executable not found', mbError, MB_OK);
               end
               else
-              begin
-                MsgBox('Failed to extract ZIP file. Error code: ' + IntToStr(ResultCode), mbError, MB_OK);
-              end;
+                MsgBox('Failed to copy application files', mbError, MB_OK);
             end
             else
             begin
@@ -224,16 +271,25 @@ jobs:
 
             // Clean up
             DeleteFile(ZipPath);
-          end;
-
-          procedure CurStepChanged(CurStep: TSetupStep);
+            DelTree(ExpandConstant('{tmp}\{#MyAppName}_temp'), True, True, True);
+          end;          procedure CurStepChanged(CurStep: TSetupStep);
           begin
             if CurStep = ssPostInstall then
             begin
+              WizardForm.StatusLabel.Caption := 'Downloading InterceptSuite application...';
+              WizardForm.ProgressGauge.Style := npbstMarquee;
+
               if not DownloadAndInstallApp() then
               begin
-                MsgBox('Failed to download and install the application. Please try again or download manually.', mbError, MB_OK);
+                MsgBox('Failed to download and install the application. Please check your internet connection and try again.' + #13#10 +
+                       'You can also manually download from: https://github.com/{#RepoOwner}/{#RepoName}/releases', mbError, MB_OK);
+              end
+              else
+              begin
+                WizardForm.StatusLabel.Caption := 'Installation completed successfully!';
               end;
+
+              WizardForm.ProgressGauge.Style := npbstNormal;
             end;
           end;
           "@
