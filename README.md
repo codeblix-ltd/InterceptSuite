@@ -1,117 +1,107 @@
-# Windows TLS MITM Proxy
+# InterceptSuite
 
-A TLS/SSL Man-in-the-Middle proxy written in C that intercepts and displays encrypted HTTPS traffic in plaintext. This tool allows you to inspect encrypted communications between clients and servers by acting as a transparent proxy.
+<img src="logo.png" alt="InterceptSuite Logo" width="200"/>
 
-## Key Features
+## Overview
 
-- **TLS Interception**: Decrypt and inspect HTTPS/TLS traffic
-- **Automatic Certificate Generation**: Creates certificates on-the-fly for visited domains
-- **SOCKS5 Proxy**: Standard proxy protocol for client applications
-- **DLL Interface**: Available as both standalone application and DLL for integration
+InterceptSuite is a powerful network traffic interception tool designed for TLS/SSL inspection, analysis, and manipulation at the network level. Unlike tools like Burp Suite or OWASP ZAP that focus specifically on HTTP/HTTPS traffic, InterceptSuite aims to provide visibility into any TLS-encrypted protocol, operating at the TCP/TLS layer.
 
-## Prerequisites
-
-- CMake (3.14 or higher)
-- A C compiler (MSVC, GCC, or Clang)
-- vcpkg (installed anywhere on your system)
-
-## Building the Project
-
-### Using CMake
-
-1. Create a build directory:
-```powershell
-mkdir build
-cd build
-```
-
-2. Configure the project with CMake:
-```powershell
-# Automatic vcpkg detection (recommended)
-cmake ..
-
-# OR specify vcpkg location explicitly
-cmake .. -DVCPKG_INSTALLATION_ROOT=D:/path/to/vcpkg
-
-# OR use the traditional method
-cmake .. -DCMAKE_TOOLCHAIN_FILE=D:/path/to/vcpkg/scripts/buildsystems/vcpkg.cmake
-```
-
-3. Build the project:
-```powershell
-cmake --build .
-```
-
-## Dependency Management with vcpkg
-
-This project includes a `vcpkg.json` file that specifies required dependencies. There are two ways to use it:
-
-1. **Manifest Mode** (recommended):
-   - The project will automatically download and build dependencies
-   - Just run CMake as described above
-
-2. **Classic Mode**:
-   - Install dependencies manually with vcpkg:
-   ```
-   vcpkg install openssl
-   ```
-
-### Using VS Code
-
-1. Install the C/C++ and CMake Tools extensions
-2. Open the project folder in VS Code
-3. Configure the CMake Tools extension to use the vcpkg toolchain file
-4. Build the project using the CMake Tools extension
-
-## Adding Dependencies
-
-1. Install packages with vcpkg:
-```powershell
-vcpkg install [package-name]
-```
-
-2. Add the required packages to your CMakeLists.txt:
-```cmake
-find_package([Package] REQUIRED)
-target_link_libraries(tls_app PRIVATE [Package]::[Library])
-```
-
-## Project Structure
-
-- `include/` - Header files
-- `src/` - Source files
-- `test/` - Test files
-- `CMakeLists.txt` - CMake build configuration
-
-## Usage
-
-1. **Set up the CA Certificate**:
-   - When you first run the application, it will generate a CA certificate and key (`myCA.pem` and `myCA.key`)
-   - Import `myCA.pem` into your browser or system's trusted certificate store
-   - This allows the proxy to generate trusted certificates on-the-fly for intercepted HTTPS connections
-
-2. **Run the Proxy**:
-   ```powershell
-   ./tls_app
-   ```
-
-3. **Configure Client Applications**:
-   - Set up your system or browser to use a SOCKS5 proxy at `127.0.0.1:4433` (default port)
-   - You can use tools like Proxifier, ProxyCap, or browser extensions to redirect traffic
-   - Alternatively, configure individual applications to use the proxy
-
-4. **View Decrypted Traffic**:
-   - All intercepted TLS/SSL traffic will be displayed in the console in plaintext
-   - Traffic is formatted to show both the direction and content of communications
+The original idea behind InterceptSuite was to solve a challenging problem in Windows application penetration testing. With limited options to intercept network traffic of Windows applications, it's often difficult for security professionals to perform packet or traffic analysis of thick clients.
 
 ## Features
 
-- SOCKS5 proxy implementation for transparent interception
-- Dynamic SSL/TLS certificate generation for any domain
-- Support for both plaintext and binary data visualization
-- Available as both a standalone app and a DLL for integration
-- Minimal dependencies (OpenSSL and standard libraries)
+- **Protocol-Agnostic TLS Interception**: Intercept TLS/SSL traffic from any application or protocol
+- **SOCKS5 Proxy Integration**: Uses SOCKS5 proxy protocol for versatile connection handling with various client applications
+- **Real-time Traffic Analysis**: View decrypted traffic as it flows through the proxy
+- **Connection Management**: Track active connections and view their details
+- **Certificate Authority Management**: Automatic generation of CA certificates for TLS interception
+- **Traffic Manipulation**: Modify intercepted traffic before forwarding
+- **DLL Integration**: Embed TLS interception capabilities into your own applications
+- **User-friendly GUI**: Modern interface for easy interaction with the proxy server
+- **Detailed Logging**: Comprehensive logging of all intercepted traffic
 
-## Security Notice
+## Getting Started
 
-This tool is designed for educational purposes, debugging, and security testing. Using it to intercept communications without proper authorization may be illegal and unethical. Always ensure you have permission to monitor network traffic before using this tool.
+### Prerequisites
+
+- Windows 10/11 (64-bit)
+- .NET 8.0 Runtime
+
+### Installation
+
+1. Download the latest release from the [Releases page](https://github.com/anof-cyber/InterceptSuite/releases)
+2. Extract the zip file to your preferred location
+3. Run `InterceptSuite.exe`
+
+For detailed build instructions, see the [Build Guide](Build.md).
+
+## Usage
+
+1. Start InterceptSuite
+2. Configure proxy settings (default: 127.0.0.1:4444)
+3. Start the proxy server
+   - **Important:** When first started, InterceptSuite creates a new CA certificate (`Intercept_Suite_Cert.pem`) in the same directory
+   - You must install this certificate into your Windows system as a trusted root certificate authority
+   - To install: double-click the certificate file → Install Certificate → Local Machine → Place all certificates in the following store → Browse → Trusted Root Certification Authorities → OK → Next → Finish
+4. Configure your client application to use the proxy
+5. Begin intercepting TLS traffic
+
+For more details on integration with your own applications, see the [DLL Integration Guide](DLL_INTEGRATION.md).
+
+## Windows Proxy Configuration
+
+Windows by default only supports HTTP proxies at the system level and does not provide native support for SOCKS5 proxies. Since InterceptSuite operates as a SOCKS5 proxy, it's recommended to use a proxy management tool such as [Proxifier](https://www.proxifier.com/) to enable system-wide proxy capabilities.
+
+Benefits of using Proxifier with InterceptSuite:
+- Enables kernel-mode Windows Filtering Platform (WFP) to force any application through the proxy
+- Provides flexible proxy rules and configuration options
+- Allows selective proxying based on application, destination, or other criteria
+- Integrates seamlessly with SOCKS5 proxies like InterceptSuite
+
+This combination creates a powerful setup for intercepting network traffic from applications that don't natively support proxy configuration.
+
+## Current Limitations
+
+- **Non-Standard TLS Handshakes**: InterceptSuite cannot bypass TLS for protocols that do not use standard TLS handshake as the initial packet after TCP handshake. Examples include:
+  - PostgreSQL TLS sessions
+  - MySQL TLS sessions
+  - Any protocol that uses SmartTLS or similar technologies
+
+  *This functionality is planned for future releases.*
+
+- **Protocol Dissection**: The tool does not support protocol dissection, meaning it cannot decode protocol-specific binary formats or encodings regardless of whether TLS is used. For example:
+  - Binary protocol encodings (like Protocol Buffers, MessagePack, etc.)
+  - Custom application-specific encodings
+  - Compressed or obfuscated data streams
+
+  If a protocol doesn't transmit data in plain text (even after TLS decryption), InterceptSuite will show the raw bytes but not interpret them.
+
+  *This functionality is planned for future releases.*
+
+## When to Use InterceptSuite vs. HTTP-Specific Tools
+
+> **Note:** While InterceptSuite can handle HTTP/HTTPS traffic, it is strongly recommended to use HTTP-specific tools like Burp Suite or OWASP ZAP for web traffic inspection. These tools provide specialized features optimized for HTTP-based protocols.
+
+- **Use InterceptSuite when**:
+  - Working with non-HTTP TLS-encrypted protocols
+  - Analyzing network traffic at the TCP/TLS layer
+  - Debugging custom TLS-encrypted protocols
+
+- **Use Burp Suite or OWASP ZAP when**:
+  - Working specifically with HTTP/HTTPS traffic
+  - Testing web applications
+  - Performing web security assessments
+  - When HTTP-specific features (like request repeating, scanning, etc.) are needed
+
+## Development
+
+For information about building InterceptSuite from source, see the [Build Guide](Build.md).
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Acknowledgments
+
+- OpenSSL for TLS/SSL functionality
+- .NET Framework for the GUI implementation

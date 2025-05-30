@@ -1,0 +1,253 @@
+name: Create Installer
+
+on:
+  release:
+    types: [created]
+
+jobs:
+  build-installer:
+    runs-on: windows-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        
+      - name: Get version from tag
+        id: get_version
+        run: |
+          $tag = "${{ github.ref }}".Replace('refs/tags/', '')
+          $version = $tag.TrimStart('v')
+          echo "VERSION=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+        shell: pwsh
+          
+      - name: Install Inno Setup
+        run: |
+          Invoke-WebRequest -Uri "https://files.jrsoftware.org/is/6/innosetup-6.2.1.exe" -OutFile "innosetup-installer.exe"
+          Start-Process -FilePath "innosetup-installer.exe" -ArgumentList "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-" -Wait
+        shell: pwsh
+          
+      - name: Create installer script
+        run: |
+          $version = "${{ steps.get_version.outputs.VERSION }}"
+          $scriptContent = @"
+          #define MyAppName "InterceptSuite"
+          #define MyAppVersion "$version"
+          #define MyAppPublisher "Anof-cyber"
+          #define MyAppURL "https://github.com/Anof-cyber/InterceptSuite"
+          #define MyAppExeName "InterceptSuite.exe"
+          #define RepoOwner "Anof-cyber"
+          #define RepoName "InterceptSuite"
+
+          [Setup]
+          AppId={{41FF7D2A-4911-4712-9097-229C1DB8BCAE}}
+          AppName={#MyAppName}
+          AppVersion={#MyAppVersion}
+          AppPublisher={#MyAppPublisher}
+          AppPublisherURL={#MyAppURL}
+          AppSupportURL={#MyAppURL}
+          AppUpdatesURL={#MyAppURL}
+          DefaultDirName={autopf}\{#MyAppName}
+          DefaultGroupName={#MyAppName}
+          OutputDir=Output
+          OutputBaseFilename={#MyAppName}_Installer_v{#MyAppVersion}
+          Compression=lzma
+          SolidCompression=yes
+          WizardStyle=modern
+
+          [Languages]
+          Name: "english"; MessagesFile: "compiler:Default.isl"
+
+          [Tasks]
+          Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
+
+          [Icons]
+          Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
+          Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
+          Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
+
+          [Code]
+          // Import Windows API functions
+          procedure URLDownloadToFile(
+            pCaller: Integer;
+            szURL: String;
+            szFileName: String;
+            dwReserved: Integer;
+            lpfnCB: Integer
+          ); external 'URLDownloadToFileA@urlmon.dll stdcall';
+
+          function GetPowerShellPath: string;
+          begin
+            // Get the path to PowerShell
+            if FileExists(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe')) then
+              Result := ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe')
+            else
+              Result := '';
+          end;
+
+          function CheckDotNet48: Boolean;
+          var
+            ResultCode: Integer;
+            PowerShellPath: string;
+            PowerShellArgs: string;
+          begin
+            // Check if .NET Framework 4.8 is installed using PowerShell
+            PowerShellPath := GetPowerShellPath();
+            if PowerShellPath = '' then
+            begin
+              Result := False;
+              Exit;
+            end;
+            
+            // PowerShell command to check .NET Framework 4.8
+            PowerShellArgs := '-NoProfile -ExecutionPolicy Bypass -Command "$dotNet = Get-ChildItem ''HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP'' -Recurse | Get-ItemProperty -Name Version -ErrorAction SilentlyContinue | Where-Object { $_.PSChildName -eq ''Full'' } | Select-Object -ExpandProperty Version; [System.Version]$version = ''4.8''; [System.Version]$installedVersion = $dotNet; if ($installedVersion -ge $version) { exit 0 } else { exit 1 }"';
+            
+            if Exec(PowerShellPath, PowerShellArgs, '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+              Result := (ResultCode = 0)
+            else
+              Result := False;
+          end;
+
+          function DownloadFileWithUrlmon(url, destFile: String): Boolean;
+          begin
+            try
+              // Attempt to download file with URLDownloadToFile
+              URLDownloadToFile(0, url, destFile, 0, 0);
+              Result := True;
+            except
+              Result := False;
+            end;
+          end;
+
+          function InitializeSetup(): Boolean;
+          var
+            ResultCode: Integer;
+            DotNetURL: string;
+            DotNetInstaller: string;
+          begin
+            Result := True;
+            
+            // Check if .NET Framework 4.8 is installed
+            if not CheckDotNet48() then
+            begin
+              if MsgBox('This application requires .NET Framework 4.8.'#13#10'Do you want to download and install it now?', mbConfirmation, MB_YESNO) = IDYES then
+              begin
+                // Download .NET Framework installer
+                if not ForceDirectories(ExpandConstant('{tmp}\NetFx')) then
+                begin
+                  MsgBox('Error creating temporary directory for .NET Framework download.', mbError, MB_OK);
+                  Result := False;
+                  Exit;
+                end;
+                
+                // .NET Framework 4.8 download URL
+                DotNetURL := 'https://go.microsoft.com/fwlink/?LinkId=2085155';
+                DotNetInstaller := ExpandConstant('{tmp}\NetFx\NetFramework48.exe');
+                
+                if not DownloadFileWithUrlmon(DotNetURL, DotNetInstaller) then
+                begin
+                  MsgBox('Error downloading .NET Framework.', mbError, MB_OK);
+                  Result := False;
+                  Exit;
+                end;
+                
+                // Run the installer
+                if Exec(DotNetInstaller, '/passive /norestart', '', SW_SHOW, ewWaitUntilTerminated, ResultCode) then
+                begin
+                  // Check installation result
+                  if ResultCode = 0 then
+                    Result := True
+                  else 
+                  begin
+                    MsgBox('Failed to install .NET Framework. Please install it manually and run setup again.', mbError, MB_OK);
+                    Result := False;
+                  end;
+                end
+                else
+                begin
+                  MsgBox('Error executing .NET Framework installer.', mbError, MB_OK);
+                  Result := False;
+                end;
+              end
+              else
+              begin
+                Result := False;
+              end;
+            end;
+          end;
+
+          function DownloadAndInstallApp(): Boolean;
+          var
+            ZipPath: string;
+            AssetUrl: string;
+            PowerShellPath: string;
+            PowerShellArgs: string;
+            ResultCode: Integer;
+          begin
+            Result := False;
+            ZipPath := ExpandConstant('{tmp}\{#MyAppName}.zip');
+            
+            // Updated asset URL to match your release pattern
+            AssetUrl := 'https://github.com/{#RepoOwner}/{#RepoName}/releases/download/v{#MyAppVersion}/{#MyAppName}-v{#MyAppVersion}-win-x64.zip';
+            
+            // Download the ZIP file
+            if DownloadFileWithUrlmon(AssetUrl, ZipPath) then
+            begin
+              // Get PowerShell path
+              PowerShellPath := GetPowerShellPath();
+              if PowerShellPath = '' then
+              begin
+                MsgBox('PowerShell not found. Cannot extract files.', mbError, MB_OK);
+                Result := False;
+                Exit;
+              end;
+              
+              // Extract ZIP file to app directory using PowerShell
+              PowerShellArgs := '-NoProfile -ExecutionPolicy Bypass -Command "& { Add-Type -A ''System.IO.Compression.FileSystem''; [IO.Compression.ZipFile]::ExtractToDirectory(''' + ZipPath + ''', ''' + ExpandConstant('{app}') + '''); }"';
+              
+              if Exec(PowerShellPath, PowerShellArgs, '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+              begin
+                Result := True;
+              end 
+              else 
+              begin
+                MsgBox('Failed to extract ZIP file. Error code: ' + IntToStr(ResultCode), mbError, MB_OK);
+              end;
+            end 
+            else 
+            begin
+              MsgBox('Failed to download application from: ' + AssetUrl, mbError, MB_OK);
+            end;
+            
+            // Clean up
+            DeleteFile(ZipPath);
+          end;
+
+          procedure CurStepChanged(CurStep: TSetupStep);
+          begin
+            if CurStep = ssPostInstall then
+            begin
+              if not DownloadAndInstallApp() then
+              begin
+                MsgBox('Failed to download and install the application. Please try again or download manually.', mbError, MB_OK);
+              end;
+            end;
+          end;
+          "@
+          
+          New-Item -ItemType Directory -Path "installer-script" -Force
+          Set-Content -Path "installer-script\setup.iss" -Value $scriptContent
+          New-Item -ItemType Directory -Path "Output" -Force
+        shell: pwsh
+          
+      - name: Build Installer
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "installer-script\setup.iss"
+        shell: pwsh
+        
+      - name: Upload installer to release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            Output/InterceptSuite_Installer_v${{ steps.get_version.outputs.VERSION }}.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

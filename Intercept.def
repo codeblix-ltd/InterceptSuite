@@ -11,4 +11,7 @@ set_disconnect_callback
 get_system_ips
 get_proxy_config
 get_proxy_stats
-OPENSSL_Applink
+set_intercept_callback
+set_intercept_enabled
+set_intercept_direction
+respond_to_intercept
