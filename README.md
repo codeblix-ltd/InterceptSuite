@@ -49,9 +49,12 @@ The original idea behind InterceptSuite was to solve a challenging problem in Wi
 
 ### Installation
 
-1. Download the `InterceptSuite_Installer.exe` from the [Releases page](https://github.com/anof-cyber/InterceptSuite/releases)
-2. Run the installer and follow the on-screen instructions
-3. Launch InterceptSuite from your desktop or start menu
+1. Download the `InterceptSuite-v*-win-x64.zip` file from the [Releases page](https://github.com/anof-cyber/InterceptSuite/releases)
+2. Extract the ZIP file to your preferred location
+3. Run `InterceptSuite.exe` from the extracted folder
+
+> [!Note]
+> InterceptSuite requires .NET 8.0 Runtime or later to run. If not already installed on your system, the application will provide you with a direct download link when you attempt to run it.
 
 For detailed build instructions, see the [Build Guide](Build.md).
 
