@@ -24,6 +24,7 @@ The original idea behind InterceptSuite was to solve a challenging problem in Wi
   - [Prerequisites](#prerequisites)
   - [Installation](#installation)
 - [Usage](#usage)
+- [GitAds Sponsored](#gitads-sponsored)
 - [Windows Proxy Configuration](#windows-proxy-configuration)
 - [Current Limitations](#current-limitations)
 - [When to Use InterceptSuite vs. HTTP-Specific Tools](#when-to-use-interceptsuite-vs-http-specific-tools)
@@ -76,6 +77,12 @@ For detailed build instructions, see the [Build Guide](Build.md).
 For detailed usage instructions and features explanation, see the [Usage Guide](Usage.md).
 
 For more details on integration with your own applications, see the [DLL Integration Guide](DLL_INTEGRATION.md).
+
+
+
+## GitAds Sponsored
+[![Sponsored by GitAds](https://gitads.dev/v1/ad-serve?source=anof-cyber/interceptsuite@github)](https://gitads.dev/v1/ad-track?source=anof-cyber/interceptsuite@github)
+
 
 
 ## Windows Proxy Configuration
