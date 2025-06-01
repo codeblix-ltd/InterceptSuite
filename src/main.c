@@ -1,7 +1,7 @@
 /*
- * TLS MITM Proxy - DLL Interface
+ * TLS MITM Proxy - Library Interface
  *
- * Provides DLL exports for controlling the TLS MITM proxy functionality.
+ * Provides exports for controlling the TLS MITM proxy functionality.
  */
 
 #include "../include/tls_proxy.h"
@@ -11,7 +11,7 @@
 #include "../include/utils.h"
 #include "../include/tls_proxy_dll.h"
 
-#ifdef _WIN32
+#ifdef INTERCEPT_WINDOWS
 #include <iphlpapi.h>
 #include <time.h>
 #pragma comment(lib, "iphlpapi.lib")
@@ -45,33 +45,86 @@ int g_intercept_count = 0;
 static int g_total_connections = 0;
 static int g_total_bytes = 0;
 
-/* DLL entry point */
+/* Function to initialize the library/DLL */
+static int initialize_library(void) {
+    /* Initialize default configuration */
+    init_config();
+
+    /* Initialize OpenSSL */
+    SSL_library_init();
+    OpenSSL_add_all_algorithms();
+    SSL_load_error_strings();
+    ERR_load_crypto_strings();
+
+    /* Initialize interception mutex */
+    INIT_MUTEX(g_intercept_config.intercept_cs);
+
+    /* Initialize network subsystem */
+#ifdef INTERCEPT_WINDOWS
+    WSADATA wsaData;
+    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
+        return 0;
+    }
+#else
+    /* On Linux/macOS, ignore SIGPIPE signal which can occur on socket operations */
+    signal(SIGPIPE, SIG_IGN);
+#endif
+
+    return 1;
+}
+
+/* Function to cleanup the library/DLL */
+static void cleanup_library(void) {
+    /* Stop proxy if running */
+    stop_proxy();
+
+    /* Cleanup OpenSSL */
+    ERR_free_strings();
+    EVP_cleanup();
+    CRYPTO_cleanup_all_ex_data();
+
+    /* Destroy interception mutex */
+    DESTROY_MUTEX(g_intercept_config.intercept_cs);
+
+    /* Cleanup network subsystem */
+#ifdef INTERCEPT_WINDOWS
+    WSACleanup();
+#endif
+}
+
+#ifdef INTERCEPT_WINDOWS
+/* Windows DLL entry point */
 BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved) {
     switch (fdwReason) {
         case DLL_PROCESS_ATTACH:
-            /* Initialize with default settings */
-            init_config();
-            /* Initialize interception configuration */
-            g_intercept_config.enabled_directions = INTERCEPT_NONE;
-            g_intercept_config.is_interception_enabled = 0;
-            InitializeCriticalSection(&g_intercept_config.intercept_cs);
-            break;
+            return initialize_library();
 
         case DLL_PROCESS_DETACH:
-            /* Clean up interception */
-            DeleteCriticalSection(&g_intercept_config.intercept_cs);
-            /* Clean up */
-            cleanup_winsock();
-            cleanup_openssl();
+            cleanup_library();
             break;
     }
     return TRUE;
 }
+#else
+/* Linux/macOS constructor/destructor functions */
+__attribute__((constructor))
+static void library_init(void) {
+    initialize_library();
+}
+
+__attribute__((destructor))
+static void library_fini(void) {
+    cleanup_library();
+}
+#endif
 
 /* Exported functions */
 
-__declspec(dllexport) BOOL start_proxy(void) {
-    send_status_update("Starting proxy initialization...");    /* Open log file if configured */
+/* Exported functions */
+
+INTERCEPT_API BOOL start_proxy(void) {
+    send_status_update("Starting proxy initialization...");
+    /* Open log file if configured */
     if (strlen(config.log_file) > 0) {
         send_status_update("Opening log file...");
         if (!open_log_file()) {
@@ -170,12 +223,10 @@ __declspec(dllexport) BOOL start_proxy(void) {
         close_socket(server_sock);
         DeleteCriticalSection(&g_server.cs);
         return FALSE;
-    }
-
-    return TRUE;
+    }    return TRUE;
 }
 
-__declspec(dllexport) void stop_proxy(void) {
+INTERCEPT_API void stop_proxy(void) {
     /* Signal thread to stop */
     EnterCriticalSection(&g_server.cs);
     g_server.should_stop = 1;
@@ -196,11 +247,10 @@ __declspec(dllexport) void stop_proxy(void) {
     }    /* Delete critical section */
     DeleteCriticalSection(&g_server.cs);
 
-    /* Close log file */
-    close_log_file();
+    /* Close log file */    close_log_file();
 }
 
-__declspec(dllexport) BOOL set_config(const char* bind_addr, int port, const char* log_file, int verbose_mode) {
+INTERCEPT_API BOOL set_config(const char* bind_addr, int port, const char* log_file, int verbose_mode) {
     if (!bind_addr || port <= 0 || port > 65535 || !log_file) {
         return FALSE;
     }
@@ -228,17 +278,26 @@ __declspec(dllexport) BOOL set_config(const char* bind_addr, int port, const cha
     return TRUE;
 }
 
-/* Winsock initialization and cleanup */
+/* Network subsystem initialization and cleanup */
 int init_winsock(void) {
+#ifdef INTERCEPT_WINDOWS
     WSADATA wsaData;
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
         return 0;
     }
+#else
+    /* On Unix/Linux/macOS, sockets don't need special initialization */
+    /* We already handle SIGPIPE in initialize_library() */
+#endif
     return 1;
 }
 
 void cleanup_winsock(void) {
+#ifdef INTERCEPT_WINDOWS
     WSACleanup();
+#else
+    /* No special cleanup needed for Unix/Linux/macOS sockets */
+#endif
 }
 
 /* Server thread function */
@@ -347,33 +406,28 @@ void send_disconnect_notification(int connection_id, const char* reason) {
 }
 
 /* Set callback functions */
-__declspec(dllexport) void set_log_callback(log_callback_t callback) {
-    g_log_callback = callback;
+INTERCEPT_API void set_log_callback(log_callback_t callback) {    g_log_callback = callback;
 }
 
-__declspec(dllexport) void set_status_callback(status_callback_t callback) {
-    g_status_callback = callback;
+INTERCEPT_API void set_status_callback(status_callback_t callback) {    g_status_callback = callback;
 }
 
-__declspec(dllexport) void set_connection_callback(connection_callback_t callback) {
-    g_connection_callback = callback;
+INTERCEPT_API void set_connection_callback(connection_callback_t callback) {    g_connection_callback = callback;
 }
 
-__declspec(dllexport) void set_stats_callback(stats_callback_t callback) {
-    g_stats_callback = callback;
+INTERCEPT_API void set_stats_callback(stats_callback_t callback) {    g_stats_callback = callback;
 }
 
-__declspec(dllexport) void set_disconnect_callback(disconnect_callback_t callback) {
+INTERCEPT_API void set_disconnect_callback(disconnect_callback_t callback) {
     g_disconnect_callback = callback;
 }
 
 /* Interception callback and control functions */
 
-__declspec(dllexport) void set_intercept_callback(intercept_callback_t callback) {
-    g_intercept_callback = callback;
+INTERCEPT_API void set_intercept_callback(intercept_callback_t callback) {    g_intercept_callback = callback;
 }
 
-__declspec(dllexport) void set_intercept_enabled(int enabled) {
+INTERCEPT_API void set_intercept_enabled(int enabled) {
     EnterCriticalSection(&g_intercept_config.intercept_cs);
     g_intercept_config.is_interception_enabled = enabled;
     LeaveCriticalSection(&g_intercept_config.intercept_cs);
@@ -381,11 +435,10 @@ __declspec(dllexport) void set_intercept_enabled(int enabled) {
     if (g_status_callback) {
         char status_msg[256];
         snprintf(status_msg, sizeof(status_msg), "Interception %s", enabled ? "enabled" : "disabled");
-        g_status_callback(status_msg);
-    }
+        g_status_callback(status_msg);    }
 }
 
-__declspec(dllexport) void set_intercept_direction(int direction) {
+INTERCEPT_API void set_intercept_direction(int direction) {
     EnterCriticalSection(&g_intercept_config.intercept_cs);
     g_intercept_config.enabled_directions = (intercept_direction_t)direction;
     LeaveCriticalSection(&g_intercept_config.intercept_cs);
@@ -399,11 +452,10 @@ __declspec(dllexport) void set_intercept_direction(int direction) {
             case INTERCEPT_BOTH: dir_str = "Both directions"; break;
         }
         snprintf(status_msg, sizeof(status_msg), "Intercept direction set to: %s", dir_str);
-        g_status_callback(status_msg);
-    }
+        g_status_callback(status_msg);    }
 }
 
-__declspec(dllexport) void respond_to_intercept(int connection_id, int action, const unsigned char* modified_data, int modified_length) {
+INTERCEPT_API void respond_to_intercept(int connection_id, int action, const unsigned char* modified_data, int modified_length) {
     EnterCriticalSection(&g_intercept_config.intercept_cs);
 
     // Find the intercept data for this connection
@@ -442,7 +494,7 @@ __declspec(dllexport) void respond_to_intercept(int connection_id, int action, c
 }
 
 /* Get system IP addresses */
-__declspec(dllexport) int get_system_ips(char* buffer, int buffer_size) {
+INTERCEPT_API int get_system_ips(char* buffer, int buffer_size) {
     if (!buffer || buffer_size <= 0) return 0;
 
     buffer[0] = '\0';
@@ -477,7 +529,7 @@ __declspec(dllexport) int get_system_ips(char* buffer, int buffer_size) {
 }
 
 /* Get current proxy configuration */
-__declspec(dllexport) BOOL get_proxy_config(char* bind_addr, int* port, char* log_file, int* verbose_mode) {
+INTERCEPT_API BOOL get_proxy_config(char* bind_addr, int* port, char* log_file, int* verbose_mode) {
     if (!bind_addr || !port || !log_file || !verbose_mode) return FALSE;
     strcpy(bind_addr, config.bind_addr);
     *port = config.port;
@@ -488,7 +540,7 @@ __declspec(dllexport) BOOL get_proxy_config(char* bind_addr, int* port, char* lo
 }
 
 /* Get proxy statistics */
-__declspec(dllexport) BOOL get_proxy_stats(int* connections, int* bytes_transferred) {
+INTERCEPT_API BOOL get_proxy_stats(int* connections, int* bytes_transferred) {
     if (!connections || !bytes_transferred) return FALSE;
 
     *connections = g_total_connections;

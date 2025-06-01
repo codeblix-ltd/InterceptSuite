@@ -13,12 +13,88 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <winsock2.h>
-#include <ws2tcpip.h>
-#include <windows.h>
-#include <process.h>
-#include <iphlpapi.h>  /* For IP address validation */
 
+/* Include DLL interface header for platform detection and callback typedefs */
+#include "tls_proxy_dll.h"
+
+/* Platform-specific includes */
+#ifdef INTERCEPT_WINDOWS
+    /* Windows-specific headers - Specific order is important */
+    #ifndef WIN32_LEAN_AND_MEAN
+    #define WIN32_LEAN_AND_MEAN
+    #endif
+    /* Do not include windows.h again, it was included in tls_proxy_dll.h */
+    #include <winsock2.h>
+    #include <ws2tcpip.h>
+    #include <process.h>
+    #include <iphlpapi.h>  /* For IP address validation */
+
+    /* Windows-specific definitions */
+    typedef SOCKET socket_t;
+    typedef CRITICAL_SECTION mutex_t;
+    typedef HANDLE event_t;
+    typedef HANDLE thread_t;
+    #define SOCKET_ERROR_VAL INVALID_SOCKET
+    #define CLOSE_SOCKET(s) closesocket(s)
+    #define INIT_MUTEX(m) InitializeCriticalSection(&m)
+    #define LOCK_MUTEX(m) EnterCriticalSection(&m)
+    #define UNLOCK_MUTEX(m) LeaveCriticalSection(&m)
+    #define DESTROY_MUTEX(m) DeleteCriticalSection(&m)
+    #define CREATE_EVENT() CreateEvent(NULL, TRUE, FALSE, NULL)
+    #define SET_EVENT(e) SetEvent(e)
+    #define WAIT_EVENT(e, timeout) WaitForSingleObject(e, timeout)
+    #define CLOSE_EVENT(e) CloseHandle(e)
+    #define SLEEP_MS(ms) Sleep(ms)
+#else
+    /* POSIX-specific headers */
+    #include <unistd.h>
+    #include <sys/socket.h>
+    #include <sys/types.h>
+    #include <netinet/in.h>
+    #include <arpa/inet.h>
+    #include <netdb.h>
+    #include <pthread.h>
+    #include <fcntl.h>
+    #include <ifaddrs.h>
+    #include <net/if.h>
+    #include <errno.h>
+    #include <signal.h>
+    #include <sys/time.h>
+
+    /* POSIX-specific definitions */
+    typedef int socket_t;
+    typedef pthread_mutex_t mutex_t;
+    typedef pthread_cond_t event_t;
+    typedef pthread_t thread_t;
+    #define SOCKET_ERROR_VAL (-1)
+    #define CLOSE_SOCKET(s) close(s)
+    #define INIT_MUTEX(m) pthread_mutex_init(&m, NULL)
+    #define LOCK_MUTEX(m) pthread_mutex_lock(&m)
+    #define UNLOCK_MUTEX(m) pthread_mutex_unlock(&m)
+    #define DESTROY_MUTEX(m) pthread_mutex_destroy(&m)
+    #define CREATE_EVENT() ({ pthread_cond_t e; pthread_cond_init(&e, NULL); e; })
+    #define SET_EVENT(e) pthread_cond_signal(&e)
+    #define WAIT_EVENT(e, timeout) ({ \
+        struct timespec ts; \
+        clock_gettime(CLOCK_REALTIME, &ts); \
+        ts.tv_sec += (timeout) / 1000; \
+        ts.tv_nsec += ((timeout) % 1000) * 1000000; \
+        if (ts.tv_nsec >= 1000000000) { \
+            ts.tv_sec += 1; \
+            ts.tv_nsec -= 1000000000; \
+        } \
+        pthread_mutex_t m; \
+        pthread_mutex_init(&m, NULL); \
+        pthread_mutex_lock(&m); \
+        pthread_cond_timedwait(&e, &m, &ts); \
+        pthread_mutex_unlock(&m); \
+        pthread_mutex_destroy(&m); \
+    })
+    #define CLOSE_EVENT(e) pthread_cond_destroy(&e)
+    #define SLEEP_MS(ms) usleep((ms) * 1000)
+#endif
+
+/* Common OpenSSL headers for all platforms */
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 #include <openssl/x509.h>
@@ -27,8 +103,10 @@
 #include <openssl/bio.h>
 #include <openssl/rsa.h>
 
-/* Include DLL interface header for callback typedefs */
-#include "tls_proxy_dll.h"
+/* Enable library export symbol visibility */
+#ifndef BUILDING_INTERCEPT_LIB
+#define BUILDING_INTERCEPT_LIB
+#endif
 
 /* Define certificate error codes if not available in this OpenSSL version */
 #ifndef SSL_R_TLSV1_ALERT_BAD_CERTIFICATE
@@ -58,9 +136,9 @@ void **__cdecl OPENSSL_Applink(void);
 #define CA_KEY_FILE "Intercept_Suite_key.key"
 
 /* Windows-specific defines and typedefs */
-typedef SOCKET socket_t;
-/* Only define socklen_t if not already defined in system headers */
-#ifndef _SOCKLEN_T_DEFINED
+/* socket_t already defined above, don't redefine it */
+/* Only define socklen_t if not already defined in system headers and ws2tcpip.h didn't define it */
+#if !defined(_SOCKLEN_T_DEFINED) && !defined(_SOCKLEN_T)
 typedef unsigned int socklen_t;
 #endif
 #define THREAD_RETURN_TYPE unsigned __stdcall

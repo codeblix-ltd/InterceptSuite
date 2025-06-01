@@ -103,12 +103,10 @@ void pretty_print_data(const char *direction, const unsigned char *data, int len
             // For binary data, show a more comprehensive hex representation
             message[0] = '\0'; // Start with empty string
             char *msg_ptr = message;
-            size_t remaining = sizeof(message) - 1;
-
-            // Calculate how many bytes we can safely display
+            size_t remaining = sizeof(message) - 1;            // Calculate how many bytes we can safely display
             // Each byte takes ~3 chars (2 hex digits + space)
             // Leave ~30 bytes for the truncation warning
-            int max_bytes = (remaining - 30) / 3;
+            int max_bytes = (int)((remaining - 30) / 3);
             int hex_len = (len > max_bytes) ? max_bytes : len;
 
             // Format with line breaks every 16 bytes for better readability

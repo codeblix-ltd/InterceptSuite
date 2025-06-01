@@ -4,13 +4,20 @@
 
 ## Overview
 
-InterceptSuite is a powerful network traffic interception tool designed for TLS/SSL inspection, analysis, and manipulation at the network level. Unlike tools like Burp Suite or OWASP ZAP that focus specifically on HTTP/HTTPS traffic, InterceptSuite aims to provide visibility into any TLS-encrypted protocol, operating at the TCP/TLS layer.
+InterceptSuite is a powerful cross-platform network traffic interception tool designed for TLS/SSL inspection, analysis, and manipulation at the network level. Unlike tools like Burp Suite or OWASP ZAP that focus specifically on HTTP/HTTPS traffic, InterceptSuite aims to provide visibility into any TLS-encrypted protocol, operating at the TCP/TLS layer.
 
-The original idea behind InterceptSuite was to solve a challenging problem in Windows application penetration testing. With limited options to intercept network traffic of Windows applications, it's often difficult for security professionals to perform packet or traffic analysis of thick clients.
+The original idea behind InterceptSuite was to solve a challenging problem in application penetration testing. With limited options to intercept network traffic of native applications, it's often difficult for security professionals to perform packet or traffic analysis of thick clients.
 
 [![Build and Upload .NET GUI App](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/dotnet-gui.yml/badge.svg)](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/dotnet-gui.yml)
-[![Build Intercept Suite DLL](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/Build-DLL.yml/badge.svg)](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/Build-DLL.yml)
+[![Build Intercept Suite Library](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/Build-Library.yml/badge.svg)](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/Build-Library.yml)
 [![Create Release Package](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/release.yml/badge.svg)](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/release.yml)
+
+### Platform Support
+
+| Component | Windows | Linux | macOS |
+|-----------|:-------:|:-----:|:-----:|
+| Core Library | ✅ | ✅ | ✅ |
+| GUI Interface | ✅ | 🔜 | 🔜 |
 
 ## Table of Contents
 
@@ -19,17 +26,19 @@ The original idea behind InterceptSuite was to solve a challenging problem in Wi
 
 
 - [Overview](#overview)
+  - [Platform Support](#platform-support)
 - [Features](#features)
 - [Getting Started](#getting-started)
   - [Prerequisites](#prerequisites)
   - [Installation](#installation)
 - [Usage](#usage)
 - [GitAds Sponsored](#gitads-sponsored)
-- [Windows Proxy Configuration](#windows-proxy-configuration)
+- [Proxy Configuration](#proxy-configuration)
 - [Current Limitations](#current-limitations)
 - [When to Use InterceptSuite vs. HTTP-Specific Tools](#when-to-use-interceptsuite-vs-http-specific-tools)
 - [Images](#images)
 - [Development](#development)
+  - [Cross-Platform Building](#cross-platform-building)
 - [License](#license)
 - [Acknowledgments](#acknowledgments)
 
@@ -85,7 +94,9 @@ For more details on integration with your own applications, see the [DLL Integra
 
 
 
-## Windows Proxy Configuration
+## Proxy Configuration
+
+### Windows
 
 Windows by default only supports HTTP proxies at the system level and does not provide native support for SOCKS5 proxies. Since InterceptSuite operates as a SOCKS5 proxy, it's recommended to use a proxy management tool such as [Proxifier](https://www.proxifier.com/) to enable system-wide proxy capabilities.
 
@@ -95,7 +106,21 @@ Benefits of using Proxifier with InterceptSuite:
 - Allows selective proxying based on application, destination, or other criteria
 - Integrates seamlessly with SOCKS5 proxies like InterceptSuite
 
-This combination creates a powerful setup for intercepting network traffic from applications that don't natively support proxy configuration.
+### Linux
+
+On Linux, you can use tools like:
+- **ProxyCap**: Similar to Proxifier, provides application-level proxying
+- **tsocks/torsocks**: Library-based approach to redirect connections through a proxy
+- **iptables/nftables**: Redirect traffic at the network level to InterceptSuite
+
+### macOS
+
+On macOS, you can use:
+- **Proxifier for Mac**: Commercial solution similar to Windows version
+- **Proxychains-ng**: Terminal-based proxying for command-line applications
+- **Network preferences**: Configure system proxy settings (limited to applications that respect these settings)
+
+These configurations create a powerful setup for intercepting network traffic from applications that don't natively support proxy configuration.
 
 ## Current Limitations
 
@@ -156,6 +181,15 @@ Below are screenshots of the main tabs in InterceptSuite:
 ## Development
 
 For information about building InterceptSuite from source, see the [Build Guide](Build.md).
+
+### Cross-Platform Building
+
+InterceptSuite now supports building on Windows, Linux, and macOS. The core library (`Intercept`) can be compiled as:
+- Windows: `.dll`
+- Linux: `.so`
+- macOS: `.dylib`
+
+For detailed instructions on building for each platform, see the [Cross-Platform Build Guide](CROSS_PLATFORM.md).
 
 ## License
 

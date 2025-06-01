@@ -3,16 +3,45 @@ project(InterceptSuite C)
 
 set(CMAKE_C_STANDARD 11)
 
-# Build as a DLL
-set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
+# Build as a shared library
 set(BUILD_SHARED_LIBS ON)
 
-# Set installation directories
-set(INSTALL_RUNTIME_DIR "bin")
+# Enable position-independent code for all targets
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
+# Define platform-specific variables
+if(WIN32)
+    # Windows settings
+    set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
+    set(PLATFORM_SUFFIX "dll")
+    set(INSTALL_RUNTIME_DIR "bin")
+    set(PLATFORM_COMPILE_DEFS "HAVE_OPENSSL;_UNICODE;UNICODE;INTERCEPT_WINDOWS")
+    set(PLATFORM_LIBS ws2_32 iphlpapi psapi)
+elseif(APPLE)
+    # macOS settings
+    set(PLATFORM_SUFFIX "dylib")
+    set(INSTALL_RUNTIME_DIR "lib")
+    set(PLATFORM_COMPILE_DEFS "HAVE_OPENSSL;INTERCEPT_MACOS")
+    set(PLATFORM_LIBS pthread dl)
+else()
+    # Linux/other Unix settings
+    set(PLATFORM_SUFFIX "so")
+    set(INSTALL_RUNTIME_DIR "lib")
+    set(PLATFORM_COMPILE_DEFS "HAVE_OPENSSL;INTERCEPT_LINUX")
+    set(PLATFORM_LIBS pthread dl)
+endif()
+
+# Set common installation directories
 set(INSTALL_LIBRARY_DIR "lib")
 set(INSTALL_ARCHIVE_DIR "lib")
 set(INSTALL_DATA_DIR "data")
+set(INSTALL_INCLUDE_DIR "include")
 
+# Set output file name properties
+set_target_properties(PROPERTIES
+    PREFIX ""
+    SUFFIX ".${PLATFORM_SUFFIX}"
+)
 
 # Add include directories
 include_directories(
@@ -21,6 +50,9 @@ include_directories(
 
 # Find required dependencies
 find_package(OpenSSL REQUIRED)
+if(UNIX AND NOT APPLE)
+    find_package(Threads REQUIRED)
+endif()
 
 # Add library
 add_library(Intercept SHARED
@@ -31,19 +63,26 @@ add_library(Intercept SHARED
     src/utils.c
 )
 
+# Define BUILDING_INTERCEPT_LIB for proper export symbol visibility
+target_compile_definitions(Intercept PRIVATE BUILDING_INTERCEPT_LIB ${PLATFORM_COMPILE_DEFS})
+
+# Set the module definition file for Windows
+if(WIN32)
+    set_target_properties(Intercept PROPERTIES
+        LINK_FLAGS "/DEF:\"${CMAKE_CURRENT_SOURCE_DIR}/Intercept.def\""
+    )
+endif()
+
 # Link against dependencies
-target_compile_definitions(Intercept PRIVATE HAVE_OPENSSL _UNICODE UNICODE)
 target_link_libraries(Intercept PRIVATE
     OpenSSL::SSL
     OpenSSL::Crypto
-    $<$<PLATFORM_ID:Windows>:ws2_32>
-    $<$<PLATFORM_ID:Windows>:iphlpapi>
-    $<$<PLATFORM_ID:Windows>:psapi>
+    ${PLATFORM_LIBS}
 )
 
-# Handle OpenSSL DLLs for Windows
+# Platform-specific library handling
 if(WIN32)
-    # Find OpenSSL DLLs using a flexible approach for both local and CI environments
+    # Handle OpenSSL DLLs for Windows
     set(OPENSSL_CRYPTO_DLL "")
     set(OPENSSL_SSL_DLL "")
 
@@ -78,7 +117,9 @@ if(WIN32)
     message(STATUS "OpenSSL found: ${OPENSSL_FOUND}")
     message(STATUS "OpenSSL version: ${OPENSSL_VERSION}")
     message(STATUS "OpenSSL Crypto DLL: ${OPENSSL_CRYPTO_DLL}")
-    message(STATUS "OpenSSL SSL DLL: ${OPENSSL_SSL_DLL}")# Copy DLLs to output directory if they were found
+    message(STATUS "OpenSSL SSL DLL: ${OPENSSL_SSL_DLL}")
+
+    # Copy DLLs to output directory if they were found
     if(OPENSSL_CRYPTO_DLL AND EXISTS "${OPENSSL_CRYPTO_DLL}")
         add_custom_command(TARGET Intercept POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
@@ -89,7 +130,30 @@ if(WIN32)
     else()
         message(WARNING "OpenSSL DLLs not found - DLL might not run without them")
     endif()
+endif()
 
+# Platform-specific library installation
+if(WIN32)
+    # Windows: Install OpenSSL DLLs if found
+    if(OPENSSL_CRYPTO_DLL AND EXISTS "${OPENSSL_CRYPTO_DLL}")
+        install(FILES
+            "${OPENSSL_CRYPTO_DLL}"
+            "${OPENSSL_SSL_DLL}"
+            DESTINATION ${INSTALL_RUNTIME_DIR}
+        )
+    endif()
+elseif(APPLE)
+    # macOS: Add rpaths for OpenSSL libraries
+    set_target_properties(Intercept PROPERTIES
+        INSTALL_RPATH "@loader_path/../lib"
+        BUILD_WITH_INSTALL_RPATH TRUE
+    )
+else()
+    # Linux: Add rpaths for OpenSSL libraries
+    set_target_properties(Intercept PROPERTIES
+        INSTALL_RPATH "$ORIGIN/../lib"
+        BUILD_WITH_INSTALL_RPATH TRUE
+    )
 endif()
 
 # Install targets and dependencies
@@ -103,16 +167,7 @@ install(TARGETS Intercept
 install(FILES
     include/tls_proxy_dll.h
     include/tls_proxy.h
-    DESTINATION include/intercept)
-
-# Install OpenSSL DLLs if found
-if(WIN32 AND OPENSSL_CRYPTO_DLL AND EXISTS "${OPENSSL_CRYPTO_DLL}")
-    install(FILES
-        "${OPENSSL_CRYPTO_DLL}"
-        "${OPENSSL_SSL_DLL}"
-        DESTINATION ${INSTALL_RUNTIME_DIR}
-    )
-endif()
+    DESTINATION ${INSTALL_INCLUDE_DIR}/intercept)
 
 # CPack configuration
 include(InstallRequiredSystemLibraries)
@@ -125,10 +180,20 @@ set(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/anof-cyber/InterceptSuite")
 set(CPACK_PACKAGE_VERSION_MAJOR "1")
 set(CPACK_PACKAGE_VERSION_MINOR "0")
 set(CPACK_PACKAGE_VERSION_PATCH "0")
-set(CPACK_PACKAGE_FILE_NAME "Intercept-${CPACK_PACKAGE_VERSION}-win64")
 
-# Packaging settings
-set(CPACK_GENERATOR "ZIP")
+# Platform-specific package name
+if(WIN32)
+    set(CPACK_PACKAGE_FILE_NAME "Intercept-${CPACK_PACKAGE_VERSION}-win64")
+    set(CPACK_GENERATOR "ZIP")
+elseif(APPLE)
+    set(CPACK_PACKAGE_FILE_NAME "Intercept-${CPACK_PACKAGE_VERSION}-macos")
+    set(CPACK_GENERATOR "TGZ")
+else()
+    set(CPACK_PACKAGE_FILE_NAME "Intercept-${CPACK_PACKAGE_VERSION}-linux")
+    set(CPACK_GENERATOR "TGZ")
+endif()
+
+# Add license file to package if available
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
     set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
 endif()

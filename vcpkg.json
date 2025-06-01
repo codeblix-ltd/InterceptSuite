@@ -1,7 +1,22 @@
 {
   "name": "intercept-suite",
-  "version-string": "0.1",
+  "version-string": "1.0.0",
+  "description": "Cross-platform TLS MITM proxy library for intercepting and analyzing encrypted traffic",
+  "homepage": "https://github.com/anof-cyber/InterceptSuite",
+  "license": "AGPL-3.0",
+  "supports": "windows | linux | osx",
   "dependencies": [
-    "openssl"
+    {
+      "name": "openssl",
+      "version>=": "3.0.0"
+    },
+    {
+      "name": "vcpkg-cmake",
+      "host": true
+    },
+    {
+      "name": "vcpkg-cmake-config",
+      "host": true
+    }
   ]
 }

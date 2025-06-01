@@ -7,6 +7,14 @@
 
 #include "../include/tls_proxy.h"
 
+#ifndef INTERCEPT_WINDOWS
+    #include <ifaddrs.h>
+    #include <netdb.h>
+    #include <sys/socket.h>
+    #include <netinet/in.h>
+    #include <arpa/inet.h>
+#endif
+
 /* External callback functions from main.c */
 extern void send_status_update(const char* message);
 
@@ -35,6 +43,8 @@ int validate_ip_address(const char *ip_addr) {
         return 1;
     }
 
+#ifdef INTERCEPT_WINDOWS
+    // Windows-specific implementation
     // For other IPs, check system interfaces
     ULONG bufferSize = 0;
     PIP_ADAPTER_ADDRESSES pAddresses = NULL;
@@ -75,6 +85,43 @@ int validate_ip_address(const char *ip_addr) {
 
         free(pAddresses);
     }
+#else
+    // Linux/macOS implementation
+    struct ifaddrs *ifaddr, *ifa;
+    int family, s;
+    char host[MAX_IP_ADDR_LEN];
+
+    if (getifaddrs(&ifaddr) == -1) {
+        fprintf(stderr, "Failed to get network interfaces\n");
+        return 0;
+    }
+
+    // Walk through linked list, maintaining head pointer for cleanup
+    for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
+        if (ifa->ifa_addr == NULL)
+            continue;
+
+        family = ifa->ifa_addr->sa_family;
+
+        // Check for IPv4 addresses
+        if (family == AF_INET) {
+            s = getnameinfo(ifa->ifa_addr, sizeof(struct sockaddr_in),
+                            host, MAX_IP_ADDR_LEN,
+                            NULL, 0, NI_NUMERICHOST);
+            if (s != 0) {
+                fprintf(stderr, "getnameinfo() failed\n");
+                continue;
+            }
+
+            if (strcmp(host, ip_addr) == 0) {
+                freeifaddrs(ifaddr);
+                return 1;  // IP address found
+            }
+        }
+    }
+
+    freeifaddrs(ifaddr);
+#endif
 
     // IP not found on any interface
     fprintf(stderr, "Error: IP address %s does not exist on any interface\n", ip_addr);
