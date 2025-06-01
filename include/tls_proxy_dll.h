@@ -25,7 +25,7 @@
     #define INTERCEPT_IMPORT
     typedef bool intercept_bool_t;
 #elif defined(__linux__) || defined(__unix__)
-    #define INTERCEPT_LINUX
+   // #define INTERCEPT_LINUX
     #include <stdbool.h>
     #define INTERCEPT_EXPORT __attribute__((visibility("default")))
     #define INTERCEPT_IMPORT

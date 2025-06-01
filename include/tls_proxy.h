@@ -15,84 +15,11 @@
 #include <time.h>
 
 /* Include DLL interface header for platform detection and callback typedefs */
+#include "platform.h"
 #include "tls_proxy_dll.h"
 
-/* Platform-specific includes */
-#ifdef INTERCEPT_WINDOWS
-    /* Windows-specific headers - Specific order is important */
-    #ifndef WIN32_LEAN_AND_MEAN
-    #define WIN32_LEAN_AND_MEAN
-    #endif
-    /* Do not include windows.h again, it was included in tls_proxy_dll.h */
-    #include <winsock2.h>
-    #include <ws2tcpip.h>
-    #include <process.h>
-    #include <iphlpapi.h>  /* For IP address validation */
 
-    /* Windows-specific definitions */
-    typedef SOCKET socket_t;
-    typedef CRITICAL_SECTION mutex_t;
-    typedef HANDLE event_t;
-    typedef HANDLE thread_t;
-    #define SOCKET_ERROR_VAL INVALID_SOCKET
-    #define CLOSE_SOCKET(s) closesocket(s)
-    #define INIT_MUTEX(m) InitializeCriticalSection(&m)
-    #define LOCK_MUTEX(m) EnterCriticalSection(&m)
-    #define UNLOCK_MUTEX(m) LeaveCriticalSection(&m)
-    #define DESTROY_MUTEX(m) DeleteCriticalSection(&m)
-    #define CREATE_EVENT() CreateEvent(NULL, TRUE, FALSE, NULL)
-    #define SET_EVENT(e) SetEvent(e)
-    #define WAIT_EVENT(e, timeout) WaitForSingleObject(e, timeout)
-    #define CLOSE_EVENT(e) CloseHandle(e)
-    #define SLEEP_MS(ms) Sleep(ms)
-#else
-    /* POSIX-specific headers */
-    #include <unistd.h>
-    #include <sys/socket.h>
-    #include <sys/types.h>
-    #include <netinet/in.h>
-    #include <arpa/inet.h>
-    #include <netdb.h>
-    #include <pthread.h>
-    #include <fcntl.h>
-    #include <ifaddrs.h>
-    #include <net/if.h>
-    #include <errno.h>
-    #include <signal.h>
-    #include <sys/time.h>
 
-    /* POSIX-specific definitions */
-    typedef int socket_t;
-    typedef pthread_mutex_t mutex_t;
-    typedef pthread_cond_t event_t;
-    typedef pthread_t thread_t;
-    #define SOCKET_ERROR_VAL (-1)
-    #define CLOSE_SOCKET(s) close(s)
-    #define INIT_MUTEX(m) pthread_mutex_init(&m, NULL)
-    #define LOCK_MUTEX(m) pthread_mutex_lock(&m)
-    #define UNLOCK_MUTEX(m) pthread_mutex_unlock(&m)
-    #define DESTROY_MUTEX(m) pthread_mutex_destroy(&m)
-    #define CREATE_EVENT() ({ pthread_cond_t e; pthread_cond_init(&e, NULL); e; })
-    #define SET_EVENT(e) pthread_cond_signal(&e)
-    #define WAIT_EVENT(e, timeout) ({ \
-        struct timespec ts; \
-        clock_gettime(CLOCK_REALTIME, &ts); \
-        ts.tv_sec += (timeout) / 1000; \
-        ts.tv_nsec += ((timeout) % 1000) * 1000000; \
-        if (ts.tv_nsec >= 1000000000) { \
-            ts.tv_sec += 1; \
-            ts.tv_nsec -= 1000000000; \
-        } \
-        pthread_mutex_t m; \
-        pthread_mutex_init(&m, NULL); \
-        pthread_mutex_lock(&m); \
-        pthread_cond_timedwait(&e, &m, &ts); \
-        pthread_mutex_unlock(&m); \
-        pthread_mutex_destroy(&m); \
-    })
-    #define CLOSE_EVENT(e) pthread_cond_destroy(&e)
-    #define SLEEP_MS(ms) usleep((ms) * 1000)
-#endif
 
 /* Common OpenSSL headers for all platforms */
 #include <openssl/ssl.h>
@@ -135,19 +62,13 @@ void **__cdecl OPENSSL_Applink(void);
 #define CA_CERT_FILE "Intercept_Suite_Cert.pem"
 #define CA_KEY_FILE "Intercept_Suite_key.key"
 
-/* Windows-specific defines and typedefs */
-/* socket_t already defined above, don't redefine it */
+/* Platform-specific defines and typedefs */
+/* socket_t already defined in platform.h */
 /* Only define socklen_t if not already defined in system headers and ws2tcpip.h didn't define it */
 #if !defined(_SOCKLEN_T_DEFINED) && !defined(_SOCKLEN_T)
 typedef unsigned int socklen_t;
 #endif
-#define THREAD_RETURN_TYPE unsigned __stdcall
-#define THREAD_RETURN return 0
-#define close_socket(s) closesocket(s)
-#define THREAD_HANDLE HANDLE
-#define CREATE_THREAD(handle, func, arg) handle = (HANDLE)_beginthreadex(NULL, 0, func, arg, 0, NULL)
-#define JOIN_THREAD(handle) WaitForSingleObject(handle, INFINITE); CloseHandle(handle)
-#define SLEEP(ms) Sleep(ms)
+
 
 /* Define SSL error reason codes if not available */
 #ifndef SSL_R_UNEXPECTED_EOF_WHILE_READING
@@ -211,8 +132,8 @@ typedef struct {
 /* Server thread control */
 typedef struct {
     int should_stop;              /* Flag to signal server thread to stop */
-    HANDLE thread_handle;         /* Server thread handle */
-    CRITICAL_SECTION cs;         /* Critical section for thread safety */
+    thread_t thread_handle;         /* Server thread handle */
+    mutex_t cs;             /* Critical section for thread safety */
     socket_t server_sock;        /* Server socket */
 } server_thread_t;
 
@@ -243,7 +164,7 @@ typedef struct {
     unsigned char *data;
     int data_length;
     int is_waiting_for_response;
-    HANDLE response_event;
+    event_t response_event;
     intercept_action_t action;
     unsigned char *modified_data;
     int modified_length;
@@ -253,7 +174,7 @@ typedef struct {
 typedef struct {
     intercept_direction_t enabled_directions;
     int is_interception_enabled;
-    CRITICAL_SECTION intercept_cs;
+    mutex_t intercept_cs;
 } intercept_config_t;
 
 /* Global certificate references */
@@ -278,12 +199,13 @@ extern intercept_callback_t g_intercept_callback;
 /* Function prototypes */
 int init_winsock(void);
 void cleanup_winsock(void);
-int start_proxy_server(void);
+intercept_bool_t start_proxy_server(void);
 int validate_ip_address(const char *ip_addr);
 void log_message(const char *format, ...);
 void close_log_file(void);
 
 /* Server thread function prototypes */
-THREAD_RETURN_TYPE WINAPI run_server_thread(void* arg);
+THREAD_RETURN_TYPE THREAD_CALL run_server_thread(void* arg);
+
 
 #endif /* TLS_PROXY_H */

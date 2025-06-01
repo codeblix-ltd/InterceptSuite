@@ -5,6 +5,11 @@
 #include "../include/socks5.h"
 #include "../include/utils.h"
 
+#ifndef INTERCEPT_WINDOWS
+#include <errno.h>
+#include <string.h> /* for strerror() */
+#endif
+
 /* Debug function to print buffer contents in hex */
 static void debug_print_buffer(const char *prefix, const unsigned char *buffer, int length) {
     if (config.verbose) {
@@ -24,23 +29,34 @@ int handle_socks5_handshake(socket_t client_sock, char *target_host, int *target
     int has_no_auth = 0;
 
     // Log start of SOCKS5 handshake
-    log_message("Starting SOCKS5 handshake with client");
-
-    // Set socket timeout to 60 seconds - longer timeout for better compatibility
-    DWORD timeout = 60000;
+    log_message("Starting SOCKS5 handshake with client");    // Set socket timeout to 60 seconds - longer timeout for better compatibility
+#ifdef INTERCEPT_WINDOWS
+    DWORD timeout = 60000;  // 60 seconds in milliseconds for Windows
+#else
+    struct timeval timeout;
+    timeout.tv_sec = 60;    // 60 seconds for POSIX
+    timeout.tv_usec = 0;
+#endif
     if (setsockopt(client_sock, SOL_SOCKET, SO_RCVTIMEO, (const char*)&timeout, sizeof(timeout)) != 0 ||
         setsockopt(client_sock, SOL_SOCKET, SO_SNDTIMEO, (const char*)&timeout, sizeof(timeout)) != 0) {
-        log_message("Warning: Failed to set socket timeout for SOCKS5: %d", WSAGetLastError());
+#ifdef INTERCEPT_WINDOWS
+        log_message("Warning: Failed to set socket timeout for SOCKS5: %d", GET_SOCKET_ERROR());
+#else
+        log_message("Warning: Failed to set socket timeout for SOCKS5: %s", strerror(errno));
+#endif
     }
 
     // Step 1: Authentication Method Negotiation
     memset(buffer, 0, sizeof(buffer));
 
     // Read bytes in a loop until we get the complete greeting
-    while (total_received < 2) {
-        received = recv(client_sock, (char*)buffer + total_received, 2 - total_received, 0);
+    while (total_received < 2) {        received = recv(client_sock, (char*)buffer + total_received, 2 - total_received, 0);
         if (received <= 0) {
-            int err = WSAGetLastError();
+#ifdef INTERCEPT_WINDOWS
+            int err = GET_SOCKET_ERROR();
+#else
+            int err = errno;
+#endif
             if (config.verbose) {
                 printf("SOCKS5 error receiving greeting: %d (received %d/%d bytes)\n",
                        err, total_received, 2);
@@ -71,13 +87,18 @@ int handle_socks5_handshake(socket_t client_sock, char *target_host, int *target
     // Receive authentication methods with proper loop to ensure we get all data
     total_received = 0;
     while (total_received < nmethods) {
-        received = recv(client_sock, (char*)buffer + total_received, nmethods - total_received, 0);
-        if (received <= 0) {
-            if (config.verbose) {
-                printf("Failed to receive auth methods: %d\n", WSAGetLastError());
+        received = recv(client_sock, (char*)buffer + total_received, nmethods - total_received, 0);            if (received <= 0) {
+#ifdef INTERCEPT_WINDOWS
+                if (config.verbose) {
+                    printf("Failed to receive auth methods: %d\n", GET_SOCKET_ERROR());
+                }
+#else
+                if (config.verbose) {
+                    printf("Failed to receive auth methods: %s\n", strerror(errno));
+                }
+#endif
+                return 0;
             }
-            return 0;
-        }
         total_received += received;
     }
 
@@ -100,7 +121,7 @@ int handle_socks5_handshake(socket_t client_sock, char *target_host, int *target
         reply[0] = SOCKS5_VERSION;
         reply[1] = SOCKS5_AUTH_NO_ACCEPTABLE;  // No acceptable methods
         if (send(client_sock, (char*)reply, 2, 0) != 2) {
-            int error = WSAGetLastError();
+            int error = GET_SOCKET_ERROR();
             if (config.verbose) {
                 printf("Failed to send auth rejection: %d\n", error);
             }
@@ -121,7 +142,7 @@ int handle_socks5_handshake(socket_t client_sock, char *target_host, int *target
         int result = send(client_sock, (char*)reply + sent, 2 - sent, 0);
         if (result <= 0) {
             if (config.verbose) {
-                printf("Failed to send auth method response: %d\n", WSAGetLastError());
+                printf("Failed to send auth method response: %d\n", GET_SOCKET_ERROR());
             }
             return 0;
         }
@@ -140,7 +161,7 @@ int handle_socks5_handshake(socket_t client_sock, char *target_host, int *target
         received = recv(client_sock, (char*)buffer + total_received, 4 - total_received, 0);
         if (received <= 0) {
             if (config.verbose) {
-                printf("Failed to receive connection request: %d\n", WSAGetLastError());
+                printf("Failed to receive connection request: %d\n", GET_SOCKET_ERROR());
             }
             return 0;
         }
@@ -175,7 +196,7 @@ int handle_socks5_handshake(socket_t client_sock, char *target_host, int *target
             int result = send(client_sock, (char*)reply + sent, 10 - sent, 0);
             if (result <= 0) {
                 if (config.verbose) {
-                    printf("Failed to send command rejection: %d\n", WSAGetLastError());
+                    printf("Failed to send command rejection: %d\n", GET_SOCKET_ERROR());
                 }
                 break;
             }
@@ -199,7 +220,7 @@ int handle_socks5_handshake(socket_t client_sock, char *target_host, int *target
         while (total_received < 4) {
             received = recv(client_sock, (char*)buffer + total_received, 4 - total_received, 0);
             if (received <= 0) {
-                int error = WSAGetLastError();
+                int error = GET_SOCKET_ERROR();
                 if (config.verbose) {
                     printf("Failed to receive IPv4 address: %d\n", error);
                 }
@@ -222,7 +243,7 @@ int handle_socks5_handshake(socket_t client_sock, char *target_host, int *target
             received = recv(client_sock, (char*)buffer + total_received, 1 - total_received, 0);
             if (received <= 0) {
                 if (config.verbose) {
-                    printf("Failed to receive domain name length: %d\n", WSAGetLastError());
+                    printf("Failed to receive domain name length: %d\n", GET_SOCKET_ERROR());
                 }
                 return 0;
             }
@@ -243,7 +264,7 @@ int handle_socks5_handshake(socket_t client_sock, char *target_host, int *target
             received = recv(client_sock, (char*)buffer + total_received, domain_len - total_received, 0);
             if (received <= 0) {
                 if (config.verbose) {
-                    printf("Failed to receive domain name: %d\n", WSAGetLastError());
+                    printf("Failed to receive domain name: %d\n", GET_SOCKET_ERROR());
                 }
                 return 0;
             }
@@ -274,7 +295,7 @@ int handle_socks5_handshake(socket_t client_sock, char *target_host, int *target
             int result = send(client_sock, (char*)reply + sent, 10 - sent, 0);
             if (result <= 0) {
                 if (config.verbose) {
-                    printf("Failed to send IPv6 rejection: %d\n", WSAGetLastError());
+                    printf("Failed to send IPv6 rejection: %d\n", GET_SOCKET_ERROR());
                 }
                 break;
             }
@@ -299,7 +320,7 @@ int handle_socks5_handshake(socket_t client_sock, char *target_host, int *target
             int result = send(client_sock, (char*)reply + sent, 10 - sent, 0);
             if (result <= 0) {
                 if (config.verbose) {
-                    printf("Failed to send address type rejection: %d\n", WSAGetLastError());
+                    printf("Failed to send address type rejection: %d\n", GET_SOCKET_ERROR());
                 }
                 break;
             }
@@ -313,7 +334,7 @@ int handle_socks5_handshake(socket_t client_sock, char *target_host, int *target
         received = recv(client_sock, (char*)buffer + total_received, 2 - total_received, 0);
         if (received <= 0) {
             if (config.verbose) {
-                printf("Failed to receive port: %d\n", WSAGetLastError());
+                printf("Failed to receive port: %d\n", GET_SOCKET_ERROR());
             }
             return 0;
         }
@@ -352,7 +373,7 @@ int handle_socks5_handshake(socket_t client_sock, char *target_host, int *target
         int result = send(client_sock, (char*)reply + sent_bytes, 10 - sent_bytes, 0);
         if (result <= 0) {
             if (config.verbose) {
-                printf("Failed to send success response: %d\n", WSAGetLastError());
+                printf("Failed to send success response: %d\n", GET_SOCKET_ERROR());
             }
             return 0;
         }

@@ -3,7 +3,7 @@
  *
  * Provides exports for controlling the TLS MITM proxy functionality.
  */
-
+#include "platform.h"
 #include "../include/tls_proxy.h"
 #include "../include/cert_utils.h"
 #include "../include/socks5.h"
@@ -122,7 +122,7 @@ static void library_fini(void) {
 
 /* Exported functions */
 
-INTERCEPT_API BOOL start_proxy(void) {
+INTERCEPT_API intercept_bool_t start_proxy(void) {
     send_status_update("Starting proxy initialization...");
     /* Open log file if configured */
     if (strlen(config.log_file) > 0) {
@@ -162,24 +162,21 @@ INTERCEPT_API BOOL start_proxy(void) {
     }
     send_status_update("Proxy initialization completed successfully");
 
-    /* Start proxy server */
-    /* Initialize critical section */
-    InitializeCriticalSection(&g_server.cs);
+    /* Start proxy server */    /* Initialize critical section/mutex */
+    INIT_MUTEX(g_server.cs);
     g_server.should_stop = 0;
-    g_server.thread_handle = NULL;
-
-    /* Create server socket */
+    g_server.thread_handle = 0; /* Use 0 for both Windows and POSIX */    /* Create server socket */
     socket_t server_sock = socket(AF_INET, SOCK_STREAM, 0);
-    if (server_sock == INVALID_SOCKET) {
-        DeleteCriticalSection(&g_server.cs);
+    if (server_sock == SOCKET_ERROR_VAL) {
+        DESTROY_MUTEX(g_server.cs);
         return FALSE;
     }
 
     /* Allow socket reuse */
     int opt = 1;
-    if (setsockopt(server_sock, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(opt)) == SOCKET_ERROR) {
+    if (setsockopt(server_sock, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(opt)) == SOCKET_OPTS_ERROR) {
         close_socket(server_sock);
-        DeleteCriticalSection(&g_server.cs);
+        DESTROY_MUTEX(g_server.cs);
         return FALSE;
     }
 
@@ -188,69 +185,105 @@ INTERCEPT_API BOOL start_proxy(void) {
     server_addr.sin_family = AF_INET;
     if (inet_pton(AF_INET, config.bind_addr, &(server_addr.sin_addr)) != 1) {
         close_socket(server_sock);
-        DeleteCriticalSection(&g_server.cs);
+        DESTROY_MUTEX(g_server.cs);
         return FALSE;
     }
     server_addr.sin_port = htons(config.port);
 
-    if (bind(server_sock, (struct sockaddr*)&server_addr, sizeof(server_addr)) == SOCKET_ERROR) {
+    if (bind(server_sock, (struct sockaddr*)&server_addr, sizeof(server_addr)) == SOCKET_OPTS_ERROR) {
         close_socket(server_sock);
-        DeleteCriticalSection(&g_server.cs);
+        DESTROY_MUTEX(g_server.cs);
         return FALSE;
     }
 
     /* Start listening */
-    if (listen(server_sock, SOMAXCONN) == SOCKET_ERROR) {
+    if (listen(server_sock, SOMAXCONN) == SOCKET_OPTS_ERROR) {
         close_socket(server_sock);
-        DeleteCriticalSection(&g_server.cs);
+        DESTROY_MUTEX(g_server.cs);
         return FALSE;
     }
 
     /* Set socket to non-blocking mode */
-    unsigned long nonBlocking = 1;
-    if (ioctlsocket(server_sock, FIONBIO, &nonBlocking) != 0) {
+    #ifdef INTERCEPT_WINDOWS
+    unsigned long nonBlocking = 1;    if (ioctlsocket(server_sock, FIONBIO, &nonBlocking) != 0) {
         close_socket(server_sock);
-        DeleteCriticalSection(&g_server.cs);
+        DESTROY_MUTEX(g_server.cs);
         return FALSE;
     }
+#else
+    // POSIX: Use fcntl to set non-blocking mode
+    int flags = fcntl(server_sock, F_GETFL, 0);    if (flags == -1) {
+        close_socket(server_sock);
+        DESTROY_MUTEX(g_server.cs);
+        return FALSE;
+    }    if (fcntl(server_sock, F_SETFL, flags | O_NONBLOCK) == -1) {
+        close_socket(server_sock);
+        DESTROY_MUTEX(g_server.cs);
+        return FALSE;
+    }
+#endif
+
 
     /* Store server socket in global state */
     g_server.server_sock = server_sock;
 
     /* Start server thread */
-    g_server.thread_handle = (HANDLE)_beginthreadex(NULL, 0, run_server_thread, NULL, 0, NULL);
-    if (g_server.thread_handle == NULL) {
+   #ifdef INTERCEPT_WINDOWS
+    g_server.thread_handle = (thread_t)_beginthreadex(NULL, 0, run_server_thread, NULL, 0, NULL);
+    if (g_server.thread_handle == 0) { // _beginthreadex returns 0 on failure, not NULL
         close_socket(server_sock);
-        DeleteCriticalSection(&g_server.cs);
+        DESTROY_MUTEX(g_server.cs);
         return FALSE;
-    }    return TRUE;
+    }
+#else
+    int ret = pthread_create(&g_server.thread_handle, NULL, run_server_thread, NULL);
+    if (ret != 0) {
+        close_socket(server_sock);
+        DESTROY_MUTEX(g_server.cs);
+        return FALSE;
+    }
+#endif
+
+
+    return TRUE;
 }
 
 INTERCEPT_API void stop_proxy(void) {
     /* Signal thread to stop */
-    EnterCriticalSection(&g_server.cs);
+    LOCK_MUTEX(g_server.cs);
     g_server.should_stop = 1;
-    LeaveCriticalSection(&g_server.cs);
+    UNLOCK_MUTEX(g_server.cs);
 
     /* Close socket to break accept() */
-    if (g_server.server_sock != INVALID_SOCKET) {
+    if (g_server.server_sock != SOCKET_ERROR_VAL) {
+#ifdef INTERCEPT_WINDOWS
         shutdown(g_server.server_sock, SD_BOTH);
+#else
+        shutdown(g_server.server_sock, SHUT_RDWR);
+#endif
         close_socket(g_server.server_sock);
-        g_server.server_sock = INVALID_SOCKET;
+        g_server.server_sock = SOCKET_ERROR_VAL;
     }
 
     /* Wait for thread to finish */
     if (g_server.thread_handle) {
+#ifdef INTERCEPT_WINDOWS
         WaitForSingleObject(g_server.thread_handle, 5000);
         CloseHandle(g_server.thread_handle);
-        g_server.thread_handle = NULL;
-    }    /* Delete critical section */
-    DeleteCriticalSection(&g_server.cs);
+#else
+        pthread_join(g_server.thread_handle, NULL);
+#endif
+        g_server.thread_handle = 0;
+    }
 
-    /* Close log file */    close_log_file();
+    /* Delete critical section/mutex */
+    DESTROY_MUTEX(g_server.cs);
+
+    /* Close log file */
+    close_log_file();
 }
 
-INTERCEPT_API BOOL set_config(const char* bind_addr, int port, const char* log_file, int verbose_mode) {
+INTERCEPT_API intercept_bool_t set_config(const char* bind_addr, int port, const char* log_file, int verbose_mode) {
     if (!bind_addr || port <= 0 || port > 65535 || !log_file) {
         return FALSE;
     }
@@ -301,35 +334,45 @@ void cleanup_winsock(void) {
 }
 
 /* Server thread function */
-THREAD_RETURN_TYPE WINAPI run_server_thread(void* arg) {
+THREAD_RETURN_TYPE THREAD_CALL run_server_thread(void* arg) {
     socket_t server_sock = g_server.server_sock;
     client_info* client;
-    THREAD_HANDLE thread_id;
+    thread_t thread_id;
 
     while (!g_server.should_stop) {
-        /* Prepare for select() */
         fd_set readfds;
         struct timeval tv;
         FD_ZERO(&readfds);
-        FD_SET(server_sock, &readfds);        /* Set timeout for select */
-        tv.tv_sec = 1;  /* Check should_stop flag every second */
+        FD_SET(server_sock, &readfds);
+
+#ifdef INTERCEPT_WINDOWS
+        int nfds = 0;
+#else
+        int nfds = server_sock + 1;
+#endif
+        tv.tv_sec = 1;
         tv.tv_usec = 0;
 
-        /* Wait for connection with timeout */
-        int ret = select(0, &readfds, NULL, NULL, &tv);
-        if (ret == SOCKET_ERROR) {
-            if (WSAGetLastError() != WSAEINTR) {
-                fprintf(stderr, "Select failed: %d\n", WSAGetLastError());
+        int ret = select(nfds, &readfds, NULL, NULL, &tv);
+        if (ret == SOCKET_ERROR_VAL) {
+            // On Windows, use GET_SOCKET_ERROR(), on POSIX use errno
+#ifdef INTERCEPT_WINDOWS
+            int err = GET_SOCKET_ERROR();
+            if (err != WSAEINTR) {
+                fprintf(stderr, "Select failed: %d\n", err);
             }
+#else
+            if (errno != EINTR) {
+                perror("Select failed");
+            }
+#endif
             continue;
         }
 
         if (ret == 0) {
-            /* Timeout - check should_stop flag */
-            continue;
+            continue;  // timeout, check should_stop flag again
         }
 
-        /* Accept connection */
         client = (client_info*)malloc(sizeof(client_info));
         if (!client) {
             continue;
@@ -337,34 +380,57 @@ THREAD_RETURN_TYPE WINAPI run_server_thread(void* arg) {
 
         socklen_t client_len = sizeof(client->client_addr);
         client->client_sock = accept(server_sock, (struct sockaddr*)&client->client_addr, &client_len);
-        if (client->client_sock == INVALID_SOCKET) {
+        if (client->client_sock == SOCKET_ERROR_VAL) {
             free(client);
-            if (WSAGetLastError() != WSAEWOULDBLOCK) {
-                fprintf(stderr, "Failed to accept connection: %d\n", WSAGetLastError());
+#ifdef INTERCEPT_WINDOWS
+            int err = GET_SOCKET_ERROR();
+            if (err != WSAEWOULDBLOCK) {
+                fprintf(stderr, "Failed to accept connection: %d\n", err);
             }
+#else
+            if (errno != EWOULDBLOCK && errno != EAGAIN) {
+                perror("Failed to accept connection");
+            }
+#endif
             continue;
         }
 
-        /* Set client socket to blocking mode for normal operation */
+        // Set to blocking mode for normal operation
+#ifdef INTERCEPT_WINDOWS
         unsigned long nonBlocking = 0;
         if (ioctlsocket(client->client_sock, FIONBIO, &nonBlocking) != 0) {
-            close_socket(client->client_sock);
+            CLOSE_SOCKET(client->client_sock);
+            free(client);
+            continue;
+        }
+#else
+        int flags = fcntl(client->client_sock, F_GETFL, 0);
+        if (flags == -1 || fcntl(client->client_sock, F_SETFL, flags & ~O_NONBLOCK) == -1) {
+            CLOSE_SOCKET(client->client_sock);
+            free(client);
+            continue;
+        }
+#endif
+
+        // Create thread to handle client
+        if (CREATE_THREAD(thread_id, handle_client, client) != 0) {
+            CLOSE_SOCKET(client->client_sock);
             free(client);
             continue;
         }
 
-        /* Create thread to handle client */
-        CREATE_THREAD(thread_id, handle_client, client);
-        if (thread_id != NULL) {
-            CloseHandle(thread_id);
-        } else {
-            close_socket(client->client_sock);
-            free(client);
-        }
+#ifdef INTERCEPT_WINDOWS
+        CloseHandle(thread_id);  // close thread handle but thread runs
+#endif
     }
 
-    THREAD_RETURN;
+#ifdef INTERCEPT_WINDOWS
+    return 0;
+#else
+    return NULL;
+#endif
 }
+
 
 /* Helper function to send status updates */
 void send_status_update(const char* message) {
@@ -428,20 +494,21 @@ INTERCEPT_API void set_intercept_callback(intercept_callback_t callback) {    g_
 }
 
 INTERCEPT_API void set_intercept_enabled(int enabled) {
-    EnterCriticalSection(&g_intercept_config.intercept_cs);
+    LOCK_MUTEX(g_intercept_config.intercept_cs);
     g_intercept_config.is_interception_enabled = enabled;
-    LeaveCriticalSection(&g_intercept_config.intercept_cs);
+    UNLOCK_MUTEX(g_intercept_config.intercept_cs);
 
     if (g_status_callback) {
         char status_msg[256];
         snprintf(status_msg, sizeof(status_msg), "Interception %s", enabled ? "enabled" : "disabled");
-        g_status_callback(status_msg);    }
+        g_status_callback(status_msg);
+    }
 }
 
 INTERCEPT_API void set_intercept_direction(int direction) {
-    EnterCriticalSection(&g_intercept_config.intercept_cs);
+    LOCK_MUTEX(g_intercept_config.intercept_cs);
     g_intercept_config.enabled_directions = (intercept_direction_t)direction;
-    LeaveCriticalSection(&g_intercept_config.intercept_cs);
+    UNLOCK_MUTEX(g_intercept_config.intercept_cs);
 
     if (g_status_callback) {
         char status_msg[256];
@@ -452,11 +519,12 @@ INTERCEPT_API void set_intercept_direction(int direction) {
             case INTERCEPT_BOTH: dir_str = "Both directions"; break;
         }
         snprintf(status_msg, sizeof(status_msg), "Intercept direction set to: %s", dir_str);
-        g_status_callback(status_msg);    }
+        g_status_callback(status_msg);
+    }
 }
 
 INTERCEPT_API void respond_to_intercept(int connection_id, int action, const unsigned char* modified_data, int modified_length) {
-    EnterCriticalSection(&g_intercept_config.intercept_cs);
+    LOCK_MUTEX(g_intercept_config.intercept_cs);
 
     // Find the intercept data for this connection
     for (int i = 0; i < g_intercept_count; i++) {
@@ -485,12 +553,12 @@ INTERCEPT_API void respond_to_intercept(int connection_id, int action, const uns
             }
 
             intercept->is_waiting_for_response = 0;
-            SetEvent(intercept->response_event);
+            SET_EVENT(intercept->response_event);
             break;
         }
     }
 
-    LeaveCriticalSection(&g_intercept_config.intercept_cs);
+    UNLOCK_MUTEX(g_intercept_config.intercept_cs);
 }
 
 /* Get system IP addresses */
@@ -500,10 +568,11 @@ INTERCEPT_API int get_system_ips(char* buffer, int buffer_size) {
     buffer[0] = '\0';
     int offset = 0;
 
-    // Add localhost and 0.0.0.0 (any interface)
+    // Add localhost and 0.0.0.0 (any interface) for all platforms
     offset += snprintf(buffer + offset, buffer_size - offset, "127.0.0.1;0.0.0.0;");
 
-    // Get adapter info
+#ifdef INTERCEPT_WINDOWS
+    // Windows-specific implementation using WinAPI
     ULONG adapter_info_size = 0;
     if (GetAdaptersInfo(NULL, &adapter_info_size) == ERROR_BUFFER_OVERFLOW) {
         PIP_ADAPTER_INFO adapter_info = (PIP_ADAPTER_INFO)malloc(adapter_info_size);
@@ -524,12 +593,49 @@ INTERCEPT_API int get_system_ips(char* buffer, int buffer_size) {
             free(adapter_info);
         }
     }
+#else
+    // Linux/macOS implementation using getifaddrs
+    struct ifaddrs *ifaddr, *ifa;
+    char host[MAX_IP_ADDR_LEN];
+
+    if (getifaddrs(&ifaddr) == -1) {
+        perror("getifaddrs");
+        return offset;
+    }
+
+    // Walk through linked list, maintaining head pointer for cleanup
+    for (ifa = ifaddr; ifa != NULL && offset < buffer_size - 20; ifa = ifa->ifa_next) {
+        if (ifa->ifa_addr == NULL)
+            continue;
+
+        // Only handle IPv4 addresses
+        if (ifa->ifa_addr->sa_family == AF_INET) {
+            // Get the IP address
+            int s = getnameinfo(ifa->ifa_addr, sizeof(struct sockaddr_in),
+                                host, MAX_IP_ADDR_LEN,
+                                NULL, 0, NI_NUMERICHOST);
+
+            if (s != 0) {
+                fprintf(stderr, "getnameinfo() failed: %s\n", gai_strerror(s));
+                continue;
+            }
+
+            // Skip duplicates (localhost already added)
+            if (strcmp(host, "127.0.0.1") == 0 || strcmp(host, "0.0.0.0") == 0)
+                continue;
+
+            offset += snprintf(buffer + offset, buffer_size - offset, "%s;", host);
+        }
+    }
+
+    freeifaddrs(ifaddr);
+#endif
 
     return offset;
 }
 
 /* Get current proxy configuration */
-INTERCEPT_API BOOL get_proxy_config(char* bind_addr, int* port, char* log_file, int* verbose_mode) {
+INTERCEPT_API intercept_bool_t get_proxy_config(char* bind_addr, int* port, char* log_file, int* verbose_mode) {
     if (!bind_addr || !port || !log_file || !verbose_mode) return FALSE;
     strcpy(bind_addr, config.bind_addr);
     *port = config.port;
@@ -540,7 +646,7 @@ INTERCEPT_API BOOL get_proxy_config(char* bind_addr, int* port, char* log_file, 
 }
 
 /* Get proxy statistics */
-INTERCEPT_API BOOL get_proxy_stats(int* connections, int* bytes_transferred) {
+INTERCEPT_API intercept_bool_t get_proxy_stats(int* connections, int* bytes_transferred) {
     if (!connections || !bytes_transferred) return FALSE;
 
     *connections = g_total_connections;

@@ -97,8 +97,7 @@ static int app_fsetmod(FILE *fp, char mod)
 extern "C" {
 #endif
 
-#include "../include/tls_proxy_dll.h"
-INTERCEPT_API
+__declspec(dllexport)
 void **
 # if defined(__BORLANDC__)
 /*

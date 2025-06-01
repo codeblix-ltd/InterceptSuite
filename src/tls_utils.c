@@ -23,17 +23,7 @@ extern int g_intercept_count;
 static int g_connection_id_counter = 0;
 
 /*
- * Print OpenSSL error messages
- */
-static void print_openssl_error(void) {
-    unsigned long err;
-    while ((err = ERR_get_error())) {
-        char *str = ERR_error_string(err, NULL);
-        fprintf(stderr, "OpenSSL Error: %s\n", str);
-    }
-}
-
-/*
+ /*
  * Pretty print intercepted data in table format
  */
 void pretty_print_data(const char *direction, const unsigned char *data, int len,
@@ -335,8 +325,13 @@ void forward_data(SSL *src, SSL *dst, const char *direction, const char *src_ip,
             intercept_data.modified_length = 0;
 
             // Create response event
-            intercept_data.response_event = CreateEvent(NULL, FALSE, FALSE, NULL);
+            intercept_data.response_event = CREATE_EVENT();
+            #ifdef INTERCEPT_WINDOWS
             if (!intercept_data.response_event) {
+#else
+            // POSIX: Assume event creation succeeded
+            if (0) {
+#endif
                 send_status_update("Error: Failed to create intercept response event");
                 break;
             }
@@ -344,19 +339,19 @@ void forward_data(SSL *src, SSL *dst, const char *direction, const char *src_ip,
             // Copy data to intercept structure
             intercept_data.data = malloc(len);
             if (!intercept_data.data) {
-                CloseHandle(intercept_data.response_event);
+                CLOSE_EVENT(intercept_data.response_event);
                 send_status_update("Error: Failed to allocate memory for intercept data");
                 break;
             }
             memcpy(intercept_data.data, buffer, len);
 
             // Store in global array for response handling
-            EnterCriticalSection(&g_intercept_config.intercept_cs);
+            LOCK_MUTEX(g_intercept_config.intercept_cs);
             if (g_intercept_count < 100) {
                 g_active_intercepts[g_intercept_count] = &intercept_data;
                 g_intercept_count++;
             }
-            LeaveCriticalSection(&g_intercept_config.intercept_cs);
+            UNLOCK_MUTEX(g_intercept_config.intercept_cs);
 
             // Send data to GUI for interception
             send_intercept_data(connection_id, direction, src_ip, dst_ip, dst_port, buffer, len);
@@ -366,12 +361,12 @@ void forward_data(SSL *src, SSL *dst, const char *direction, const char *src_ip,
                 // Cleanup on error
                 free(intercept_data.data);
                 if (intercept_data.modified_data) free(intercept_data.modified_data);
-                CloseHandle(intercept_data.response_event);
+                CLOSE_EVENT(intercept_data.response_event);
                 break;
             }
 
             // Remove from active intercepts array
-            EnterCriticalSection(&g_intercept_config.intercept_cs);
+            LOCK_MUTEX(g_intercept_config.intercept_cs);
             for (int i = 0; i < g_intercept_count; i++) {
                 if (g_active_intercepts[i] == &intercept_data) {
                     // Shift remaining elements
@@ -382,14 +377,14 @@ void forward_data(SSL *src, SSL *dst, const char *direction, const char *src_ip,
                     break;
                 }
             }
-            LeaveCriticalSection(&g_intercept_config.intercept_cs);
+            UNLOCK_MUTEX(g_intercept_config.intercept_cs);
 
             // Handle user response
             if (intercept_data.action == INTERCEPT_ACTION_DROP) {
                 // Drop the data - don't forward it
                 free(intercept_data.data);
                 if (intercept_data.modified_data) free(intercept_data.modified_data);
-                CloseHandle(intercept_data.response_event);
+                CLOSE_EVENT(intercept_data.response_event);
                 continue; // Skip forwarding and go to next iteration
             } else if (intercept_data.action == INTERCEPT_ACTION_MODIFY && intercept_data.modified_data) {
                 // Use modified data instead of original
@@ -400,7 +395,7 @@ void forward_data(SSL *src, SSL *dst, const char *direction, const char *src_ip,
             // Cleanup intercept data
             free(intercept_data.data);
             if (intercept_data.modified_data) free(intercept_data.modified_data);
-            CloseHandle(intercept_data.response_event);
+            CLOSE_EVENT(intercept_data.response_event);
         }
 
         // Additional SSL state validation before write
@@ -508,11 +503,14 @@ void forward_tcp_data(socket_t src, socket_t dst, const char *direction, const c
                     snprintf(status_msg, sizeof(status_msg), "TCP connection closed by peer (%s)", direction);
                     send_status_update(status_msg);
                 }
-            } else {
-                // Error
+            } else {                // Error
                 if (config.verbose) {
                     char status_msg[256];
-                    snprintf(status_msg, sizeof(status_msg), "TCP recv error (%s): %d", direction, WSAGetLastError());
+#ifdef INTERCEPT_WINDOWS
+                    snprintf(status_msg, sizeof(status_msg), "TCP recv error (%s): %d", direction, GET_SOCKET_ERROR());
+#else
+                    snprintf(status_msg, sizeof(status_msg), "TCP recv error (%s): %s", direction, strerror(errno));
+#endif
                     send_status_update(status_msg);
                 }
             }
@@ -536,8 +534,13 @@ void forward_tcp_data(socket_t src, socket_t dst, const char *direction, const c
             intercept_data.modified_length = 0;
 
             // Create response event
-            intercept_data.response_event = CreateEvent(NULL, FALSE, FALSE, NULL);
+            intercept_data.response_event = CREATE_EVENT();
+            #ifdef INTERCEPT_WINDOWS
             if (!intercept_data.response_event) {
+#else
+            // POSIX: Assume event creation succeeded
+            if (0) {
+#endif
                 send_status_update("Error: Failed to create intercept response event");
                 break;
             }
@@ -545,19 +548,19 @@ void forward_tcp_data(socket_t src, socket_t dst, const char *direction, const c
             // Copy data to intercept structure
             intercept_data.data = malloc(len);
             if (!intercept_data.data) {
-                CloseHandle(intercept_data.response_event);
+                CLOSE_EVENT(intercept_data.response_event);
                 send_status_update("Error: Failed to allocate memory for intercept data");
                 break;
             }
             memcpy(intercept_data.data, buffer, len);
 
             // Store in global array for response handling
-            EnterCriticalSection(&g_intercept_config.intercept_cs);
+            LOCK_MUTEX(g_intercept_config.intercept_cs);
             if (g_intercept_count < 100) {
                 g_active_intercepts[g_intercept_count] = &intercept_data;
                 g_intercept_count++;
             }
-            LeaveCriticalSection(&g_intercept_config.intercept_cs);
+            UNLOCK_MUTEX(g_intercept_config.intercept_cs);
 
             // Send data to GUI for interception
             send_intercept_data(connection_id, direction, src_ip, dst_ip, dst_port, buffer, len);
@@ -567,12 +570,12 @@ void forward_tcp_data(socket_t src, socket_t dst, const char *direction, const c
                 // Cleanup on error
                 free(intercept_data.data);
                 if (intercept_data.modified_data) free(intercept_data.modified_data);
-                CloseHandle(intercept_data.response_event);
+                CLOSE_EVENT(intercept_data.response_event);
                 break;
             }
 
             // Remove from active intercepts array
-            EnterCriticalSection(&g_intercept_config.intercept_cs);
+            LOCK_MUTEX(g_intercept_config.intercept_cs);
             for (int i = 0; i < g_intercept_count; i++) {
                 if (g_active_intercepts[i] == &intercept_data) {
                     // Shift remaining elements
@@ -583,14 +586,14 @@ void forward_tcp_data(socket_t src, socket_t dst, const char *direction, const c
                     break;
                 }
             }
-            LeaveCriticalSection(&g_intercept_config.intercept_cs);
+            UNLOCK_MUTEX(g_intercept_config.intercept_cs);
 
             // Handle user response
             if (intercept_data.action == INTERCEPT_ACTION_DROP) {
                 // Drop the data - don't forward it
                 free(intercept_data.data);
                 if (intercept_data.modified_data) free(intercept_data.modified_data);
-                CloseHandle(intercept_data.response_event);
+                CLOSE_EVENT(intercept_data.response_event);
                 continue; // Skip forwarding and go to next iteration
             } else if (intercept_data.action == INTERCEPT_ACTION_MODIFY && intercept_data.modified_data) {
                 // Use modified data instead of original
@@ -601,17 +604,20 @@ void forward_tcp_data(socket_t src, socket_t dst, const char *direction, const c
             // Cleanup intercept data
             free(intercept_data.data);
             if (intercept_data.modified_data) free(intercept_data.modified_data);
-            CloseHandle(intercept_data.response_event);
+            CLOSE_EVENT(intercept_data.response_event);
         }
 
         // Forward to the destination
         int sent = 0;
         while (sent < len) {
-            int written = send(dst, (char*)buffer + sent, len - sent, 0);
-            if (written <= 0) {
+            int written = send(dst, (char*)buffer + sent, len - sent, 0);            if (written <= 0) {
                 if (config.verbose) {
                     char status_msg[256];
-                    snprintf(status_msg, sizeof(status_msg), "TCP send error (%s): %d", direction, WSAGetLastError());
+#ifdef INTERCEPT_WINDOWS
+                    snprintf(status_msg, sizeof(status_msg), "TCP send error (%s): %d", direction, GET_SOCKET_ERROR());
+#else
+                    snprintf(status_msg, sizeof(status_msg), "TCP send error (%s): %s", direction, strerror(errno));
+#endif
                     send_status_update(status_msg);
                 }
                 return;
@@ -953,18 +959,16 @@ THREAD_RETURN_TYPE handle_client(void *arg) {
     if (!arg) {
         fprintf(stderr, "Error: NULL argument passed to handle_client\n");
         THREAD_RETURN;
-    }
-
-    client_info *client = (client_info*)arg;
+    }    client_info *client = (client_info*)arg;
     socket_t client_sock = client->client_sock;
-    socket_t server_sock = INVALID_SOCKET;
+    socket_t server_sock = SOCKET_ERROR_VAL; // Using platform-independent macro
     SSL_CTX *server_ctx = NULL;
     SSL_CTX *client_ctx = NULL;
     SSL *server_ssl = NULL;
     SSL *client_ssl = NULL;
     X509 *cert = NULL;
     EVP_PKEY *key = NULL;
-    THREAD_HANDLE thread_id;
+    THREAD_HANDLE thread_id = INVALID_THREAD_ID;
     char target_host[MAX_HOSTNAME_LEN];
     char client_ip[MAX_IP_ADDR_LEN];
     char server_ip[MAX_IP_ADDR_LEN];
@@ -977,15 +981,23 @@ THREAD_RETURN_TYPE handle_client(void *arg) {
     connection_id = ++g_connection_id_counter;
 
     // Get client IP address as string
-    inet_ntop(AF_INET, &(client->client_addr.sin_addr), client_ip, MAX_IP_ADDR_LEN);
-
-    // Set socket options for better compatibility
-    DWORD timeout = 120000;  // 120 seconds timeout
+    inet_ntop(AF_INET, &(client->client_addr.sin_addr), client_ip, MAX_IP_ADDR_LEN);    // Set socket options for better compatibility
+#ifdef INTERCEPT_WINDOWS
+    DWORD timeout = 120000;  // 120 seconds timeout in milliseconds for Windows
+#else
+    struct timeval timeout;
+    timeout.tv_sec = 120;    // 120 seconds for POSIX
+    timeout.tv_usec = 0;
+#endif
     setsockopt(client_sock, SOL_SOCKET, SO_RCVTIMEO, (const char*)&timeout, sizeof(timeout));
     setsockopt(client_sock, SOL_SOCKET, SO_SNDTIMEO, (const char*)&timeout, sizeof(timeout));
 
     // TCP keepalive to detect dead connections
+#ifdef INTERCEPT_WINDOWS
     DWORD keepAlive = 1;
+#else
+    int keepAlive = 1;
+#endif
     setsockopt(client_sock, SOL_SOCKET, SO_KEEPALIVE, (const char*)&keepAlive, sizeof(keepAlive));
 
     // Handle the SOCKS5 handshake
@@ -1006,25 +1018,36 @@ THREAD_RETURN_TYPE handle_client(void *arg) {
     }
 
     // Connect to the real server before deciding protocol type
-    server_sock = socket(AF_INET, SOCK_STREAM, 0);
-    if (server_sock == INVALID_SOCKET) {
-        fprintf(stderr, "Failed to create socket for server connection: %d\n", WSAGetLastError());
+    server_sock = socket(AF_INET, SOCK_STREAM, 0);    if (server_sock == SOCKET_ERROR_VAL) {
+#ifdef INTERCEPT_WINDOWS
+        fprintf(stderr, "Failed to create socket for server connection: %d\n", GET_SOCKET_ERROR());
+#else
+        fprintf(stderr, "Failed to create socket for server connection: %s\n", strerror(errno));
+#endif
         goto cleanup;
-    }
-
-    // Set server socket options
-    DWORD server_timeout = 60000;  // 60 seconds timeout
+    }// Set server socket options
+#ifdef INTERCEPT_WINDOWS
+    DWORD server_timeout = 60000;  // 60 seconds timeout in milliseconds for Windows
+#else
+    struct timeval server_timeout;
+    server_timeout.tv_sec = 60;    // 60 seconds for POSIX
+    server_timeout.tv_usec = 0;
+#endif
     if (setsockopt(server_sock, SOL_SOCKET, SO_RCVTIMEO, (const char*)&server_timeout, sizeof(server_timeout)) != 0 ||
         setsockopt(server_sock, SOL_SOCKET, SO_SNDTIMEO, (const char*)&server_timeout, sizeof(server_timeout)) != 0) {
         if (config.verbose) {
-            fprintf(stderr, "Warning: Failed to set server socket timeout: %d\n", WSAGetLastError());
+#ifdef INTERCEPT_WINDOWS
+            fprintf(stderr, "Warning: Failed to set server socket timeout: %d\n", GET_SOCKET_ERROR());
+#else
+            fprintf(stderr, "Warning: Failed to set server socket timeout: %s\n", strerror(errno));
+#endif
         }
     }
 
     // Resolve hostname
     struct hostent *host = gethostbyname(target_host);
     if (!host) {
-        fprintf(stderr, "Failed to resolve hostname %s: %d\n", target_host, WSAGetLastError());
+        fprintf(stderr, "Failed to resolve hostname %s: %d\n", target_host, GET_SOCKET_ERROR());
         goto cleanup;
     }
 
@@ -1042,18 +1065,27 @@ THREAD_RETURN_TYPE handle_client(void *arg) {
     }
 
     // Log connection attempt
-    log_message("Connecting to server %s (%s):%d", target_host, server_ip, target_port);
-
-    ret = connect(server_sock, (struct sockaddr*)&server_addr, sizeof(server_addr));
-    if (ret == SOCKET_ERROR) {
-        int error = WSAGetLastError();
+    log_message("Connecting to server %s (%s):%d", target_host, server_ip, target_port);    ret = connect(server_sock, (struct sockaddr*)&server_addr, sizeof(server_addr));
+    if (ret == SOCKET_OPTS_ERROR) {
+#ifdef INTERCEPT_WINDOWS
+        int error = GET_SOCKET_ERROR();
+#else
+        int error = errno;
+#endif
         fprintf(stderr, "Failed to connect to server %s:%d: %d\n",
                 target_host, target_port, error);
         log_message("Connection to %s:%d failed with error %d", target_host, target_port, error);
         goto cleanup;
-    }    // Set TCP_NODELAY for better performance
+    }
+
+    // Set TCP_NODELAY for better performance
     int nodelay = 1;
-    setsockopt(server_sock, IPPROTO_TCP, TCP_NODELAY, (const char*)&nodelay, sizeof(nodelay));    // Detect protocol type (TLS, HTTP, or plain TCP)
+#ifdef INTERCEPT_WINDOWS
+    setsockopt(server_sock, IPPROTO_TCP, TCP_NODELAY, (const char*)&nodelay, sizeof(nodelay));
+#else
+    // On POSIX systems, TCP_NODELAY is included from netinet/tcp.h
+    setsockopt(server_sock, IPPROTO_TCP, TCP_NODELAY, &nodelay, sizeof(nodelay));
+#endif// Detect protocol type (TLS, HTTP, or plain TCP)
     protocol_type = detect_protocol(client_sock);
 
     if (protocol_type == PROTOCOL_TLS) {
@@ -1127,9 +1159,7 @@ THREAD_RETURN_TYPE handle_client(void *arg) {
 
         if (ret != 1) {
             int ssl_error = SSL_get_error(server_ssl, ret);
-            unsigned long error_reason = ERR_peek_error();
-
-            fprintf(stderr, "Failed to perform TLS handshake with client: %d (reason: 0x%lx)\n",
+            unsigned long error_reason = ERR_peek_error();            fprintf(stderr, "Failed to perform TLS handshake with client: %d (reason: 0x%x)\n",
                     ssl_error, ERR_GET_REASON(error_reason));
             print_openssl_error();
 
@@ -1290,18 +1320,18 @@ THREAD_RETURN_TYPE handle_client(void *arg) {
     client_to_server->src_ip[MAX_IP_ADDR_LEN-1] = '\0';
     client_to_server->dst_ip[MAX_IP_ADDR_LEN-1] = '\0';
     server_to_client->src_ip[MAX_IP_ADDR_LEN-1] = '\0';
-    server_to_client->dst_ip[MAX_IP_ADDR_LEN-1] = '\0';
-
-    // Start both forwarding threads
-    THREAD_HANDLE thread_id2;
+    server_to_client->dst_ip[MAX_IP_ADDR_LEN-1] = '\0';    // Start both forwarding threads
+    THREAD_HANDLE thread_id2 = INVALID_THREAD_ID;
     CREATE_THREAD(thread_id, forward_data_thread, client_to_server);
     CREATE_THREAD(thread_id2, forward_data_thread, server_to_client);
 
-    // Wait for both threads to finish    if (thread_id != NULL) JOIN_THREAD(thread_id);
-    if (thread_id2 != NULL) JOIN_THREAD(thread_id2);    if (config.verbose) {
-        printf("Connection to %s:%d closed\n", target_host, target_port);
-    }
-    }    else if (protocol_type == PROTOCOL_PLAIN_TCP) {
+    // Wait for both threads to finish
+    if (thread_id != INVALID_THREAD_ID) JOIN_THREAD(thread_id);
+    if (thread_id2 != INVALID_THREAD_ID) JOIN_THREAD(thread_id2);
+
+    if (config.verbose) {
+        printf("Connection to %s:%d closed\n", target_host, target_port);    }
+    } else if (protocol_type == PROTOCOL_PLAIN_TCP) {
         // Non-TLS handling path (any protocol that doesn't start with TLS)
         // This includes HTTP, PostgreSQL, SMTP, and any protocol that might upgrade to TLS later
         if (config.verbose) {
@@ -1349,16 +1379,14 @@ THREAD_RETURN_TYPE handle_client(void *arg) {
         server_to_client->dst_ip[MAX_IP_ADDR_LEN-1] = '\0';
 
         // Log connection info
-        log_message("Established direct TCP connection: %s -> %s:%d", client_ip, server_ip, target_port);
-
-        // Start TCP forwarding threads
-        THREAD_HANDLE thread_id2;
+        log_message("Established direct TCP connection: %s -> %s:%d", client_ip, server_ip, target_port);        // Start TCP forwarding threads
+        THREAD_HANDLE thread_id2 = INVALID_THREAD_ID;
         CREATE_THREAD(thread_id, forward_tcp_thread, client_to_server);
         CREATE_THREAD(thread_id2, forward_tcp_thread, server_to_client);
 
         // Wait for both threads to finish
-        if (thread_id != NULL) JOIN_THREAD(thread_id);
-        if (thread_id2 != NULL) JOIN_THREAD(thread_id2);
+        if (thread_id != INVALID_THREAD_ID) JOIN_THREAD(thread_id);
+        if (thread_id2 != INVALID_THREAD_ID) JOIN_THREAD(thread_id2);
 
         if (config.verbose) {
             printf("TCP connection to %s:%d closed\n", target_host, target_port);
@@ -1442,17 +1470,15 @@ cleanup:
     if (key) {
         EVP_PKEY_free(key);
         key = NULL;
+    }    // Close sockets safely
+    if (server_sock != SOCKET_ERROR_VAL) {
+        CLOSE_SOCKET(server_sock);
+        server_sock = SOCKET_ERROR_VAL;
     }
 
-    // Close sockets safely
-    if (server_sock != INVALID_SOCKET) {
-        close_socket(server_sock);
-        server_sock = INVALID_SOCKET;
-    }
-
-    if (client_sock != INVALID_SOCKET) {
-        close_socket(client_sock);
-        client_sock = INVALID_SOCKET;
+    if (client_sock != SOCKET_ERROR_VAL) {
+        CLOSE_SOCKET(client_sock);
+        client_sock = SOCKET_ERROR_VAL;
     }
 
     // Free client info struct - only free once and null the pointer
@@ -1471,7 +1497,7 @@ int should_intercept_data(const char* direction, int connection_id) {
         return 0;
     }
 
-    EnterCriticalSection(&g_intercept_config.intercept_cs);
+    LOCK_MUTEX(g_intercept_config.intercept_cs);
 
     int should_intercept = 0;
     if (strcmp(direction, "Client->Server") == 0 &&
@@ -1482,7 +1508,7 @@ int should_intercept_data(const char* direction, int connection_id) {
         should_intercept = 1;
     }
 
-    LeaveCriticalSection(&g_intercept_config.intercept_cs);
+    UNLOCK_MUTEX(g_intercept_config.intercept_cs);
     return should_intercept;
 }
 
@@ -1495,10 +1521,14 @@ void send_intercept_data(int connection_id, const char* direction, const char* s
 int wait_for_intercept_response(intercept_data_t* intercept_data) {
     if (!intercept_data || !intercept_data->response_event) {
         return 0;
-    }
-
-    // Wait for user response with a reasonable timeout (60 seconds)
-    DWORD wait_result = WaitForSingleObject(intercept_data->response_event, 60000);    if (wait_result == WAIT_TIMEOUT) {
+    }    // Wait for user response with a reasonable timeout (60 seconds)
+#ifdef INTERCEPT_WINDOWS
+    DWORD wait_result = WAIT_EVENT(intercept_data->response_event, 60000);
+    if (wait_result == WAIT_TIMEOUT) {
+#else
+    int wait_result = WAIT_EVENT(intercept_data->response_event, 60000);
+    if (wait_result != 0) { // Non-zero in POSIX typically means timeout or error
+#endif
         // Timeout - default to forwarding
         intercept_data->action = INTERCEPT_ACTION_FORWARD;
         intercept_data->is_waiting_for_response = 0;
@@ -1507,5 +1537,9 @@ int wait_for_intercept_response(intercept_data_t* intercept_data) {
         }
     }
 
+#ifdef INTERCEPT_WINDOWS
     return (wait_result == WAIT_OBJECT_0 || wait_result == WAIT_TIMEOUT);
+#else
+    return (wait_result == 0 || wait_result != 0); // In POSIX, 0 is success
+#endif
 }
