@@ -46,7 +46,7 @@ extern "C" {
 #endif
 
 /* Callback function types for real-time logging */
-typedef void (*log_callback_t)(const char* timestamp, const char* src_ip, const char* dst_ip, int dst_port, const char* message_type, const char* data);
+typedef void (*log_callback_t)(const char* timestamp, int connection_id, int packet_id, const char* src_ip, const char* dst_ip, int dst_port, const char* message_type, const char* data);
 typedef void (*status_callback_t)(const char* message);
 
 /* Callback function types for real-time proxy events */
@@ -55,7 +55,7 @@ typedef void (*stats_callback_t)(int total_connections, int active_connections, 
 typedef void (*disconnect_callback_t)(int connection_id, const char* reason);
 
 /* Callback function types for interception */
-typedef void (*intercept_callback_t)(int connection_id, const char* direction, const char* src_ip, const char* dst_ip, int dst_port, const unsigned char* data, int data_length);
+typedef void (*intercept_callback_t)(int connection_id, const char* direction, const char* src_ip, const char* dst_ip, int dst_port, const unsigned char* data, int data_length, int packet_id);
 
 /* Start the proxy server (also initializes proxy subsystems) */
 INTERCEPT_API intercept_bool_t start_proxy(void);

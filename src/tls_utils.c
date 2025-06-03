@@ -10,7 +10,7 @@
 #include <ctype.h>  /* For isprint() */
 
 /* External callback functions from main.c */
-extern void send_log_entry(const char* src_ip, const char* dst_ip, int dst_port, const char* message_type, const char* data);
+extern void send_log_entry(const char* src_ip, const char* dst_ip, int dst_port, const char* message_type, const char* data, int connection_id, int packet_id);
 extern void send_status_update(const char* message);
 extern void send_connection_notification(const char* client_ip, int client_port, const char* target_host, int target_port, int connection_id);
 extern void send_disconnect_notification(int connection_id, const char* reason);
@@ -22,12 +22,17 @@ extern int g_intercept_count;
 /* Global connection ID counter */
 static int g_connection_id_counter = 0;
 
+/* Each packet will have unique id*/
+static int g_packet_id_counter = 0;
+
 /*
  /*
  * Pretty print intercepted data in table format
  */
 void pretty_print_data(const char *direction, const unsigned char *data, int len,
-                     const char *src_ip, const char *dst_ip, int dst_port) {    char message[BUFFER_SIZE] = {0};    // In non-verbose mode, filter protocol handshake messages more intelligently
+                     const char *src_ip, const char *dst_ip, int dst_port, int connection_id, int packet_id) {
+
+    char message[BUFFER_SIZE] = {0};    // In non-verbose mode, filter protocol handshake messages more intelligently
     if (!config.verbose) {
         // Skip very small messages that are likely TLS protocol overhead
         if (len < 3) {
@@ -144,7 +149,7 @@ void pretty_print_data(const char *direction, const unsigned char *data, int len
     }
 
     // Send to callback instead of printf
-    send_log_entry(src_ip, dst_ip, dst_port, message_type, message);
+    send_log_entry(src_ip, dst_ip, dst_port, message_type, message, connection_id, packet_id);
 
     // Log to file if configured
     if (config.log_fp) {
@@ -165,6 +170,7 @@ void forward_data(SSL *src, SSL *dst, const char *direction, const char *src_ip,
     struct timeval tv;
     int ret;
     int activity_timeout = 0;
+    int packet_id = ++g_packet_id_counter;
 
     // Comprehensive parameter validation
     if (!src || !dst || !direction || !src_ip || !dst_ip) {
@@ -307,7 +313,7 @@ void forward_data(SSL *src, SSL *dst, const char *direction, const char *src_ip,
             }
             break;
         }        // Print the intercepted data
-        pretty_print_data(direction, buffer, len, src_ip, dst_ip, dst_port);
+        pretty_print_data(direction, buffer, len, src_ip, dst_ip, dst_port, connection_id, packet_id);
 
         // Check if we should intercept this data
         if (should_intercept_data(direction, connection_id)) {
@@ -354,7 +360,7 @@ void forward_data(SSL *src, SSL *dst, const char *direction, const char *src_ip,
             UNLOCK_MUTEX(g_intercept_config.intercept_cs);
 
             // Send data to GUI for interception
-            send_intercept_data(connection_id, direction, src_ip, dst_ip, dst_port, buffer, len);
+            send_intercept_data(connection_id, direction, src_ip, dst_ip, dst_port, buffer, len, packet_id);
 
             // Wait for user response
             if (!wait_for_intercept_response(&intercept_data)) {
@@ -449,6 +455,7 @@ void forward_tcp_data(socket_t src, socket_t dst, const char *direction, const c
     struct timeval tv;
     int ret;
     int activity_timeout = 0;
+    int packet_id = ++g_packet_id_counter;
 
     // Validate parameters
     if (src == INVALID_SOCKET || dst == INVALID_SOCKET || !direction || !src_ip || !dst_ip) {
@@ -516,7 +523,7 @@ void forward_tcp_data(socket_t src, socket_t dst, const char *direction, const c
             }
             break;
         }        // Print the intercepted data
-        pretty_print_data(direction, buffer, len, src_ip, dst_ip, dst_port);
+        pretty_print_data(direction, buffer, len, src_ip, dst_ip, dst_port,connection_id, packet_id);
 
         // Check if we should intercept this data
         if (should_intercept_data(direction, connection_id)) {
@@ -563,7 +570,7 @@ void forward_tcp_data(socket_t src, socket_t dst, const char *direction, const c
             UNLOCK_MUTEX(g_intercept_config.intercept_cs);
 
             // Send data to GUI for interception
-            send_intercept_data(connection_id, direction, src_ip, dst_ip, dst_port, buffer, len);
+            send_intercept_data(connection_id, direction, src_ip, dst_ip, dst_port, buffer, len, packet_id);
 
             // Wait for user response
             if (!wait_for_intercept_response(&intercept_data)) {
@@ -738,6 +745,8 @@ void forward_data_with_detection(SSL *src, SSL *dst, const char *src_ip, const c
     struct timeval tv;
     int ret;
     int activity_timeout = 0;
+    int packet_id = ++g_packet_id_counter;
+
 
     // Enhanced parameter validation
     if (!src || !dst || !src_ip || !dst_ip) {
@@ -877,7 +886,7 @@ void forward_data_with_detection(SSL *src, SSL *dst, const char *src_ip, const c
         }
 
         // Print the intercepted data
-        pretty_print_data("??", buffer, len, src_ip, dst_ip, dst_port);
+        pretty_print_data("??", buffer, len, src_ip, dst_ip, dst_port,connection_id, packet_id);
 
         // Additional SSL state validation before write
         if (!SSL_is_init_finished(dst)) {
@@ -1302,12 +1311,14 @@ THREAD_RETURN_TYPE handle_client(void *arg) {
 
     // Log connection info
     log_message("Established connection: %s -> %s:%d", client_ip, server_ip, target_port);    // Create a second thread for server->client direction
+    printf("Validate the connection");
     forward_info *server_to_client = (forward_info*)malloc(sizeof(forward_info));
     if (!server_to_client) {
         fprintf(stderr, "Memory allocation failed\n");
         free(client_to_server); // Don't leak memory
         goto cleanup;
-    }    server_to_client->src = client_ssl;
+    }
+    server_to_client->src = client_ssl;
     server_to_client->dst = server_ssl;
     strncpy(server_to_client->direction, "Server->Client", sizeof(server_to_client->direction)-1);
     server_to_client->direction[sizeof(server_to_client->direction)-1] = '\0';
@@ -1315,19 +1326,22 @@ THREAD_RETURN_TYPE handle_client(void *arg) {
     strncpy(server_to_client->dst_ip, client_ip, MAX_IP_ADDR_LEN-1);
     server_to_client->dst_port = ntohs(client->client_addr.sin_port);
     server_to_client->connection_id = connection_id;
-
+    printf("Hello world connection print check");
     // Make sure strings are null-terminated
     client_to_server->src_ip[MAX_IP_ADDR_LEN-1] = '\0';
     client_to_server->dst_ip[MAX_IP_ADDR_LEN-1] = '\0';
     server_to_client->src_ip[MAX_IP_ADDR_LEN-1] = '\0';
     server_to_client->dst_ip[MAX_IP_ADDR_LEN-1] = '\0';    // Start both forwarding threads
+    printf("Create Threads Now");
     THREAD_HANDLE thread_id2 = INVALID_THREAD_ID;
     CREATE_THREAD(thread_id, forward_data_thread, client_to_server);
     CREATE_THREAD(thread_id2, forward_data_thread, server_to_client);
-
+    printf("Wait for Threads");
     // Wait for both threads to finish
     if (thread_id != INVALID_THREAD_ID) JOIN_THREAD(thread_id);
     if (thread_id2 != INVALID_THREAD_ID) JOIN_THREAD(thread_id2);
+
+    printf("Threads completed");
 
     if (config.verbose) {
         printf("Connection to %s:%d closed\n", target_host, target_port);    }
@@ -1512,9 +1526,9 @@ int should_intercept_data(const char* direction, int connection_id) {
     return should_intercept;
 }
 
-void send_intercept_data(int connection_id, const char* direction, const char* src_ip, const char* dst_ip, int dst_port, const unsigned char* data, int data_length) {
+void send_intercept_data(int connection_id, const char* direction, const char* src_ip, const char* dst_ip, int dst_port, const unsigned char* data, int data_length, int packet_id) {
     if (g_intercept_callback) {
-        g_intercept_callback(connection_id, direction, src_ip, dst_ip, dst_port, data, data_length);
+        g_intercept_callback(connection_id, direction, src_ip, dst_ip, dst_port, data, data_length, packet_id);
     }
 }
 

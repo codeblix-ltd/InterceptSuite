@@ -1,5 +1,31 @@
 cmake_minimum_required(VERSION 3.14)
+
+# Set triplet and architecture BEFORE project() call
+if(APPLE)
+    # Detect if we're on ARM64 Mac and set the appropriate triplet
+    execute_process(COMMAND uname -m OUTPUT_VARIABLE UNAME_MACHINE OUTPUT_STRIP_TRAILING_WHITESPACE)
+    if(UNAME_MACHINE MATCHES "arm64|aarch64")
+        set(VCPKG_TARGET_TRIPLET "arm64-osx" CACHE STRING "")
+        set(ENV{VCPKG_DEFAULT_TRIPLET} "arm64-osx")
+        # Force CMake to target ARM64 - these MUST be set before project()
+        set(CMAKE_OSX_ARCHITECTURES "arm64" CACHE STRING "" FORCE)
+        set(CMAKE_SYSTEM_PROCESSOR "arm64" CACHE STRING "" FORCE)
+        set(CMAKE_HOST_SYSTEM_PROCESSOR "arm64" CACHE STRING "" FORCE)
+        set(CMAKE_C_COMPILER_TARGET "arm64-apple-darwin" CACHE STRING "" FORCE)
+        message(STATUS "Detected ARM64 macOS (${UNAME_MACHINE}), forcing ARM64 build")
+    else()
+        set(VCPKG_TARGET_TRIPLET "x64-osx" CACHE STRING "")
+        # Force CMake to target x86_64
+        set(CMAKE_OSX_ARCHITECTURES "x86_64" CACHE STRING "" FORCE)
+        set(CMAKE_SYSTEM_PROCESSOR "x86_64" CACHE STRING "" FORCE)
+        set(CMAKE_HOST_SYSTEM_PROCESSOR "x86_64" CACHE STRING "" FORCE)
+        set(CMAKE_C_COMPILER_TARGET "x86_64-apple-darwin" CACHE STRING "" FORCE)
+        message(STATUS "Detected x64 macOS (${UNAME_MACHINE}), forcing x64 build")
+    endif()
+endif()
+
 project(InterceptSuite C)
+
 
 set(CMAKE_C_STANDARD 11)
 
