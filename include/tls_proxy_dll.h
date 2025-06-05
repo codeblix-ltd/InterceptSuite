@@ -86,11 +86,26 @@ INTERCEPT_API void respond_to_intercept(int connection_id, int action, const uns
 /* Get system network interfaces */
 INTERCEPT_API int get_system_ips(char* buffer, int buffer_size);
 
-/* Get current proxy configuration */
-INTERCEPT_API intercept_bool_t get_proxy_config(char* bind_addr, int* port, char* log_file, int* verbose_mode);
+/* Structure to hold intercept configuration details */
+typedef struct {
+    int is_enabled;           /* Interception enabled (1) or disabled (0) */
+    int direction;            /* Direction: None (0), Client->Server (1), Server->Client (2), Both (3) */
+} intercept_status_t;
 
-/* Get proxy statistics */
-INTERCEPT_API intercept_bool_t get_proxy_stats(int* connections, int* bytes_transferred);
+/* Get current intercept configuration */
+INTERCEPT_API intercept_status_t get_intercept_config(void);
+
+/* Structure to hold proxy configuration details */
+typedef struct {
+    char bind_addr[64];       /* Binding IP address */
+    int port;                 /* Proxy port */
+    char log_file[256];       /* Log file path */
+    int verbose_mode;         /* Verbose logging enabled (1) or disabled (0) */
+    int is_running;           /* Proxy status: running (1) or stopped (0) */
+} proxy_config_t;
+
+/* Get current proxy configuration with status */
+INTERCEPT_API proxy_config_t get_proxy_config(void);
 
 #ifdef __cplusplus
 }

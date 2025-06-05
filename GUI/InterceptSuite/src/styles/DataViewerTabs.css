@@ -1,0 +1,185 @@
+/* DataViewerTabs.css */
+/* Styles for the reusable data viewer tabs component */
+
+.data-viewer-tabs-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.data-viewer-tabs {
+  display: flex;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0;
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.tab-button {
+  background: var(--surface);
+  border: none;
+  border-right: 1px solid var(--border);
+  color: var(--text-secondary);
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: var(--transition);
+  position: relative;
+  min-width: 80px;
+}
+
+.tab-button:hover:not(.disabled) {
+  background: var(--surface-darker);
+  color: var(--text-primary);
+}
+
+.tab-button.active {
+  background: var(--background);
+  color: var(--primary-color);
+  border-bottom: 2px solid var(--primary-color);
+  font-weight: 600;
+}
+
+.tab-button.active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--background);
+}
+
+.tab-button.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  color: var(--text-secondary);
+}
+
+.tab-button:last-child {
+  border-right: none;
+}
+
+.data-viewer-content {
+  flex: 1;
+  overflow: hidden;
+  padding: 0;
+  background: var(--background);
+  display: flex;
+  flex-direction: column;
+}
+
+.data-content {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 12px;
+  background: var(--surface-darker);
+  border: 1px solid var(--border);
+  border-radius: 0;
+  color: var(--text-primary);
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow: auto;
+  resize: none;
+  flex: 1;
+  min-height: 0;
+}
+
+.data-content.editable {
+  border-radius: 0;
+  border: none;
+  border-top: 1px solid var(--border);
+  background: var(--surface-darker);
+  outline: none;
+}
+
+.data-content.editable:focus {
+  background: var(--background);
+  border-top-color: var(--primary-color);
+  outline: none;
+}
+
+.raw-data {
+  color: var(--text-primary);
+}
+
+.formatted-data {
+  color: var(--text-primary);
+}
+
+.hex-data {
+  color: var(--text-primary);
+  font-size: 11px;
+  letter-spacing: 0.5px;
+}
+
+.byte-data {
+  color: var(--text-primary);
+  font-size: 11px;
+}
+
+.analysis-data {
+  background: var(--background);
+  border: none;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  white-space: normal;
+}
+
+.analysis-section {
+  margin-bottom: 20px;
+}
+
+.analysis-section h4 {
+  margin: 0 0 12px 0;
+  color: var(--primary-color);
+  font-size: 14px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 4px;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.stat-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 8px;
+  background: var(--surface-darker);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+}
+
+.stat-label {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.stat-value {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.empty-data-message {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-secondary);
+  font-style: italic;
+  font-size: 14px;
+  min-height: 200px;
+}

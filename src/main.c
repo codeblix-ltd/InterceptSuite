@@ -523,6 +523,17 @@ INTERCEPT_API void set_intercept_direction(int direction) {
     }
 }
 
+INTERCEPT_API intercept_status_t get_intercept_config(void) {
+    intercept_status_t result = {0};
+
+    LOCK_MUTEX(g_intercept_config.intercept_cs);
+    result.is_enabled = g_intercept_config.is_interception_enabled;
+    result.direction = (int)g_intercept_config.enabled_directions;
+    UNLOCK_MUTEX(g_intercept_config.intercept_cs);
+
+    return result;
+}
+
 INTERCEPT_API void respond_to_intercept(int connection_id, int action, const unsigned char* modified_data, int modified_length) {
     LOCK_MUTEX(g_intercept_config.intercept_cs);
 
@@ -635,24 +646,24 @@ INTERCEPT_API int get_system_ips(char* buffer, int buffer_size) {
 }
 
 /* Get current proxy configuration */
-INTERCEPT_API intercept_bool_t get_proxy_config(char* bind_addr, int* port, char* log_file, int* verbose_mode) {
-    if (!bind_addr || !port || !log_file || !verbose_mode) return FALSE;
-    strcpy(bind_addr, config.bind_addr);
-    *port = config.port;
-    strcpy(log_file, config.log_file);
-    *verbose_mode = config.verbose;
+INTERCEPT_API proxy_config_t get_proxy_config(void) {
+    proxy_config_t result;
 
-    return TRUE;
+    /* Copy configuration data */
+    strcpy(result.bind_addr, config.bind_addr);
+    result.port = config.port;
+    strcpy(result.log_file, config.log_file);
+    result.verbose_mode = config.verbose;
+
+    /* Determine if proxy is running */
+#ifdef INTERCEPT_WINDOWS
+    result.is_running = (g_server.server_sock != INVALID_SOCKET && g_server.thread_handle != NULL);
+#else
+    result.is_running = (g_server.server_sock > 0 && g_server.thread_handle != 0);
+#endif
+
+    return result;
 }
 
 /* Get proxy statistics */
-INTERCEPT_API intercept_bool_t get_proxy_stats(int* connections, int* bytes_transferred) {
-    if (!connections || !bytes_transferred) return FALSE;
-
-    *connections = g_total_connections;
-    *bytes_transferred = g_total_bytes;
-
-    return TRUE;
-}
-
 /* Process enumeration functionality has been removed as it was only needed for WinDivert */

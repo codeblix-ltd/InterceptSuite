@@ -230,7 +230,8 @@ void forward_data(SSL *src, SSL *dst, const char *direction, const char *src_ip,
 
         // Set a 1 second timeout to allow for more responsive termination
         tv.tv_sec = 1;
-        tv.tv_usec = 0;        ret = select((int)(fd + 1), &readfds, NULL, NULL, &tv);
+        tv.tv_usec = 0;
+        ret = select((int)(fd + 1), &readfds, NULL, NULL, &tv);
         if (ret < 0) {
             send_status_update("Error: select() failed in data forwarding");
             break;

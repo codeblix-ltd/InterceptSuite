@@ -23,7 +23,15 @@
 #endif
 
 // Function pointer types (matching the DLL interface)
-typedef int (*get_proxy_config_func)(char* bind_addr, int* port, char* log_file, int* verbose_mode);
+typedef struct {
+    char bind_addr[64];       /* Binding IP address */
+    int port;                 /* Proxy port */
+    char log_file[256];       /* Log file path */
+    int verbose_mode;         /* Verbose logging enabled (1) or disabled (0) */
+    int is_running;           /* Proxy status: running (1) or stopped (0) */
+} proxy_config_t;
+
+typedef proxy_config_t (*get_proxy_config_func)(void);
 typedef int (*get_proxy_stats_func)(int* connections, int* bytes_transferred);
 typedef int (*get_system_ips_func)(char* ip_buffer, int buffer_size);
 typedef int (*set_config_func)(const char* bind_addr, int port, const char* log_file, int verbose_mode);
@@ -56,26 +64,17 @@ int main() {
         FREE_LIBRARY(lib);
         return 1;
     }
-    printf("✓ Successfully loaded all function pointers\n\n");
-
-    // Test 1: Get current proxy configuration
+    printf("✓ Successfully loaded all function pointers\n\n");    // Test 1: Get current proxy configuration
     printf("Test 1: Getting proxy configuration...\n");
-    char bind_addr[256] = {0};
-    int port = 0;
-    char log_file[512] = {0};
-    int verbose_mode = 0;
 
-    int result = get_proxy_config(bind_addr, &port, log_file, &verbose_mode);
+    proxy_config_t config = get_proxy_config();
 
-    if (result) {
-        printf("✓ Successfully retrieved proxy configuration:\n");
-        printf("  Bind Address: %s\n", bind_addr[0] ? bind_addr : "Not set");
-        printf("  Port: %d\n", port);
-        printf("  Log File: %s\n", log_file[0] ? log_file : "Not set");
-        printf("  Verbose Mode: %s\n", verbose_mode ? "Enabled" : "Disabled");
-    } else {
-        printf("✗ Failed to retrieve proxy configuration\n");
-    }
+    printf("✓ Successfully retrieved proxy configuration:\n");
+    printf("  Bind Address: %s\n", config.bind_addr[0] ? config.bind_addr : "Not set");
+    printf("  Port: %d\n", config.port);
+    printf("  Log File: %s\n", config.log_file[0] ? config.log_file : "Not set");
+    printf("  Verbose Mode: %s\n", config.verbose_mode ? "Enabled" : "Disabled");
+    printf("  Proxy Status: %s\n", config.is_running ? "Running" : "Stopped");
 
     printf("\n");
 
@@ -115,21 +114,14 @@ int main() {
     result = set_config("127.0.0.1", 8080, "test.log", 1);
 
     if (result) {
-        printf("✓ Successfully set proxy configuration\n");
-
-        // Verify the configuration was set
-        memset(bind_addr, 0, sizeof(bind_addr));
-        memset(log_file, 0, sizeof(log_file));
-        port = 0;
-        verbose_mode = 0;
-
-        if (get_proxy_config(bind_addr, &port, log_file, &verbose_mode)) {
-            printf("  Verified configuration:\n");
-            printf("    Bind Address: %s\n", bind_addr);
-            printf("    Port: %d\n", port);
-            printf("    Log File: %s\n", log_file);
-            printf("    Verbose Mode: %s\n", verbose_mode ? "Enabled" : "Disabled");
-        }
+        printf("✓ Successfully set proxy configuration\n");        // Verify the configuration was set
+        proxy_config_t config = get_proxy_config();
+        printf("  Verified configuration:\n");
+        printf("    Bind Address: %s\n", config.bind_addr);
+        printf("    Port: %d\n", config.port);
+        printf("    Log File: %s\n", config.log_file);
+        printf("    Verbose Mode: %s\n", config.verbose_mode ? "Enabled" : "Disabled");
+        printf("    Proxy Status: %s\n", config.is_running ? "Running" : "Stopped");
     } else {
         printf("✗ Failed to set proxy configuration\n");
     }
