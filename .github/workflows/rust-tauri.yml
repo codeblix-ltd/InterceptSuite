@@ -34,29 +34,7 @@ jobs:
     - name: Install frontend dependencies
       run: |
         cd GUI/InterceptSuite
-        npm ci
-
-    - name: Create missing components (if needed)
-      run: |
-        cd GUI/InterceptSuite/src/components
-        # Create logs component if it doesn't exist
-        if [ ! -f "logs.tsx" ] && [ ! -f "logs/index.tsx" ]; then
-          echo "Creating placeholder logs component..."
-          cat > logs.tsx << 'EOF'
-        import React from 'react';
-
-        const Logs: React.FC = () => {
-          return (
-            <div>
-              <h2>Logs</h2>
-              <p>Logs component placeholder</p>
-            </div>
-          );
-        };
-
-        export default Logs;
-        EOF
-        fi
+        npm install
 
     - name: Build frontend (development)
       run: |
@@ -83,7 +61,6 @@ jobs:
           libappindicator3-dev \
           librsvg2-dev \
           patchelf \
-          libayatana-appindicator3-dev \
           libglib2.0-dev \
           libgdk-pixbuf-2.0-dev \
           libcairo-gobject2 \
@@ -179,7 +156,6 @@ jobs:
           libappindicator3-dev \
           librsvg2-dev \
           patchelf \
-          libayatana-appindicator3-dev \
           libglib2.0-dev \
           libgdk-pixbuf-2.0-dev \
           libcairo-gobject2 \

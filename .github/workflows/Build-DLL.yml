@@ -14,17 +14,17 @@ jobs:
         include:
           - os: windows-latest
             platform: windows
-            script: build-windows.ps1
+            script: build_windows.ps1
             artifact_pattern: "build/**/*.dll"
 
           - os: ubuntu-latest
             platform: linux
-            script: build-linux.sh
+            script: build_linux.sh
             artifact_pattern: "build/**/*.so"
 
           - os: macos-14
             platform: macos
-            script: build-macos.sh
+            script: build_macos.sh
             artifact_pattern: "build/**/*.dylib"
 
     runs-on: ${{ matrix.os }}

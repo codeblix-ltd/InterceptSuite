@@ -5,7 +5,7 @@ import { TabConfig } from '../types';
 
 // Import all tab components
 import { InterceptTab, ProxyHistoryTab, ConnectionsTab, SettingsTab } from './proxy';
-import { LogsTab } from './logs';
+import { LogsTab } from './logs/index';
 
 // Main Proxy container with sub-tabs
 const ProxyContainer: React.FC = () => {
