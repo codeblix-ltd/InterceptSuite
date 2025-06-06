@@ -31,12 +31,12 @@ When you first run InterceptSuite, the application creates a CA (Certificate Aut
 
 ### CA Certificate Installation
 
-1. **Certificate Generation**: When InterceptSuite is first started, it automatically generates a CA certificate file named `Intercept_Suite_Cert.pem` in the same directory as the InterceptSuite executable.
+1. **Certificate Generation**: When InterceptSuite is first started, it automatically generates a CA certificate file named `Intercept_Suite_Cert.cer` in the same directory as the InterceptSuite executable.
 
 2. **Certificate Installation**: You must install this certificate into your Windows system as a trusted root certificate authority for InterceptSuite to properly intercept TLS traffic.
 
 3. **Installation Steps**:
-   - Locate the `Intercept_Suite_Cert.pem` file in your InterceptSuite installation directory
+   - Locate the `Intercept_Suite_Cert.cer` file in your InterceptSuite installation directory
    - Double-click the certificate file to open it
    - Click "Install Certificate"
    - Select "Local Machine" as the store location

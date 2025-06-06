@@ -77,7 +77,7 @@ For detailed build instructions, see the [Build Guide](Build.md).
 1. Start InterceptSuite
 2. Configure proxy settings (default: 127.0.0.1:4444)
 3. Start the proxy server
-   - **Important:** When first started, InterceptSuite creates a new CA certificate (`Intercept_Suite_Cert.pem`) in the same directory
+   - **Important:** When first started, InterceptSuite creates a new CA certificate (`Intercept_Suite_Cert.cer`) in the same directory
    - You must install this certificate into your Windows system as a trusted root certificate authority
    - To install: double-click the certificate file → Install Certificate → Local Machine → Place all certificates in the following store → Browse → Trusted Root Certification Authorities → OK → Next → Finish
 4. Configure your client application to use the proxy

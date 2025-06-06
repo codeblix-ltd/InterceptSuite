@@ -2,12 +2,19 @@
  * TLS MITM Proxy - Data Processing Utilities Implementation
  */
 
+#define _CRT_SECURE_NO_WARNINGS // Suppress strncpy warnings
+
+#include <openssl/ssl.h> // Ensure OpenSSL function prototypes are available
+#include <openssl/err.h> // For OpenSSL error handling functions
+
 #include "../include/tls_utils.h"
 #include "../include/cert_utils.h"
 #include "../include/socks5.h"
 #include "../include/utils.h"
 #include "../include/tls_proxy_dll.h"
 #include <ctype.h>  /* For isprint() */
+#include <stdbool.h> // For bool type if not already included
+#include <errno.h> // For errno
 
 /* External callback functions from main.c */
 extern void send_log_entry(const char* src_ip, const char* dst_ip, int dst_port, const char* message_type, const char* data, int connection_id, int packet_id);
@@ -26,7 +33,6 @@ static int g_connection_id_counter = 0;
 static int g_packet_id_counter = 0;
 
 /*
- /*
  * Pretty print intercepted data in table format
  */
 void pretty_print_data(const char *direction, const unsigned char *data, int len,
@@ -962,22 +968,128 @@ THREAD_RETURN_TYPE forward_data_with_detection_thread(void *arg) {
     THREAD_RETURN;
 }
 
+
+// Helper to check if a string is an IP address (basic version)
+static bool is_ip_address(const char *str) {
+    if (!str) return false;
+    struct sockaddr_in sa;
+    struct sockaddr_in6 sa6;
+    return inet_pton(AF_INET, str, &(sa.sin_addr)) != 0 || inet_pton(AF_INET6, str, &(sa6.sin6_addr)) != 0;
+}
+
+typedef struct {
+    const char *original_target_host; // From SOCKS
+    SSL_CTX *generated_ctx_for_sni;
+    X509 *generated_cert_for_sni;    // Owned by generated_ctx_for_sni
+    EVP_PKEY *generated_key_for_sni; // Owned by generated_ctx_for_sni
+} client_sni_callback_args;
+
+static int sni_cert_setup_callback(SSL *s, int *ad, void *arg) {
+    client_sni_callback_args *cb_args = (client_sni_callback_args *)arg;
+    const char *sni_hostname = SSL_get_servername(s, TLSEXT_NAMETYPE_host_name);
+    const char *hostname_to_use = NULL;
+
+    if (sni_hostname && strlen(sni_hostname) > 0) {
+        hostname_to_use = sni_hostname;
+        if (config.verbose) {
+            log_message("SNI: Received hostname: %s", sni_hostname);
+        }
+    } else {
+        if (config.verbose) {
+            log_message("SNI: No SNI hostname. Falling back to SOCKS target: %s", cb_args->original_target_host ? cb_args->original_target_host : "N/A");
+        }
+        if (cb_args && cb_args->original_target_host && !is_ip_address(cb_args->original_target_host)) {
+            hostname_to_use = cb_args->original_target_host;
+        } else {
+            log_message("SNI: No usable hostname (SNI absent or SOCKS target is IP/unavailable).");
+            *ad = SSL_AD_UNRECOGNIZED_NAME;
+            return SSL_TLSEXT_ERR_ALERT_FATAL;
+        }
+    }
+
+    if (!hostname_to_use) {
+        log_message("SNI: Critical - No hostname available to generate certificate.");
+        *ad = SSL_AD_INTERNAL_ERROR;
+        return SSL_TLSEXT_ERR_ALERT_FATAL;
+    }
+
+    // Clean up any previous attempt for this session (should not happen if callback is once per handshake)
+    if (cb_args->generated_ctx_for_sni) { SSL_CTX_free(cb_args->generated_ctx_for_sni); cb_args->generated_ctx_for_sni = NULL; }
+    // Cert and key are owned by context, no separate free here if they were part of a previous context.
+
+    X509 *new_cert = NULL;
+    EVP_PKEY *new_key = NULL;
+
+    log_message("SNI: Generating certificate for: %s", hostname_to_use);
+    if (!generate_cert_for_host(hostname_to_use, &new_cert, &new_key)) {
+        fprintf(stderr, "SNI: Failed to generate certificate for %s\\\\n", hostname_to_use);
+        log_message("SNI: Failed to generate certificate for %s", hostname_to_use);
+        *ad = SSL_AD_INTERNAL_ERROR;
+        return SSL_TLSEXT_ERR_ALERT_FATAL;
+    }
+
+    SSL_CTX *original_ctx = SSL_get_SSL_CTX(s); // This is the server_ctx passed to SSL_new
+    SSL_CTX *new_ctx_for_sni = SSL_CTX_new(SSL_CTX_get_ssl_method(original_ctx)); // Use the same method
+    if (!new_ctx_for_sni) {
+        fprintf(stderr, "SNI: Failed to create new SSL_CTX for %s\\n", hostname_to_use);
+        log_message("SNI: Failed to create new SSL_CTX for %s", hostname_to_use);
+        X509_free(new_cert); EVP_PKEY_free(new_key);
+        *ad = SSL_AD_INTERNAL_ERROR;
+        return SSL_TLSEXT_ERR_ALERT_FATAL;
+    }
+
+    // Configure new_ctx_for_sni similar to the one from create_server_ssl_context()
+    // This should ideally be a function or copied settings.
+    // Copy options from the original context
+    long options = SSL_CTX_get_options(original_ctx);
+    SSL_CTX_set_options(new_ctx_for_sni, options);    // Copy cipher list - Use a standard secure cipher list instead of copying
+    if (SSL_CTX_set_cipher_list(new_ctx_for_sni, "HIGH:!aNULL:!eNULL:!EXPORT:!DES:!RC4:!MD5:!PSK:!SRP:!CAMELLIA") != 1) {
+        fprintf(stderr, "SNI: Warning: Failed to set cipher list on new_ctx_for_sni\\n");
+    }
+
+    // Copy session cache mode
+    long cache_mode = SSL_CTX_get_session_cache_mode(original_ctx);
+    SSL_CTX_set_session_cache_mode(new_ctx_for_sni, cache_mode);
+
+
+    if (SSL_CTX_use_certificate(new_ctx_for_sni, new_cert) != 1 ||
+        SSL_CTX_use_PrivateKey(new_ctx_for_sni, new_key) != 1 ||
+        !SSL_CTX_check_private_key(new_ctx_for_sni)) {
+        fprintf(stderr, "SNI: Failed to use generated cert/key for %s in new_ctx_for_sni\\n", hostname_to_use);
+        log_message("SNI: Failed to use generated cert/key for %s", hostname_to_use);
+        print_openssl_error();
+        SSL_CTX_free(new_ctx_for_sni); // new_cert and new_key are freed when new_ctx_for_sni is freed if they were successfully added
+        // If not successfully added, they need explicit free. X509_free(new_cert); EVP_PKEY_free(new_key);
+        *ad = SSL_AD_CERTIFICATE_UNOBTAINABLE;
+        return SSL_TLSEXT_ERR_ALERT_FATAL;
+    }
+
+    SSL_set_SSL_CTX(s, new_ctx_for_sni);
+
+    cb_args->generated_ctx_for_sni = new_ctx_for_sni;
+    cb_args->generated_cert_for_sni = new_cert; // For tracking, owned by context
+    cb_args->generated_key_for_sni = new_key;   // For tracking, owned by context
+
+    return SSL_TLSEXT_ERR_OK;
+}
+
+
 /*
  * Handle a client connection
  */
 THREAD_RETURN_TYPE handle_client(void *arg) {
     if (!arg) {
-        fprintf(stderr, "Error: NULL argument passed to handle_client\n");
+        fprintf(stderr, "Error: NULL argument passed to handle_client\\n");
         THREAD_RETURN;
     }    client_info *client = (client_info*)arg;
     socket_t client_sock = client->client_sock;
     socket_t server_sock = SOCKET_ERROR_VAL; // Using platform-independent macro
-    SSL_CTX *server_ctx = NULL;
+    SSL_CTX *server_ctx = NULL; // This will be the "template" context
     SSL_CTX *client_ctx = NULL;
     SSL *server_ssl = NULL;
     SSL *client_ssl = NULL;
-    X509 *cert = NULL;
-    EVP_PKEY *key = NULL;
+    client_sni_callback_args sni_cb_args = {0}; // Initialize our callback args
+
     THREAD_HANDLE thread_id = INVALID_THREAD_ID;
     char target_host[MAX_HOSTNAME_LEN];
     char client_ip[MAX_IP_ADDR_LEN];
@@ -1075,7 +1187,8 @@ THREAD_RETURN_TYPE handle_client(void *arg) {
     }
 
     // Log connection attempt
-    log_message("Connecting to server %s (%s):%d", target_host, server_ip, target_port);    ret = connect(server_sock, (struct sockaddr*)&server_addr, sizeof(server_addr));
+    log_message("Connecting to server %s (%s):%d", target_host, server_ip, target_port);
+    ret = connect(server_sock, (struct sockaddr*)&server_addr, sizeof(server_addr));
     if (ret == SOCKET_OPTS_ERROR) {
 #ifdef INTERCEPT_WINDOWS
         int error = GET_SOCKET_ERROR();
@@ -1101,35 +1214,41 @@ THREAD_RETURN_TYPE handle_client(void *arg) {
     if (protocol_type == PROTOCOL_TLS) {
         // TLS handling path
         if (config.verbose) {
-            printf("Detected TLS protocol, proceeding with TLS interception\n");
+            printf("Detected TLS protocol, proceeding with TLS interception\\n");
         }
         send_status_update("Proceeding with TLS interception");
 
-        // Generate certificate for the target host
-        if (!generate_cert_for_host(target_host, &cert, &key)) {
-            fprintf(stderr, "Failed to generate certificate for %s\n", target_host);
-            goto cleanup;
-        }
+        // Generate certificate for the target host  -- THIS BLOCK IS REMOVED/MODIFIED
+        // if (!generate_cert_for_host(target_host, &cert, &key)) {
+        //     fprintf(stderr, "Failed to generate certificate for %s\\n", target_host);
+        //     goto cleanup;
+        // }
 
         // Create server context (for client -> proxy)
-        server_ctx = create_server_ssl_context();
+        server_ctx = create_server_ssl_context(); // This is our base/template context
         if (!server_ctx) {
-            fprintf(stderr, "Failed to create server SSL context\n");
+            fprintf(stderr, "Failed to create server SSL context\\n");
             goto cleanup;
         }
 
-        // Use the generated certificate and key
-        if (SSL_CTX_use_certificate(server_ctx, cert) != 1 ||
-            SSL_CTX_use_PrivateKey(server_ctx, key) != 1 ||
-            SSL_CTX_check_private_key(server_ctx) != 1) {
-            fprintf(stderr, "Failed to set up SSL certificate\n");
-            print_openssl_error();
-            goto cleanup;
-        }
+        // Setup SNI callback
+        sni_cb_args.original_target_host = target_host; // Pass the SOCKS target as a fallback
+        SSL_CTX_set_tlsext_servername_callback(server_ctx, sni_cert_setup_callback);
+        SSL_CTX_set_tlsext_servername_arg(server_ctx, &sni_cb_args);
+
+
+        // Use the generated certificate and key -- THIS BLOCK IS REMOVED/MODIFIED
+        // if (SSL_CTX_use_certificate(server_ctx, cert) != 1 ||
+        //     SSL_CTX_use_PrivateKey(server_ctx, key) != 1 ||
+        //     SSL_CTX_check_private_key(server_ctx) != 1) {
+        //     fprintf(stderr, "Failed to set up SSL certificate\\n");
+        //     print_openssl_error();
+        //     goto cleanup;
+        // }
 
         // Create server SSL object and attach to client socket
         if (config.verbose) {
-            printf("Performing TLS handshake with client...\n");
+            printf("Performing TLS handshake with client (SNI callback will set certificate)...\\n");
         }
 
         // Additional validation before creating SSL object
@@ -1165,19 +1284,16 @@ THREAD_RETURN_TYPE handle_client(void *arg) {
         // Clear OpenSSL error queue before handshake
         ERR_clear_error();
 
-        ret = SSL_accept(server_ssl);
-
-        if (ret != 1) {
+        ret = SSL_accept(server_ssl);        if (ret != 1) {
             int ssl_error = SSL_get_error(server_ssl, ret);
-            unsigned long error_reason = ERR_peek_error();            fprintf(stderr, "Failed to perform TLS handshake with client: %d (reason: 0x%x)\n",
-                    ssl_error, ERR_GET_REASON(error_reason));
+            unsigned long error_reason = ERR_peek_error();
+            fprintf(stderr, "Failed to perform TLS handshake with client: %d (reason: 0x%lx)\\n",
+                    ssl_error, error_reason); // Use %lx for unsigned long
             print_openssl_error();
 
             // Log more friendly message for common certificate errors
             if (ERR_GET_REASON(error_reason) == SSL_R_TLSV1_ALERT_BAD_CERTIFICATE ||
-                ERR_GET_REASON(error_reason) == SSL_R_CERTIFICATE_VERIFY_FAILED ||
-                error_reason == SSL_R_TLSV1_ALERT_BAD_CERTIFICATE ||
-                error_reason == SSL_R_CERTIFICATE_VERIFY_FAILED) {
+                ERR_GET_REASON(error_reason) == SSL_R_CERTIFICATE_VERIFY_FAILED) { // Removed duplicate conditions
                 send_status_update("TLS handshake failed: Client rejected our certificate");
                 log_message("Certificate was rejected by client. Consider importing myCA.pem into client's trust store");
             } else {
@@ -1202,17 +1318,28 @@ THREAD_RETURN_TYPE handle_client(void *arg) {
             protocol_type = PROTOCOL_PLAIN_TCP;
 
             // Clean up the remaining TLS resources we won't need
-            if (cert) {
-                X509_free(cert);
-                cert = NULL;
-            }
-            if (key) {
-                EVP_PKEY_free(key);
-                key = NULL;
-            }
+            // if (cert) { // cert and key are no longer managed here for server_ssl
+            //     X509_free(cert);
+            //     cert = NULL;
+            // }
+            // if (key) {
+            //     EVP_PKEY_free(key);
+            //     key = NULL;
+            // }
+            // sni_cb_args.generated_cert_for_sni and sni_cb_args.generated_key_for_sni are owned by sni_cb_args.generated_ctx_for_sni
+            // sni_cb_args.generated_ctx_for_sni will be freed in the main cleanup block if it was set.
 
             // Continue with non-TLS handling
+        } else { // Handshake with client succeeded
+             if (config.verbose) {
+                const char* negotiated_cipher = SSL_get_cipher_name(server_ssl);
+                const char* negotiated_version = SSL_get_version(server_ssl);
+                log_message("TLS handshake with client successful. Cipher: %s, Version: %s",
+                    negotiated_cipher ? negotiated_cipher : "N/A",
+                    negotiated_version ? negotiated_version : "N/A");
+            }
         }
+
 
     // Create client context (for proxy -> server) - only if still doing TLS
     if (protocol_type == PROTOCOL_TLS) {
@@ -1409,91 +1536,35 @@ THREAD_RETURN_TYPE handle_client(void *arg) {
     }
 
 cleanup:
-    // Send disconnect notification
+    if (config.verbose) {
+        printf("Cleaning up connection to %s:%d (ID: %d)\\n", target_host, target_port, connection_id);
+    }
     send_disconnect_notification(connection_id, "Connection closed");
 
-    // Log connection closure
-    if (target_host[0] != '\0') {
-        log_message("Closing connection to %s:%d", target_host, target_port);
-    } else {
-        log_message("Closing SOCKS5 connection (target unknown)");
-    }
-
-    // Clear any OpenSSL errors before cleanup
-    ERR_clear_error();
-
-    // Enhanced SSL cleanup with additional validation and error handling
     if (server_ssl) {
-        // Check if SSL object is valid before shutdown
-        if (SSL_get_fd(server_ssl) != -1) {
-            // Attempt graceful shutdown, but don't block if it fails
-            int shutdown_result = SSL_shutdown(server_ssl);
-            if (shutdown_result == 0) {
-                // First shutdown call completed, call again for bidirectional shutdown
-                SSL_shutdown(server_ssl);
-            } else if (shutdown_result < 0) {
-                // Shutdown failed, but continue with cleanup
-                int ssl_error = SSL_get_error(server_ssl, shutdown_result);
-                if (config.verbose && ssl_error != SSL_ERROR_SYSCALL) {
-                    fprintf(stderr, "Warning: SSL_shutdown failed for server SSL: %d\n", ssl_error);
-                }
-            }
-        }
-
+        SSL_shutdown(server_ssl);
         SSL_free(server_ssl);
-        server_ssl = NULL;
     }
+    // server_ctx is the base/template context, sni_cb_args.generated_ctx_for_sni is the one actually used by server_ssl if SNI callback succeeded.
+    // SSL_set_SSL_CTX replaces the SSL's CTX, but the original server_ctx (template) still needs freeing.
+    // The new CTX created in the SNI callback (sni_cb_args.generated_ctx_for_sni) is associated with the SSL object
+    // and should be freed if it was created.
+    if (sni_cb_args.generated_ctx_for_sni) {
+        SSL_CTX_free(sni_cb_args.generated_ctx_for_sni); // This also frees its cert and key
+    }
+    if (server_ctx) { // Free the base/template server_ctx
+        SSL_CTX_free(server_ctx);
+    }
+    // cert and key are no longer managed at this level for server_ssl
+    // if (cert) X509_free(cert);
+    // if (key) EVP_PKEY_free(key);
 
     if (client_ssl) {
-        // Check if SSL object is valid before shutdown
-        if (SSL_get_fd(client_ssl) != -1) {
-            // Attempt graceful shutdown, but don't block if it fails
-            int shutdown_result = SSL_shutdown(client_ssl);
-            if (shutdown_result == 0) {
-                // First shutdown call completed, call again for bidirectional shutdown
-                SSL_shutdown(client_ssl);
-            } else if (shutdown_result < 0) {
-                // Shutdown failed, but continue with cleanup
-                int ssl_error = SSL_get_error(client_ssl, shutdown_result);
-                if (config.verbose && ssl_error != SSL_ERROR_SYSCALL) {
-                    fprintf(stderr, "Warning: SSL_shutdown failed for client SSL: %d\n", ssl_error);
-                }
-            }
-        }
-
+        SSL_shutdown(client_ssl);
         SSL_free(client_ssl);
-        client_ssl = NULL;
     }
-
-    // Free SSL contexts with validation
-    if (server_ctx) {
-        SSL_CTX_free(server_ctx);
-        server_ctx = NULL;
-    }
-
     if (client_ctx) {
         SSL_CTX_free(client_ctx);
-        client_ctx = NULL;
-    }
-
-    // Free X509 and key with validation
-    if (cert) {
-        X509_free(cert);
-        cert = NULL;
-    }
-
-    if (key) {
-        EVP_PKEY_free(key);
-        key = NULL;
-    }    // Close sockets safely
-    if (server_sock != SOCKET_ERROR_VAL) {
-        CLOSE_SOCKET(server_sock);
-        server_sock = SOCKET_ERROR_VAL;
-    }
-
-    if (client_sock != SOCKET_ERROR_VAL) {
-        CLOSE_SOCKET(client_sock);
-        client_sock = SOCKET_ERROR_VAL;
     }
 
     // Free client info struct - only free once and null the pointer

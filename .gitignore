@@ -1,8 +1,11 @@
 # Custom
 **/.vscode/*
 build/*
-# C Code
+*.pem
+*.key
 
+
+# C Code
 
 # Prerequisites
 *.d
@@ -222,3 +225,5 @@ target/
 #  and can be added to the global gitignore or merged into this file.  For a more nuclear
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
+GUI/InterceptSuite/src-tauri/Intercept_Suite_Cert.pem
+GUI/InterceptSuite/src-tauri/Intercept_Suite_key.key
