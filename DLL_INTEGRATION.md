@@ -40,7 +40,6 @@ The Intercept DLL provides the following key functionality:
 - `set_status_callback()` - Set callback for status messages, error notifications, and debug logs (shown in the status bar of the GUI application)
 - `set_connection_callback()` - Set callback for new connections (displays TCP connections in the Connections tab of the GUI with unique connection IDs for tracking)
 - `set_disconnect_callback()` - Set callback for connection termination
-- `set_stats_callback()` - Set callback for proxy statistics (provides real-time updates on total connections, active connections, and total bytes transferred)
 
 - `set_intercept_callback()` - Set callback for traffic interception
 
@@ -71,15 +70,6 @@ void connection_callback(const char* client_ip, int client_port, const char* tar
     printf("[CONNECTION] ID: %d, %s:%d -> %s:%d\n", connection_id, client_ip, client_port, target_host, target_port);
 }
 
-void stats_callback(int total_connections, int active_connections, int total_bytes_transferred) {
-    printf("[STATS] Total: %d, Active: %d, Bytes: %d\n", total_connections, active_connections, total_bytes_transferred);
-
-    // Parameters received:
-    // - total_connections: The cumulative number of connections handled since proxy startup
-    // - active_connections: The current number of open connections being managed by the proxy
-    // - total_bytes_transferred: The total bytes transferred through the proxy since startup
-}
-
 void disconnect_callback(int connection_id, const char* reason) {
     printf("[DISCONNECT] ID: %d, Reason: %s\n", connection_id, reason);
 }
@@ -93,12 +83,10 @@ void intercept_callback(int connection_id, const char* direction, const char* sr
     respond_to_intercept(connection_id, 0, NULL, 0);
 }
 
-int main() {
-    // Register all callbacks
+int main() {    // Register all callbacks
     set_log_callback(log_callback);
     set_status_callback(status_callback);
     set_connection_callback(connection_callback);
-    set_stats_callback(stats_callback);
     set_disconnect_callback(disconnect_callback);
     set_intercept_callback(intercept_callback);
 

@@ -38,7 +38,6 @@ EVP_PKEY * ca_key = NULL;
 log_callback_t g_log_callback = NULL;
 status_callback_t g_status_callback = NULL;
 connection_callback_t g_connection_callback = NULL;
-stats_callback_t g_stats_callback = NULL;
 disconnect_callback_t g_disconnect_callback = NULL;
 
 /* Global interception configuration */
@@ -479,11 +478,6 @@ void send_connection_notification(const char * client_ip, int client_port,
   if (g_connection_callback && client_ip && target_host) {
     g_connection_callback(client_ip, client_port, target_host, target_port, connection_id);
   }
-
-  /* Update statistics callback */
-  if (g_stats_callback) {
-    g_stats_callback(g_total_connections, 0, g_total_bytes); /* active_connections = 0 for now */
-  }
 }
 
 /* Helper function to send disconnect notifications */
@@ -505,10 +499,6 @@ INTERCEPT_API void set_status_callback(status_callback_t callback) {
 
 INTERCEPT_API void set_connection_callback(connection_callback_t callback) {
   g_connection_callback = callback;
-}
-
-INTERCEPT_API void set_stats_callback(stats_callback_t callback) {
-  g_stats_callback = callback;
 }
 
 INTERCEPT_API void set_disconnect_callback(disconnect_callback_t callback) {

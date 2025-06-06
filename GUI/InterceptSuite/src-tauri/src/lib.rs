@@ -98,7 +98,6 @@ type GetProxyConfigFn = unsafe extern "C" fn() -> ProxyConfig;
 type LogCallbackFn = unsafe extern "C" fn(*const c_char, c_int, c_int, *const c_char, *const c_char, c_int, *const c_char, *const c_char);
 type StatusCallbackFn = unsafe extern "C" fn(*const c_char);
 type ConnectionCallbackFn = unsafe extern "C" fn(*const c_char, c_int, *const c_char, c_int, c_int);
-type StatsCallbackFn = unsafe extern "C" fn(c_int, c_int, c_int);
 type DisconnectCallbackFn = unsafe extern "C" fn(c_int, *const c_char);
 type InterceptCallbackFn = unsafe extern "C" fn(c_int, *const c_char, *const c_char, *const c_char, c_int, *const u8, c_int, c_int);
 
@@ -106,7 +105,6 @@ type InterceptCallbackFn = unsafe extern "C" fn(c_int, *const c_char, *const c_c
 type SetLogCallbackFn = unsafe extern "C" fn(LogCallbackFn);
 type SetStatusCallbackFn = unsafe extern "C" fn(StatusCallbackFn);
 type SetConnectionCallbackFn = unsafe extern "C" fn(ConnectionCallbackFn);
-type SetStatsCallbackFn = unsafe extern "C" fn(StatsCallbackFn);
 type SetDisconnectCallbackFn = unsafe extern "C" fn(DisconnectCallbackFn);
 type SetInterceptCallbackFn = unsafe extern "C" fn(InterceptCallbackFn);
 
@@ -151,7 +149,6 @@ pub struct InterceptLibrary {
     set_log_callback: SetLogCallbackFn,
     set_status_callback: SetStatusCallbackFn,
     set_connection_callback: SetConnectionCallbackFn,
-    set_stats_callback: SetStatsCallbackFn,
     set_disconnect_callback: SetDisconnectCallbackFn,
     set_intercept_callback: SetInterceptCallbackFn,
 
@@ -279,11 +276,6 @@ impl InterceptLibrary {
                 .context("Failed to get set_connection_callback")?;
             let set_connection_callback = std::mem::transmute(set_connection_callback.into_raw());
 
-            let set_stats_callback: Symbol<SetStatsCallbackFn> = library
-                .get(b"set_stats_callback")
-                .context("Failed to get set_stats_callback")?;
-            let set_stats_callback = std::mem::transmute(set_stats_callback.into_raw());
-
             let set_disconnect_callback: Symbol<SetDisconnectCallbackFn> = library
                 .get(b"set_disconnect_callback")
                 .context("Failed to get set_disconnect_callback")?;
@@ -327,7 +319,6 @@ impl InterceptLibrary {
                 set_log_callback,
                 set_status_callback,
                 set_connection_callback,
-                set_stats_callback,
                 set_disconnect_callback,
                 set_intercept_callback,
                 set_intercept_enabled,
@@ -350,11 +341,6 @@ impl InterceptLibrary {
 
     pub fn set_connection_callback(&self, callback: ConnectionCallbackFn) -> Result<()> {
         unsafe { (self.set_connection_callback)(callback) };
-        Ok(())
-    }
-
-    pub fn set_stats_callback(&self, callback: StatsCallbackFn) -> Result<()> {
-        unsafe { (self.set_stats_callback)(callback) };
         Ok(())
     }
 

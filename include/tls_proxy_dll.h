@@ -51,7 +51,6 @@ typedef void (*status_callback_t)(const char* message);
 
 /* Callback function types for real-time proxy events */
 typedef void (*connection_callback_t)(const char* client_ip, int client_port, const char* target_host, int target_port, int connection_id);
-typedef void (*stats_callback_t)(int total_connections, int active_connections, int total_bytes_transferred);
 typedef void (*disconnect_callback_t)(int connection_id, const char* reason);
 
 /* Callback function types for interception */
@@ -72,7 +71,6 @@ INTERCEPT_API void set_status_callback(status_callback_t callback);
 
 /* Set callback functions for real-time proxy events */
 INTERCEPT_API void set_connection_callback(connection_callback_t callback);
-INTERCEPT_API void set_stats_callback(stats_callback_t callback);
 INTERCEPT_API void set_disconnect_callback(disconnect_callback_t callback);
 
 /* Set callback functions for interception */

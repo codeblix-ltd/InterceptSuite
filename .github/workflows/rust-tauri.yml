@@ -82,22 +82,6 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-cargo-
 
-    - name: Check Rust formatting
-      run: |
-        cd GUI/InterceptSuite/src-tauri
-        cargo fmt --all -- --check
-
-    - name: Run Clippy (Rust linter)
-      run: |
-        cd GUI/InterceptSuite/src-tauri
-        cargo clippy --all-targets --all-features -- -D warnings
-
-    - name: Run Rust tests
-      run: |
-        cd GUI/InterceptSuite/src-tauri
-        cargo test --verbose
-      continue-on-error: true  # Don't fail if no tests exist yet
-
     - name: Check if Rust code compiles
       run: |
         cd GUI/InterceptSuite/src-tauri

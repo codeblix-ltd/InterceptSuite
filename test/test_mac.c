@@ -23,21 +23,15 @@ typedef int (*start_proxy_func)(void);
 typedef int (*stop_proxy_func)(void);
 
 // Callback function pointer types
-typedef void (*stats_callback_func)(int total_connections, int active_connections, int total_bytes);
 typedef void (*connection_callback_func)(const char* client_ip, int client_port, const char* target_host, int target_port, int connection_id);
 typedef void (*disconnect_callback_func)(int connection_id);
 typedef void (*log_callback_func)(const char* timestamp, const char* level, const char* message, const char* data);
 
-typedef int (*set_stats_callback_func)(stats_callback_func callback);
 typedef int (*set_connection_callback_func)(connection_callback_func callback);
 typedef int (*set_disconnect_callback_func)(disconnect_callback_func callback);
 typedef int (*set_log_callback_func)(log_callback_func callback);
 
 // Test callback functions
-void test_stats_callback(int total_connections, int active_connections, int total_bytes) {
-    printf("📊 Stats Callback: Total=%d, Active=%d, Bytes=%d\n", total_connections, active_connections, total_bytes);
-}
-
 void test_connection_callback(const char* client_ip, int client_port, const char* target_host, int target_port, int connection_id) {
     printf("🔗 Connection Callback: %s:%d -> %s:%d (ID: %d)\n", client_ip, client_port, target_host, target_port, connection_id);
 }
@@ -79,10 +73,7 @@ int main() {
     get_system_ips_func get_system_ips = (get_system_ips_func)dlsym(lib, "get_system_ips");
     set_config_func set_config = (set_config_func)dlsym(lib, "set_config");
     start_proxy_func start_proxy = (start_proxy_func)dlsym(lib, "start_proxy");
-    stop_proxy_func stop_proxy = (stop_proxy_func)dlsym(lib, "stop_proxy");
-
-    // Get callback setter functions
-    set_stats_callback_func set_stats_callback = (set_stats_callback_func)dlsym(lib, "set_stats_callback");
+    stop_proxy_func stop_proxy = (stop_proxy_func)dlsym(lib, "stop_proxy");    // Get callback setter functions
     set_connection_callback_func set_connection_callback = (set_connection_callback_func)dlsym(lib, "set_connection_callback");
     set_disconnect_callback_func set_disconnect_callback = (set_disconnect_callback_func)dlsym(lib, "set_disconnect_callback");
     set_log_callback_func set_log_callback = (set_log_callback_func)dlsym(lib, "set_log_callback");
@@ -97,13 +88,10 @@ int main() {
         dlclose(lib);
         return 1;
     }
-    printf("✓ Successfully loaded all critical function pointers\n");
-
-    // Check optional functions (callbacks and proxy control)
+    printf("✓ Successfully loaded all critical function pointers\n");    // Check optional functions (callbacks and proxy control)
     printf("✓ Optional functions loaded:\n");
     printf("  start_proxy: %s\n", start_proxy ? "✓" : "✗");
     printf("  stop_proxy: %s\n", stop_proxy ? "✓" : "✗");
-    printf("  set_stats_callback: %s\n", set_stats_callback ? "✓" : "✗");
     printf("  set_connection_callback: %s\n", set_connection_callback ? "✓" : "✗");
     printf("  set_disconnect_callback: %s\n", set_disconnect_callback ? "✓" : "✗");
     printf("  set_log_callback: %s\n", set_log_callback ? "✓" : "✗");
@@ -165,18 +153,10 @@ int main() {
     } else {
         printf("✗ Failed to set proxy configuration\n");
     }
-    printf("\n");
-
-    // Test 5: Test callback registration
+    printf("\n");    // Test 5: Test callback registration
     printf("Test 5: Testing callback registration...\n");
-    if (set_stats_callback && set_connection_callback && set_disconnect_callback && set_log_callback) {
+    if (set_connection_callback && set_disconnect_callback && set_log_callback) {
         printf("  Registering callbacks...\n");
-
-        if (set_stats_callback(test_stats_callback)) {
-            printf("  ✓ Stats callback registered\n");
-        } else {
-            printf("  ✗ Failed to register stats callback\n");
-        }
 
         if (set_connection_callback(test_connection_callback)) {
             printf("  ✓ Connection callback registered\n");

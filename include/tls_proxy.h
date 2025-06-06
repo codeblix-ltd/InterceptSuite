@@ -191,7 +191,6 @@ extern intercept_config_t g_intercept_config;
 extern log_callback_t g_log_callback;
 extern status_callback_t g_status_callback;
 extern connection_callback_t g_connection_callback;
-extern stats_callback_t g_stats_callback;
 extern disconnect_callback_t g_disconnect_callback;
 extern intercept_callback_t g_intercept_callback;
 
