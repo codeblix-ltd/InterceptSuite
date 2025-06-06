@@ -34,7 +34,7 @@ jobs:
     - name: Install frontend dependencies
       run: |
         cd GUI/InterceptSuite
-        npm ci
+        npm install
 
     - name: Build frontend (development)
       run: |
