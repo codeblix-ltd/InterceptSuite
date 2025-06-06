@@ -1,8 +1,8 @@
 [package]
 name = "interceptsuite"
-version = "0.1.0"
-description = "A Tauri App"
-authors = ["you"]
+version = "1.0.1"
+description = "A powerful SOCKS5 proxy based network traffic interception tool for Windows that enables TLS/SSL inspection, analysis, and manipulation at the network level."
+authors = ["Sourav Kalal"]
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

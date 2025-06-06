@@ -1,3 +1,9 @@
+/*
+* The file is build a release installer for Linux, MacOS, Windows.
+* The Code manage the InterceptSuite C DLL/SO/DyLib and make sure its included in installer
+
+*/
+
 use std::env;
 use std::path::Path;
 
