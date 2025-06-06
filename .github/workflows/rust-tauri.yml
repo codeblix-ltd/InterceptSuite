@@ -3,20 +3,12 @@ name: Tauri App CI/CD
 on:
   push:
     branches: [ main, master, Cross-Platform ]
-    paths:
-      - 'GUI/InterceptSuite/**'
-      - '.github/workflows/rust-tauri.yml'
   pull_request:
     branches: [ main, master ]
-    paths:
-      - 'GUI/InterceptSuite/**'
+  workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always
-
-defaults:
-  run:
-    working-directory: GUI/InterceptSuite
 
 jobs:
   build-and-test:
@@ -26,6 +18,9 @@ jobs:
         platform: [ubuntu-22.04, windows-latest, macos-latest]
 
     runs-on: ${{ matrix.platform }}
+    defaults:
+      run:
+        working-directory: GUI/InterceptSuite
 
     steps:
     - name: Checkout repository
@@ -70,30 +65,52 @@ jobs:
 
     - name: Create mock environment
       run: |
+        echo "=== Creating mock environment ==="
+
         # Create necessary directories
         mkdir -p src-tauri/resources
         mkdir -p ../build
 
-        # Create mock libraries
+        # Create mock libraries with proper content
         if [ "${{ runner.os }}" = "Windows" ]; then
-          echo "mock" > ../build/Intercept.dll
-          echo "mock" > ../build/Intercept.lib
+          echo "Mock Windows DLL content" > ../build/Intercept.dll
+          echo "Mock Windows LIB content" > ../build/Intercept.lib
         elif [ "${{ runner.os }}" = "macOS" ]; then
-          echo "mock" > ../build/libIntercept.dylib
-          echo "mock" > ../build/libIntercept.a
+          echo "Mock macOS dylib content" > ../build/libIntercept.dylib
+          echo "Mock macOS static lib content" > ../build/libIntercept.a
         else
-          echo "mock" > ../build/libIntercept.so
-          echo "mock" > ../build/libIntercept.a
+          echo "Mock Linux shared lib content" > ../build/libIntercept.so
+          echo "Mock Linux static lib content" > ../build/libIntercept.a
         fi
 
-        # Create dummy resource
-        echo "mock resource" > src-tauri/resources/dummy.txt
+        # Create multiple resource files to satisfy the glob pattern
+        echo "Mock resource file 1" > src-tauri/resources/config.json
+        echo "Mock resource file 2" > src-tauri/resources/readme.txt
+        echo "Mock resource file 3" > src-tauri/resources/sample.dat
+
+        # Verify files were created
+        echo "=== Verifying mock files ==="
+        echo "Build directory contents:"
+        ls -la ../build/ || echo "Build directory empty"
+        echo "Resources directory contents:"
+        ls -la src-tauri/resources/ || echo "Resources directory empty"
+
+        # Test the glob pattern
+        echo "Testing glob pattern resources/*:"
+        ls src-tauri/resources/* || echo "Glob pattern failed"
       shell: bash
 
-    - name: Build application
+    - name: Build frontend
       run: |
+        echo "=== Building frontend ==="
         npm run build
+
+    - name: Build Tauri application
+      run: |
+        echo "=== Building Tauri application ==="
         npm run tauri build
+      env:
+        TAURI_SKIP_NATIVE_LIB_CHECK: "true"
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
@@ -107,6 +124,9 @@ jobs:
   security-check:
     runs-on: ubuntu-latest
     continue-on-error: true
+    defaults:
+      run:
+        working-directory: GUI/InterceptSuite
 
     steps:
     - name: Checkout repository
@@ -121,14 +141,16 @@ jobs:
       uses: dtolnay/rust-toolchain@stable
 
     - name: Install dependencies
-      run: |
-        cd GUI/InterceptSuite
-        npm ci
+      run: npm ci
 
     - name: Run security audits
       run: |
-        cd GUI/InterceptSuite
+        echo "=== Running npm audit ==="
         npm audit --audit-level moderate || true
+
+        echo "=== Installing cargo-audit ==="
         cargo install cargo-audit
+
+        echo "=== Running cargo audit ==="
         cd src-tauri
         cargo audit || true
