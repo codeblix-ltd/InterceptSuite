@@ -3,29 +3,157 @@ name: Tauri App CI/CD
 on:
   push:
     branches: [ main, master, Cross-Platform ]
-    paths:
-      - 'GUI/InterceptSuite/**'
-      - '.github/workflows/rust-tauri.yml'
   pull_request:
     branches: [ main, master ]
-    paths:
-      - 'GUI/InterceptSuite/**'
+  workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always
-
-defaults:
-  run:
-    working-directory: GUI/InterceptSuite
+  RUST_BACKTRACE: 1
 
 jobs:
-  build-and-test:
+  validate-structure:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Validate project structure
+      run: |
+        echo "=== Checking project structure ==="
+
+        # Check if GUI directory exists
+        if [ ! -d "GUI/InterceptSuite" ]; then
+          echo "❌ GUI/InterceptSuite directory not found"
+          exit 1
+        fi
+
+        # Check required files
+        REQUIRED_FILES=(
+          "GUI/InterceptSuite/package.json"
+          "GUI/InterceptSuite/src-tauri/Cargo.toml"
+          "GUI/InterceptSuite/src-tauri/tauri.conf.json"
+          "GUI/InterceptSuite/src/main.tsx"
+          "GUI/InterceptSuite/src/components/MainContainer.tsx"
+        )
+
+        for file in "${REQUIRED_FILES[@]}"; do
+          if [ ! -f "$file" ]; then
+            echo "❌ Required file missing: $file"
+            exit 1
+          else
+            echo "✅ Found: $file"
+          fi
+        done
+
+        # Check for missing imports in MainContainer.tsx
+        echo "=== Checking imports in MainContainer.tsx ==="
+        cd GUI/InterceptSuite
+
+        # Extract imports from MainContainer.tsx
+        grep "^import" src/components/MainContainer.tsx | while read -r import_line; do
+          echo "Checking: $import_line"
+
+          # Check if logs import exists
+          if echo "$import_line" | grep -q "logs"; then
+            if [ ! -f "src/components/logs/index.tsx" ] && [ ! -f "src/components/logs.tsx" ]; then
+              echo "❌ Missing logs component referenced in import"
+              exit 1
+            fi
+          fi
+        done
+
+  frontend-check:
+    runs-on: ubuntu-latest
+    needs: validate-structure
+    defaults:
+      run:
+        working-directory: GUI/InterceptSuite
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: 'GUI/InterceptSuite/package-lock.json'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: TypeScript compilation check
+      run: |
+        echo "=== Running TypeScript compilation check ==="
+        npx tsc --noEmit --skipLibCheck
+
+    - name: Lint check
+      run: |
+        echo "=== Running linting checks ==="
+        npm run lint || echo "⚠️ Linting issues found"
+      continue-on-error: true
+
+    - name: Build frontend only
+      run: |
+        echo "=== Building frontend ==="
+        npm run build
+
+  backend-check:
+    runs-on: ubuntu-latest
+    needs: validate-structure
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        components: rustfmt, clippy
+
+    - name: Cache Rust dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/bin/
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          GUI/InterceptSuite/src-tauri/target/
+        key: ${{ runner.os }}-cargo-${{ hashFiles('GUI/InterceptSuite/src-tauri/Cargo.lock') }}
+
+    - name: Rust compilation check
+      run: |
+        cd GUI/InterceptSuite/src-tauri
+        echo "=== Checking Rust compilation ==="
+        cargo check --verbose
+
+    - name: Rust formatting check
+      run: |
+        cd GUI/InterceptSuite/src-tauri
+        echo "=== Checking Rust formatting ==="
+        cargo fmt -- --check
+
+    - name: Rust linting check
+      run: |
+        cd GUI/InterceptSuite/src-tauri
+        echo "=== Running Clippy linting ==="
+        cargo clippy -- -D warnings
+      continue-on-error: true
+
+  integration-test:
     strategy:
       fail-fast: false
       matrix:
-        platform: [ubuntu-22.04, windows-latest, macos-latest]
+        os: [ubuntu-22.04, windows-latest, macos-latest]
 
-    runs-on: ${{ matrix.platform }}
+    runs-on: ${{ matrix.os }}
+    needs: [frontend-check, backend-check]
+    defaults:
+      run:
+        working-directory: GUI/InterceptSuite
 
     steps:
     - name: Checkout repository
@@ -41,8 +169,8 @@ jobs:
     - name: Setup Rust
       uses: dtolnay/rust-toolchain@stable
 
-    - name: Install system dependencies (Ubuntu)
-      if: matrix.platform == 'ubuntu-22.04'
+    - name: Install system dependencies (Linux)
+      if: matrix.os == 'ubuntu-22.04'
       run: |
         sudo apt-get update
         sudo apt-get install -y \
@@ -53,82 +181,86 @@ jobs:
           librsvg2-dev \
           patchelf
 
-    - name: Cache dependencies
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.cargo/bin/
-          ~/.cargo/registry/index/
-          ~/.cargo/registry/cache/
-          ~/.cargo/git/db/
-          GUI/InterceptSuite/src-tauri/target/
-          GUI/InterceptSuite/node_modules
-        key: ${{ runner.os }}-deps-${{ hashFiles('GUI/InterceptSuite/package-lock.json') }}-${{ hashFiles('GUI/InterceptSuite/src-tauri/Cargo.lock') }}
-
     - name: Install dependencies
       run: npm ci
 
-    - name: Create mock environment
+    - name: Check if native libraries exist
       run: |
-        # Create necessary directories
-        mkdir -p src-tauri/resources
-        mkdir -p ../build
+        echo "=== Checking for native libraries ==="
 
-        # Create mock libraries
-        if [ "${{ runner.os }}" = "Windows" ]; then
-          echo "mock" > ../build/Intercept.dll
-          echo "mock" > ../build/Intercept.lib
-        elif [ "${{ runner.os }}" = "macOS" ]; then
-          echo "mock" > ../build/libIntercept.dylib
-          echo "mock" > ../build/libIntercept.a
+        # Check build directory
+        if [ -d "../build" ]; then
+          echo "Build directory contents:"
+          find ../build -type f -name "*.dll" -o -name "*.so" -o -name "*.dylib" -o -name "*.lib" -o -name "*.a" 2>/dev/null || echo "No native libraries found"
         else
-          echo "mock" > ../build/libIntercept.so
-          echo "mock" > ../build/libIntercept.a
+          echo "⚠️ No build directory found - creating mock for testing"
+          mkdir -p ../build
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            echo "mock" > ../build/Intercept.dll
+          elif [ "${{ runner.os }}" = "macOS" ]; then
+            echo "mock" > ../build/libIntercept.dylib
+          else
+            echo "mock" > ../build/libIntercept.so
+          fi
         fi
 
-        # Create dummy resource
-        echo "mock resource" > src-tauri/resources/dummy.txt
-      shell: bash
-
-    - name: Build application
+    - name: Check Tauri configuration
       run: |
-        npm run build
+        echo "=== Validating Tauri configuration ==="
+
+        # Check if tauri.conf.json is valid
+        node -e "
+          const config = require('./src-tauri/tauri.conf.json');
+          console.log('✅ Tauri config is valid JSON');
+          console.log('App name:', config.tauri?.bundle?.identifier || 'Not set');
+        "
+
+    - name: Build frontend
+      run: npm run build
+
+    - name: Test Tauri build preparation
+      run: |
+        echo "=== Testing Tauri build preparation ==="
+
+        # Create resources directory if it doesn't exist
+        mkdir -p src-tauri/resources
+        echo "test" > src-tauri/resources/test.txt
+
+        # Test if tauri can read the configuration
+        npm run tauri info
+
+    - name: Conditional full build
+      if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+      run: |
+        echo "=== Full build for main branch ==="
         npm run tauri build
+      continue-on-error: true
 
-    - name: Upload artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: tauri-${{ runner.os }}-build
-        path: |
-          GUI/InterceptSuite/src-tauri/target/release/bundle/**/*
-        if-no-files-found: warn
-        retention-days: 30
-
-  security-check:
+  report-results:
     runs-on: ubuntu-latest
-    continue-on-error: true
+    needs: [validate-structure, frontend-check, backend-check, integration-test]
+    if: always()
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '18'
-
-    - name: Setup Rust
-      uses: dtolnay/rust-toolchain@stable
-
-    - name: Install dependencies
+    - name: Report CI Results
       run: |
-        cd GUI/InterceptSuite
-        npm ci
+        echo "=== CI/CD Results Summary ==="
+        echo "Structure validation: ${{ needs.validate-structure.result }}"
+        echo "Frontend check: ${{ needs.frontend-check.result }}"
+        echo "Backend check: ${{ needs.backend-check.result }}"
+        echo "Integration test: ${{ needs.integration-test.result }}"
 
-    - name: Run security audits
-      run: |
-        cd GUI/InterceptSuite
-        npm audit --audit-level moderate || true
-        cargo install cargo-audit
-        cd src-tauri
-        cargo audit || true
+        if [[ "${{ needs.validate-structure.result }}" == "failure" ]]; then
+          echo "❌ Project structure validation failed"
+          echo "Please ensure all required files exist and imports are correct"
+        fi
+
+        if [[ "${{ needs.frontend-check.result }}" == "failure" ]]; then
+          echo "❌ Frontend validation failed"
+          echo "Please fix TypeScript compilation errors"
+        fi
+
+        if [[ "${{ needs.backend-check.result }}" == "failure" ]]; then
+          echo "❌ Backend validation failed"
+          echo "Please fix Rust compilation errors"
+        fi

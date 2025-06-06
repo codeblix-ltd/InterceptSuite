@@ -14,6 +14,7 @@
 ![Rust](https://img.shields.io/badge/Rust-000000?style=for-the-badge&logo=rust&logoColor=white)
 ![C](https://img.shields.io/badge/C-00599C?style=for-the-badge&logo=c&logoColor=white)
 [![Build Status](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/rust-tauri.yml/badge.svg)](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/rust-tauri.yml)
+[![C InterceptSuite Build](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/Build-DLL.yml/badge.svg)](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/Build-DLL.yml)
 [![Downloads](https://img.shields.io/github/downloads/anof-cyber/InterceptSuite/total)](https://github.com/anof-cyber/InterceptSuite/releases)
 [![License](https://img.shields.io/github/license/anof-cyber/InterceptSuite)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/anof-cyber/InterceptSuite)](https://github.com/anof-cyber/InterceptSuite)
