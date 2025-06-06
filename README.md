@@ -5,9 +5,10 @@
 # 🛡️ InterceptSuite
 
 ### *TLS/SSL Traffic Interception & Analysis*
+*Protocol-agnostic network traffic inspection that goes beyond traditional HTTP-only tools*
 </div>
 
-*Protocol-agnostic network traffic inspection that goes beyond traditional HTTP-only tools*
+
 
 ![Tauri](https://img.shields.io/badge/Tauri-FFC131?style=for-the-badge&logo=tauri&logoColor=black)
 ![Rust](https://img.shields.io/badge/Rust-000000?style=for-the-badge&logo=rust&logoColor=white)
@@ -222,7 +223,6 @@ Explore InterceptSuite's intuitive interface through our comprehensive screensho
 Join the InterceptSuite development community and contribute to the future of TLS traffic analysis tools.
 
 [![📖 Build Guide](https://img.shields.io/badge/📖%20Build%20Guide-28a745?style=for-the-badge&logoColor=white)](Build.md)
-[![🌍 Cross Platform Guide](https://img.shields.io/badge/🌍%20Cross%20Platform%20Guide-007bff?style=for-the-badge&logoColor=white)](CROSS_PLATFORM.md)
 
 ### 🌍 Cross-Platform Building
 
@@ -238,7 +238,7 @@ InterceptSuite now supports building on **Windows**, **Linux**, and **macOS** wi
 
 > **🚀 Getting Started with Development:**
 >
-> For detailed instructions on building InterceptSuite for each platform, see the [**Cross-Platform Build Guide**](CROSS_PLATFORM.md). This guide includes platform-specific prerequisites, build commands, and troubleshooting tips.
+> For detailed instructions on building InterceptSuite for each platform, see the [**Build Guide**](Build.md). This guide includes platform-specific prerequisites, build commands, and troubleshooting tips.
 
 ### 🤝 Contributing
 

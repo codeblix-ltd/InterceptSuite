@@ -2,7 +2,7 @@ name: Tauri App CI/CD
 
 on:
   push:
-    branches: [ main, master, develop ]
+    branches: [ main, master, Cross-Platform ]
     paths:
       - 'GUI/InterceptSuite/**'
       - '.github/workflows/rust-tauri.yml'
