@@ -17,7 +17,8 @@
 
 #include "../include/tls_proxy_dll.h"
 
-#ifdef INTERCEPT_WINDOWS#include <iphlpapi.h>
+#ifdef INTERCEPT_WINDOWS
+#include <iphlpapi.h>
 
 #include <time.h>
 

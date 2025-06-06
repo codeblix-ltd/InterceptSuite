@@ -56,7 +56,7 @@ int init_openssl(void) {
   // Clear any existing errors
   ERR_clear_error();
 
-  #if OPENSSL_VERSION_NUMBER < 0x10100000 L
+  #if OPENSSL_VERSION_NUMBER < 0x10100000L
   // Older OpenSSL versions require manual thread safety setup
   SSL_library_init();
   SSL_load_error_strings();
@@ -113,7 +113,7 @@ void cleanup_openssl(void) {
     ca_key = NULL;
   }
 
-  #if OPENSSL_VERSION_NUMBER < 0x10100000 L
+  #if OPENSSL_VERSION_NUMBER < 0x10100000L
   // Cleanup for older OpenSSL versions
   ERR_free_strings();
   EVP_cleanup();
@@ -427,7 +427,7 @@ SSL_CTX * create_server_ssl_context(void) {
   // Clear any previous OpenSSL errors
   ERR_clear_error();
 
-  #if OPENSSL_VERSION_NUMBER < 0x10100000 L
+  #if OPENSSL_VERSION_NUMBER < 0x10100000L
   ctx = SSL_CTX_new(SSLv23_server_method());
   #else
   ctx = SSL_CTX_new(TLS_server_method());
@@ -468,7 +468,7 @@ SSL_CTX * create_client_ssl_context(void) {
   // Clear any previous OpenSSL errors
   ERR_clear_error();
 
-  #if OPENSSL_VERSION_NUMBER < 0x10100000 L
+  #if OPENSSL_VERSION_NUMBER < 0x10100000L
   ctx = SSL_CTX_new(SSLv23_client_method());
   #else
   ctx = SSL_CTX_new(TLS_client_method());

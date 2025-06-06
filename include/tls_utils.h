@@ -42,7 +42,7 @@ THREAD_RETURN_TYPE handle_client(void * arg);
 void send_log_entry(const char * src_ip,
   const char * dst_ip, int dst_port,
     const char * message_type,
-      const char * data);
+      const char * data, int connection_id, int packet_id);
 
 void send_status_update(const char * message);
 

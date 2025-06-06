@@ -169,25 +169,54 @@ impl InterceptLibrary {
         };
 
         // Try multiple paths for the library
-        let possible_paths = vec![
+        let mut possible_paths = vec![
             library_name.to_string(),
             format!(".//{}", library_name),
             format!("../{}", library_name),
             format!("../../{}", library_name),
             format!("../../../{}", library_name),
+            // Try bundled resources directory
+            format!("./resources/{}", library_name),
+            format!("../resources/{}", library_name),
+            format!("../../resources/{}", library_name),
+            // Try application directory paths
+            format!("./bin/{}", library_name),
+            format!("../bin/{}", library_name),
         ];
+
+        // Add system installation paths for Linux packages
+        if cfg!(target_os = "linux") {
+            possible_paths.extend(vec![
+                format!("/usr/lib/interceptsuite/resources/{}", library_name),
+                format!("/usr/local/lib/interceptsuite/resources/{}", library_name),
+                format!("/opt/interceptsuite/resources/{}", library_name),
+                format!("/opt/interceptsuite/lib/{}", library_name),
+            ]);
+        }
+
+        // Try to get the current executable directory and add it to search paths
+        if let Ok(exe_path) = std::env::current_exe() {
+            if let Some(exe_dir) = exe_path.parent() {
+                possible_paths.push(exe_dir.join(library_name).to_string_lossy().to_string());
+                possible_paths.push(exe_dir.join("resources").join(library_name).to_string_lossy().to_string());
+                possible_paths.push(exe_dir.join("bin").join(library_name).to_string_lossy().to_string());
+            }
+        }
 
         let mut library = None;
         let mut last_error = String::new();
 
         for path in possible_paths {
+            println!("Trying to load library from: {}", path);
             match unsafe { Library::new(&path) } {
                 Ok(lib) => {
+                    println!("Successfully loaded library from: {}", path);
                     library = Some(lib);
                     break;
                 }
                 Err(e) => {
                     last_error = format!("Failed to load {}: {}", path, e);
+                    println!("{}", last_error);
                 }
             }
         }

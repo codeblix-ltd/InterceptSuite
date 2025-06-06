@@ -1,12 +1,12 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "interceptsuite",
-  "version": "0.1.0",
+  "version": "1.0.1",
   "identifier": "com.interceptsuite.app",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "npm run build",
+    "beforeBuildCommand": "npm run build && node src-tauri/prepare-resources.js Release",
     "frontendDist": "../dist"
   },
   "app": {
@@ -30,6 +30,33 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "resources": [
+      "resources/*"
+    ],
+    "externalBin": [],
+    "copyright": "© 2025 InterceptSuite",
+    "category": "DeveloperTool",
+    "shortDescription": "TLS Intercept Suite",
+    "longDescription": "A powerful TLS interception and analysis tool for network security analysis",
+    "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": "",
+      "tsp": false,
+      "wix": {
+        "language": "en-US"
+      },
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["English"]
+      }
+    },
+    "linux": {
+
+    },
+    "macOS": {
+      "minimumSystemVersion": "10.13"
+    }
   }
 }
