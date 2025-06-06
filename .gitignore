@@ -228,3 +228,4 @@ target/
 GUI/InterceptSuite/src-tauri/Intercept_Suite_Cert.pem
 GUI/InterceptSuite/src-tauri/Intercept_Suite_key.key
 GUI/InterceptSuite/src-tauri/Intercept_Suite_key.key
+!GUI/InterceptSuite/src/components/logs/
