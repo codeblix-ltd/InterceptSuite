@@ -22,7 +22,7 @@ jobs:
             script: build-linux.sh
             artifact_pattern: "build/**/*.so"
 
-          - os: macos-13-large
+          - os: macos-14
             platform: macos
             script: build-macos.sh
             artifact_pattern: "build/**/*.dylib"
