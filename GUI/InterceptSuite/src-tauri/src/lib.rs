@@ -115,6 +115,9 @@ type SetInterceptEnabledFn = unsafe extern "C" fn(c_int);
 type SetInterceptDirectionFn = unsafe extern "C" fn(c_int);
 type RespondToInterceptFn = unsafe extern "C" fn(c_int, c_int, *const u8, c_int);
 
+// Certificate export function type
+type ExportCertificateFn = unsafe extern "C" fn(*const c_char, c_int) -> c_int;
+
 #[repr(C)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InterceptStatus {
@@ -156,6 +159,9 @@ pub struct InterceptLibrary {
     set_intercept_enabled: SetInterceptEnabledFn,
     set_intercept_direction: SetInterceptDirectionFn,
     respond_to_intercept: RespondToInterceptFn,
+
+    // Certificate export
+    export_certificate: ExportCertificateFn,
 }
 
 impl InterceptLibrary {
@@ -304,6 +310,12 @@ impl InterceptLibrary {
                 .context("Failed to get respond_to_intercept")?;
             let respond_to_intercept = std::mem::transmute(respond_to_intercept.into_raw());
 
+            // Certificate export
+            let export_certificate: Symbol<ExportCertificateFn> = library
+                .get(b"export_certificate")
+                .context("Failed to get export_certificate")?;
+            let export_certificate = std::mem::transmute(export_certificate.into_raw());
+
             Ok(InterceptLibrary {
                 library,
                 start_proxy,
@@ -321,6 +333,7 @@ impl InterceptLibrary {
                 set_intercept_enabled,
                 set_intercept_direction,
                 respond_to_intercept,
+                export_certificate,
             })
         }
     }
@@ -489,6 +502,20 @@ impl InterceptLibrary {
             is_enabled: status.is_enabled != 0,
             direction: direction_str.to_string(),
         })
+    }
+
+    pub fn export_certificate(&self, output_directory: &str, export_type: i32) -> Result<bool> {
+        let output_dir_cstr = CString::new(output_directory)
+            .map_err(|e| anyhow::anyhow!("Invalid output directory: {}", e))?;
+
+        let result = unsafe {
+            (self.export_certificate)(
+                output_dir_cstr.as_ptr(),
+                export_type,
+            )
+        };
+
+        Ok(result != 0)
     }
 }
 
@@ -1360,6 +1387,17 @@ async fn clear_selected_logs(log_ids: Vec<String>) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+async fn export_certificate(output_directory: String, export_type: i32) -> Result<bool, String> {
+    println!("Export certificate called with directory: {} and type: {}", output_directory, export_type);
+
+    let lib = get_library()?;
+    let lib = lib.lock().map_err(|e| format!("Failed to acquire library lock: {}", e))?;
+
+    lib.export_certificate(&output_directory, export_type)
+        .map_err(|e| format!("Failed to export certificate: {}", e))
+}
+
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -1388,7 +1426,8 @@ pub fn run() {
             update_proxy_history_entry,
             get_logs,
             clear_logs,
-            clear_selected_logs
+            clear_selected_logs,
+            export_certificate
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri app");

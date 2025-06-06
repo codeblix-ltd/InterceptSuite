@@ -8,7 +8,7 @@ Passing Memory instead of File operations directly
 #include "../include/cert_utils.h"
 
 /* Helper function to read file contents into memory buffer */
-static char * read_file_to_memory(const char * filename, long * file_size) {
+char * read_file_to_memory(const char * filename, long * file_size) {
   FILE * file = fopen(filename, "rb");
   if (!file) {
     return NULL;
@@ -37,7 +37,7 @@ static char * read_file_to_memory(const char * filename, long * file_size) {
 }
 
 /* Helper function to write buffer to file */
-static int write_memory_to_file(const char * filename,
+int write_memory_to_file(const char * filename,
   const char * data, size_t size) {
   FILE * file = fopen(filename, "wb");
   if (!file) {

@@ -15,3 +15,4 @@ set_intercept_enabled
 set_intercept_direction
 respond_to_intercept
 get_intercept_config
+export_certificate

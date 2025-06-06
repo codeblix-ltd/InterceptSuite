@@ -107,6 +107,10 @@ typedef struct {
 /* Get current proxy configuration with status */
 INTERCEPT_API proxy_config_t get_proxy_config(void);
 
+/* Certificate export function */
+/* export_type: 0 = certificate (PEM to DER), 1 = private key (PEM copy) */
+INTERCEPT_API intercept_bool_t export_certificate(const char* output_directory, int export_type);
+
 #ifdef __cplusplus
 }
 #endif

@@ -23,6 +23,11 @@ export const SettingsTab: React.FC = () => {
   const [isStartingProxy, setIsStartingProxy] = useState(false);
   const [isStoppingProxy, setIsStoppingProxy] = useState(false);  const [isRefreshingInterfaces, setIsRefreshingInterfaces] = useState(false);
 
+  // Export certificate modal state
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportType, setExportType] = useState<'certificate' | 'key'>('certificate');
+  const [isExporting, setIsExporting] = useState(false);
+
   // Define callback functions first, before using them in useEffect
   const loadNetworkInterfaces = useCallback(async () => {
     try {
@@ -79,7 +84,6 @@ export const SettingsTab: React.FC = () => {
       setIsStartingProxy(false);
     }
   };
-
   const stopProxy = async () => {
     setIsStoppingProxy(true);
     try {
@@ -95,6 +99,42 @@ export const SettingsTab: React.FC = () => {
       // Could show error message to user here
     } finally {
       setIsStoppingProxy(false);
+    }
+  };
+
+  const handleExportCertificate = async () => {
+    try {
+      const selectedPath = await open({
+        directory: true,
+        multiple: false,
+        title: 'Select Export Directory'
+      });
+
+      if (selectedPath && typeof selectedPath === 'string') {
+        setIsExporting(true);
+
+        // Convert export type to number: 0 = certificate, 1 = key
+        const exportTypeNum = exportType === 'certificate' ? 0 : 1;
+
+        const success = await invoke<boolean>('export_certificate', {
+          outputDirectory: selectedPath,
+          exportType: exportTypeNum
+        });
+
+        if (success) {
+          console.log(`${exportType} exported successfully to: ${selectedPath}`);
+          // You could show a success message here
+        } else {
+          console.error(`Failed to export ${exportType}`);
+          // You could show an error message here
+        }
+      }
+    } catch (error) {
+      console.error('Export failed:', error);
+      // You could show an error message here
+    } finally {
+      setIsExporting(false);
+      setShowExportModal(false);
     }
   };
 
@@ -262,9 +302,7 @@ export const SettingsTab: React.FC = () => {
                 Browse
               </button>
             </div>
-          </div>
-
-          <div className="settings-actions">
+          </div>          <div className="settings-actions">
             <button
               className="action-btn save"
               onClick={handleSave}
@@ -274,7 +312,80 @@ export const SettingsTab: React.FC = () => {
             </button>
           </div>
         </div>
+
+        <div className="settings-section">
+          <h3>Certificate Management</h3>
+          <div className="certificate-actions">
+            <button
+              className="action-btn export-cert"
+              onClick={() => setShowExportModal(true)}
+              disabled={isExporting}
+            >
+              Export Certificate
+            </button>
+          </div>
+        </div>
       </div>
+
+      {showExportModal && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h3>Export Certificate</h3>
+              <button
+                className="modal-close"
+                onClick={() => setShowExportModal(false)}
+                disabled={isExporting}
+              >
+                ×
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="form-group">
+                <label>Export Type</label>
+                <div className="radio-group">
+                  <label className="radio-option">
+                    <input
+                      type="radio"
+                      value="certificate"
+                      checked={exportType === 'certificate'}
+                      onChange={(e) => setExportType(e.target.value as 'certificate' | 'key')}
+                      disabled={isExporting}
+                    />
+                    Certificate (.der format)
+                  </label>
+                  <label className="radio-option">
+                    <input
+                      type="radio"
+                      value="key"
+                      checked={exportType === 'key'}
+                      onChange={(e) => setExportType(e.target.value as 'certificate' | 'key')}
+                      disabled={isExporting}
+                    />
+                    Private Key (.key format)
+                  </label>
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button
+                className="action-btn secondary"
+                onClick={() => setShowExportModal(false)}
+                disabled={isExporting}
+              >
+                Cancel
+              </button>
+              <button
+                className="action-btn export"
+                onClick={handleExportCertificate}
+                disabled={isExporting}
+              >
+                {isExporting ? 'Exporting...' : 'Export'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
