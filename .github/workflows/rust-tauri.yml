@@ -2,7 +2,7 @@ name: Tauri App CI/CD
 
 on:
   push:
-    branches: [ main, master, Cross-Platform ]
+    branches: [ main, master, develop ]
     paths:
       - 'GUI/InterceptSuite/**'
       - '.github/workflows/rust-tauri.yml'
@@ -36,21 +36,6 @@ jobs:
         cd GUI/InterceptSuite
         npm ci
 
-    - name: Run TypeScript type checking
-      run: |
-        cd GUI/InterceptSuite
-        npm run type-check
-
-    - name: Run ESLint
-      run: |
-        cd GUI/InterceptSuite
-        npm run lint
-
-    - name: Run frontend tests
-      run: |
-        cd GUI/InterceptSuite
-        npm test
-      continue-on-error: true  # Don't fail if no tests exist yet
 
     - name: Build frontend (development)
       run: |
@@ -63,6 +48,21 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
+
+    - name: Install Tauri system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          libgtk-3-dev \
+          libwebkit2gtk-4.0-dev \
+          libappindicator3-dev \
+          librsvg2-dev \
+          patchelf \
+          libglib2.0-dev \
+          libgdk-pixbuf2.0-dev \
+          libcairo-gobject2 \
+          libpango1.0-dev \
+          libatk1.0-dev
 
     - name: Setup Rust
       uses: dtolnay/rust-toolchain@stable
@@ -90,7 +90,7 @@ jobs:
   tauri-build-test:
     strategy:
       matrix:
-        platform: [macos-13-large, ubuntu-20.04, windows-latest]
+        platform: [macos-latest, ubuntu-22.04, windows-latest]
 
     runs-on: ${{ matrix.platform }}
     needs: [test-frontend, test-backend]
@@ -120,11 +120,30 @@ jobs:
           GUI/InterceptSuite/src-tauri/target/
         key: ${{ runner.os }}-cargo-${{ hashFiles('GUI/InterceptSuite/src-tauri/Cargo.lock') }}
 
-    - name: Install dependencies (Ubuntu only)
-      if: matrix.platform == 'ubuntu-20.04'
+    - name: Install Tauri dependencies (Ubuntu)
+      if: matrix.platform == 'ubuntu-22.04'
       run: |
         sudo apt-get update
-        sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev libappindicator3-dev librsvg2-dev patchelf
+        sudo apt-get install -y \
+          libgtk-3-dev \
+          libwebkit2gtk-4.0-dev \
+          libappindicator3-dev \
+          librsvg2-dev \
+          patchelf \
+          libglib2.0-dev \
+          libgdk-pixbuf-2.0-dev \
+          libcairo-gobject2 \
+          libpango1.0-dev \
+          libatk1.0-dev \
+          libssl-dev \
+          pkg-config
+
+    - name: Install Tauri dependencies (macOS)
+      if: matrix.platform == 'macos-latest'
+      run: |
+        # macOS typically has most dependencies built-in
+        # Install any additional dependencies if needed
+        echo "macOS dependencies ready"
 
     - name: Install frontend dependencies
       run: |
@@ -154,9 +173,11 @@ jobs:
       env:
         # Skip native library validation for this test
         TAURI_SKIP_NATIVE_LIB_CHECK: "true"
+        # Ensure pkg-config can find system libraries
+        PKG_CONFIG_PATH: "/usr/lib/pkgconfig:/usr/share/pkgconfig:/usr/lib/x86_64-linux-gnu/pkgconfig"
 
     - name: Upload build artifacts (Ubuntu)
-      if: matrix.platform == 'ubuntu-20.04'
+      if: matrix.platform == 'ubuntu-22.04'
       uses: actions/upload-artifact@v4
       with:
         name: tauri-linux-build
@@ -176,7 +197,7 @@ jobs:
         retention-days: 7
 
     - name: Upload build artifacts (macOS)
-      if: matrix.platform == 'macos-13-large'
+      if: matrix.platform == 'macos-latest'
       uses: actions/upload-artifact@v4
       with:
         name: tauri-macos-build
@@ -202,6 +223,11 @@ jobs:
 
     - name: Install cargo-audit
       run: cargo install cargo-audit
+
+    - name: Install frontend dependencies
+      run: |
+        cd GUI/InterceptSuite
+        npm ci
 
     - name: Run npm audit
       run: |

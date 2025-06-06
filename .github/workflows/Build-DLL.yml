@@ -1,4 +1,4 @@
-name: Build InterceptSuite (Matrix)
+name: C InterceptSuite Build
 
 on:
   push:

@@ -1,92 +1,105 @@
-# InterceptSuite
+<div align="center">
 
-<img src="logo.png" alt="InterceptSuite Logo" width="200"/>
+<img src="logo.png" alt="InterceptSuite Logo" width="120"/>
 
-## Overview
+# 🛡️ InterceptSuite
 
-InterceptSuite is a powerful cross-platform network traffic interception tool designed for TLS/SSL inspection, analysis, and manipulation at the network level. Unlike tools like Burp Suite or OWASP ZAP that focus specifically on HTTP/HTTPS traffic, InterceptSuite aims to provide visibility into any TLS-encrypted protocol, operating at the TCP/TLS layer.
+### *TLS/SSL Traffic Interception & Analysis*
+</div>
 
-The original idea behind InterceptSuite was to solve a challenging problem in application penetration testing. With limited options to intercept network traffic of native applications, it's often difficult for security professionals to perform packet or traffic analysis of thick clients.
+*Protocol-agnostic network traffic inspection that goes beyond traditional HTTP-only tools*
 
-[![Build and Upload .NET GUI App](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/dotnet-gui.yml/badge.svg)](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/dotnet-gui.yml)
-[![Build Intercept Suite Library](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/Build-Library.yml/badge.svg)](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/Build-Library.yml)
-[![Create Release Package](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/release.yml/badge.svg)](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/release.yml)
+![Tauri](https://img.shields.io/badge/Tauri-FFC131?style=for-the-badge&logo=tauri&logoColor=black)
+![Rust](https://img.shields.io/badge/Rust-000000?style=for-the-badge&logo=rust&logoColor=white)
+![C](https://img.shields.io/badge/C-00599C?style=for-the-badge&logo=c&logoColor=white)
+[![Build Status](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/rust-tauri.yml/badge.svg)](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/rust-tauri.yml)
+[![Downloads](https://img.shields.io/github/downloads/anof-cyber/InterceptSuite/total)](https://github.com/anof-cyber/InterceptSuite/releases)
+[![License](https://img.shields.io/github/license/anof-cyber/InterceptSuite)](LICENSE)
+[![Stars](https://img.shields.io/github/stars/anof-cyber/InterceptSuite)](https://github.com/anof-cyber/InterceptSuite)
+
+![Platform Support](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-purple)
+![Tauri](https://img.shields.io/badge/GUI-Tauri%20%2B%20Rust-orange)
+![Protocol](https://img.shields.io/badge/Protocol-SOCKS5-blue)
+
+
+
+---
+
+## 🌟 Overview
+
+**InterceptSuite** is a cross-platform network traffic interception tool engineered for comprehensive TLS/SSL inspection, analysis, and manipulation at the network level. Unlike traditional tools such as Burp Suite or OWASP ZAP that focus specifically on HTTP/HTTPS traffic, InterceptSuite provides **unprecedented visibility** into any TLS-encrypted protocol, operating seamlessly at the TCP/TLS layer.
+
+### 🎯 The Challenge We Solve
+
+The original inspiration behind InterceptSuite was to address a critical gap in application penetration testing. Security professionals often struggle with limited options for intercepting network traffic from native applications, making it challenging to perform comprehensive packet or traffic analysis of thick clients and custom protocols.
+
+### 💡 Our Solution
+
+InterceptSuite bridges this gap by providing a **universal TLS interception engine** that works with any protocol, giving security researchers the tools they need to analyze, understand, and test encrypted communications effectively.
 
 ### Platform Support
 
 | Component | Windows | Linux | macOS |
 |-----------|:-------:|:-----:|:-----:|
 | Core Library | ✅ | ✅ | ✅ |
-| GUI Interface | ✅ | 🔜 | 🔜 |
+| GUI Interface | ✅ | ✅ | ✅ |
 
 ## Table of Contents
 
+- [🌟 Overview](#-overview)
+- [✨ Features](#-features)
+- [🚀 Getting Started](#-getting-started)
+- [📖 Usage](#-usage)
+- [🔧 Proxy Configuration](#-proxy-configuration)
+- [⚠️ Current Limitations](#️-current-limitations)
+- [🤔 When to Use InterceptSuite vs. HTTP-Specific Tools](#-when-to-use-interceptsuite-vs-http-specific-tools)
+- [🖼️ Screenshots](#️-screenshots--interface)
+- [🛠️ Development](#️-development)
+- [📄 License](#-license)
+- [🙏 Acknowledgments](#-acknowledgments)
 
-<!-- GitAds-Verify: CWPRGGSMT75B916C7N4JQF52HWICXPV2 -->
+## ✨ Features
 
+- **🌐 Protocol-Agnostic TLS Interception**: Intercept TLS/SSL traffic from any application or protocol
+- **🔌 SOCKS5 Proxy Integration**: Uses SOCKS5 proxy protocol for versatile connection handling
+- **⚡ Real-time Traffic Analysis**: View decrypted traffic as it flows through the proxy
+- **🎛️ Connection Management**: Track active connections and view their details
+- **🔐 Certificate Authority Management**: Automatic generation of CA certificates with platform-specific storage
+- **🔧 Traffic Manipulation**: Modify intercepted traffic before forwarding
+- **⚡ High-Performance C Core**: Optimized C engine for maximum speed and minimal memory footprint
+- **📚 Custom Integration**: Embed TLS interception capabilities into your own applications with our DyLib, So and DLL
+- **🎨 Modern GUI**: Built with Tauri + Rust frontend and high-performance C core
+- **📝 Detailed Logging**: Comprehensive logging with automatic rotation and cleanup
 
-- [Overview](#overview)
-  - [Platform Support](#platform-support)
-- [Features](#features)
-- [Getting Started](#getting-started)
-  - [Prerequisites](#prerequisites)
-  - [Installation](#installation)
-- [Usage](#usage)
-- [GitAds Sponsored](#gitads-sponsored)
-- [Proxy Configuration](#proxy-configuration)
-- [Current Limitations](#current-limitations)
-- [When to Use InterceptSuite vs. HTTP-Specific Tools](#when-to-use-interceptsuite-vs-http-specific-tools)
-- [Images](#images)
-- [Development](#development)
-  - [Cross-Platform Building](#cross-platform-building)
-- [License](#license)
-- [Acknowledgments](#acknowledgments)
-
-## Features
-
-- **Protocol-Agnostic TLS Interception**: Intercept TLS/SSL traffic from any application or protocol
-- **SOCKS5 Proxy Integration**: Uses SOCKS5 proxy protocol for versatile connection handling with various client applications
-- **Real-time Traffic Analysis**: View decrypted traffic as it flows through the proxy
-- **Connection Management**: Track active connections and view their details
-- **Certificate Authority Management**: Automatic generation of CA certificates for TLS interception
-- **Traffic Manipulation**: Modify intercepted traffic before forwarding
-- **DLL Integration**: Embed TLS interception capabilities into your own applications
-- **User-friendly GUI**: Modern interface for easy interaction with the proxy server
-- **Detailed Logging**: Comprehensive logging of all intercepted traffic
-
-## Getting Started
+## 🚀 Getting Started
 
 ### Prerequisites
 
-- Windows 10/11 (64-bit)
-- .NET 8.0 Runtime
+- **Windows 10/11 (64-bit)**, **Linux (x64)**, or **macOS (Apple Silicon)**
 
 ### Installation
 
-1. Download the `InterceptSuite-v*-win-x64.zip` file from the [Releases page](https://github.com/anof-cyber/InterceptSuite/releases)
-2. Extract the ZIP file to your preferred location
-3. Run `InterceptSuite.exe` from the extracted folder
+1. **Download** the platform-specific installer from the [Releases page](https://github.com/anof-cyber/InterceptSuite/releases)
+   - **Windows**: `.exe` installer or `.msi` package
+   - **Linux**: `.deb` (Ubuntu/Debian) or `.rpm` (RedHat/Fedora) package
+   - **macOS**: `.dmg` disk image
+2. **Run** the installer and follow the setup wizard
+3. **Launch** InterceptSuite from your applications menu or desktop shortcut
 
-> [!Note]
-> InterceptSuite requires .NET 8.0 Runtime or later to run. If not already installed on your system, the application will provide you with a direct download link when you attempt to run it.
+> **Note:** Platform-specific native installers are available for seamless installation on all supported operating systems.
+## 📖 Usage
 
-For detailed build instructions, see the [Build Guide](Build.md).
+For comprehensive setup and usage instructions, see our detailed **[Usage Guide](Usage.md)**.
 
-## Usage
+### Quick Start
 
-1. Start InterceptSuite
-2. Configure proxy settings (default: 127.0.0.1:4444)
-3. Start the proxy server
-   - **Important:** When first started, InterceptSuite creates a new CA certificate (`Intercept_Suite_Cert.cer`) in the same directory
-   - You must install this certificate into your Windows system as a trusted root certificate authority
-   - To install: double-click the certificate file → Install Certificate → Local Machine → Place all certificates in the following store → Browse → Trusted Root Certification Authorities → OK → Next → Finish
-4. Configure your client application to use the proxy
-5. Begin intercepting TLS traffic
+1. **Launch** InterceptSuite application
+2. **Start** the proxy server (default: `127.0.0.1:4444`)
+3. **Install** the generated CA certificate as a trusted root
+4. **Configure** your client application to use the SOCKS5 proxy
+5. **Begin** intercepting and analyzing TLS traffic
 
-For detailed usage instructions and features explanation, see the [Usage Guide](Usage.md).
-
-For more details on integration with your own applications, see the [DLL Integration Guide](DLL_INTEGRATION.md).
-
+> **Important:** InterceptSuite generates a unique CA certificate on first run that must be installed as a trusted root certificate authority for TLS interception to work.
 
 
 ## GitAds Sponsored
@@ -94,108 +107,190 @@ For more details on integration with your own applications, see the [DLL Integra
 
 
 
-## Proxy Configuration
+## 🔧 Proxy Configuration
 
-### Windows
+Configure your client application to use the SOCKS5 proxy at `127.0.0.1:4444`.
 
-Windows by default only supports HTTP proxies at the system level and does not provide native support for SOCKS5 proxies. Since InterceptSuite operates as a SOCKS5 proxy, it's recommended to use a proxy management tool such as [Proxifier](https://www.proxifier.com/) to enable system-wide proxy capabilities.
+For detailed platform-specific configuration instructions, see the **[Usage Guide](Usage.md)**.
 
-Benefits of using Proxifier with InterceptSuite:
-- Enables kernel-mode Windows Filtering Platform (WFP) to force any application through the proxy
-- Provides flexible proxy rules and configuration options
-- Allows selective proxying based on application, destination, or other criteria
-- Integrates seamlessly with SOCKS5 proxies like InterceptSuite
+### Platform Notes
 
-### Linux
+- **Windows**: Use Proxifier for system-wide SOCKS5 support
+- **Linux**: Multiple options including ProxyCap, tsocks, Proxychains, or iptables
+- **macOS**: Proxifier for Mac or Proxychains-ng for terminal applications
 
-On Linux, you can use tools like:
-- **ProxyCap**: Similar to Proxifier, provides application-level proxying
-- **tsocks/torsocks**: Library-based approach to redirect connections through a proxy
-- **iptables/nftables**: Redirect traffic at the network level to InterceptSuite
+## ⚠️ Current Limitations
 
-### macOS
+Understanding InterceptSuite's current limitations helps you choose the right tool for your specific use case.
 
-On macOS, you can use:
-- **Proxifier for Mac**: Commercial solution similar to Windows version
-- **Proxychains-ng**: Terminal-based proxying for command-line applications
-- **Network preferences**: Configure system proxy settings (limited to applications that respect these settings)
+### 🚫 Non-Standard TLS Handshakes
 
-These configurations create a powerful setup for intercepting network traffic from applications that don't natively support proxy configuration.
+**Current Limitation:** InterceptSuite cannot bypass TLS for protocols that do not use standard TLS handshake as the initial packet after TCP handshake.
 
-## Current Limitations
+#### 📋 Affected Protocols:
 
-- **Non-Standard TLS Handshakes**: InterceptSuite cannot bypass TLS for protocols that do not use standard TLS handshake as the initial packet after TCP handshake. Examples include:
-  - PostgreSQL TLS sessions
-  - MySQL TLS sessions
-  - Any protocol that uses SmartTLS or similar technologies
+- **🐘 PostgreSQL** - TLS sessions
+- **🐬 MySQL** - TLS sessions
+- **🔧 SmartTLS** - Similar technologies
+- **🔌 Custom Protocols** - Non-standard handshakes
 
-  *This functionality is planned for future releases.*
+> **🔜 Future Release:** This functionality is planned for future releases.
 
-- **Protocol Dissection**: The tool does not support protocol dissection, meaning it cannot decode protocol-specific binary formats or encodings regardless of whether TLS is used. For example:
-  - Binary protocol encodings (like Protocol Buffers, MessagePack, etc.)
-  - Custom application-specific encodings
-  - Compressed or obfuscated data streams
+### 📊 Protocol Dissection
 
-  If a protocol doesn't transmit data in plain text (even after TLS decryption), InterceptSuite will show the raw bytes but not interpret them.
+**Current Limitation:** The tool does not support protocol dissection, meaning it cannot decode protocol-specific binary formats or encodings regardless of whether TLS is used.
 
-  *This functionality is planned for future releases.*
+#### 🔍 Examples of Non-Supported Formats:
 
-## When to Use InterceptSuite vs. HTTP-Specific Tools
+| Format Type | Examples | Description |
+|-------------|----------|-------------|
+| Binary Protocols | Protocol Buffers, MessagePack | Structured binary encodings |
+| Custom Encodings | Application-specific formats | Proprietary data structures |
+| Compressed Data | Obfuscated data streams | Compressed or encoded payloads |
 
-> [!Note]
-> While InterceptSuite can handle HTTP/HTTPS traffic, it is strongly recommended to use HTTP-specific tools like Burp Suite or OWASP ZAP for web traffic inspection. These tools provide specialized features optimized for HTTP-based protocols.
+> **💡 Important Note:** If a protocol doesn't transmit data in plain text (even after TLS decryption), InterceptSuite will show the raw bytes but not interpret them.
 
-- **Use InterceptSuite when**:
-  - Working with non-HTTP TLS-encrypted protocols
-  - Analyzing network traffic at the TCP/TLS layer
-  - Debugging custom TLS-encrypted protocols
+> **🔜 Future Release:** Protocol dissection functionality is planned for future releases.
 
-- **Use Burp Suite or OWASP ZAP when**:
-  - Working specifically with HTTP/HTTPS traffic
-  - Testing web applications
-  - Performing web security assessments
-  - When HTTP-specific features (like request repeating, scanning, etc.) are needed
+## 🤔 When to Use InterceptSuite vs. HTTP-Specific Tools
+
+Choose the right tool for your security testing needs with our comprehensive comparison guide.
+
+> [!NOTE]
+> **🎯 Key Recommendation:** While InterceptSuite can handle HTTP/HTTPS traffic, it is **strongly recommended** to use HTTP-specific tools like Burp Suite or OWASP ZAP for web traffic inspection. These tools provide specialized features optimized for HTTP-based protocols.
+
+### ✅ Use InterceptSuite when:
+
+- 🌐 Working with **non-HTTP TLS-encrypted protocols**
+- 🔍 Analyzing network traffic at the **TCP/TLS layer**
+- 🛠️ Debugging **custom TLS-encrypted protocols**
+- 📱 Testing **thick client applications**
+- 🎮 Analyzing **game or IoT protocols**
+- 🔧 Developing **protocol-specific security tools**
+
+### 🌐 Use Burp Suite or OWASP ZAP when:
+
+- 🌍 Working specifically with **HTTP/HTTPS traffic**
+- 🖥️ Testing **web applications**
+- 🔒 Performing **web security assessments**
+- 🔄 When HTTP-specific features are needed:
+  - Request repeating
+  - Vulnerability scanning
+  - Session management
+  - Authentication testing
+
+### 🎯 Decision Matrix
+
+| Scenario | InterceptSuite | Burp/ZAP | Reason |
+|:---------|:--------------:|:---------:|:--------|
+| 🌐 Web App Testing | ❌ | ✅ | HTTP-specific features needed |
+| 📱 Mobile App API | 🤔 | ✅ | Depends on protocol (HTTP vs custom) |s
+| 🔌 IoT Device Comms | ✅ | ❌ | Custom TLS protocols |
+| 🖥️ Desktop App Traffic | ✅ | 🤔 | Protocol-dependent |
+| 🔒 Database TLS | ⚠️ | ❌ | Limited support (future feature) |
+
+**Legend:** ✅ Recommended • 🤔 Depends • ⚠️ Limited • ❌ Not suitable
 
 
-## Images
+## 🖼️ Screenshots & Interface
 
-Below are screenshots of the main tabs in InterceptSuite:
+Explore InterceptSuite's intuitive interface through our comprehensive screenshot gallery showcasing each major feature.
 
-### Intercept Tab
+### 🔍 Intercept Tab
 ![Intercept Tab](Images/Intercept.png)
-*The Intercept tab allows you to view and modify network packets in real-time.*
 
-### Proxy History Tab
+*The Intercept tab allows you to view and modify network packets in real-time, providing granular control over TLS traffic flow.*
+
+### 📚 Proxy History Tab
 ![Proxy History Tab](Images/Prxoy-History.png)
-*The Proxy History tab shows all messages that have passed through the SOCKS5 proxy.*
 
-### Settings Tab
+*The Proxy History tab shows all messages that have passed through the SOCKS5 proxy with comprehensive logging and filtering capabilities.*
+
+### ⚙️ Settings Tab
 ![Settings Tab](Images/Settings.png)
-*The Settings tab provides configuration options for the proxy server, logging, and interception rules.*
 
-### Connections Tab
+*The Settings tab provides configuration options for the proxy server, logging, interception rules, and certificate management. Use the Export Certificate feature to save certificates in different formats.*
+
+### 🔗 Connections Tab
 ![Connections Tab](Images/Connections.png)
-*The Connections tab displays TCP connection details and allows for exporting connection data.*
+
+*The Connections tab displays TCP connection details and allows for exporting connection data with real-time monitoring of active sessions.*
 
 
-## Development
+## 🛠️ Development
 
-For information about building InterceptSuite from source, see the [Build Guide](Build.md).
+Join the InterceptSuite development community and contribute to the future of TLS traffic analysis tools.
 
-### Cross-Platform Building
+[![📖 Build Guide](https://img.shields.io/badge/📖%20Build%20Guide-28a745?style=for-the-badge&logoColor=white)](Build.md)
+[![🌍 Cross Platform Guide](https://img.shields.io/badge/🌍%20Cross%20Platform%20Guide-007bff?style=for-the-badge&logoColor=white)](CROSS_PLATFORM.md)
 
-InterceptSuite now supports building on Windows, Linux, and macOS. The core library (`Intercept`) can be compiled as:
-- Windows: `.dll`
-- Linux: `.so`
-- macOS: `.dylib`
+### 🌍 Cross-Platform Building
 
-For detailed instructions on building for each platform, see the [Cross-Platform Build Guide](CROSS_PLATFORM.md).
+InterceptSuite now supports building on **Windows**, **Linux**, and **macOS** with native library generation for each platform.
 
-## License
+#### 📦 Platform-Specific Library Outputs
 
-This project is licensed under the GNU Affero General Public License v3.0 (AGPL-3.0) - see the [LICENSE](LICENSE) file for details.
+| Platform | Library Format | Build Tool | Status |
+|----------|----------------|------------|--------|
+| 🪟 Windows | `.dll` | Visual Studio / CMake | ✅ **Ready** |
+| 🐧 Linux | `.so` | GCC / CMake | ✅ **Ready** |
+| 🍎 macOS | `.dylib` | Clang / CMake | ✅ **Ready** |
 
-## Acknowledgments
+> **🚀 Getting Started with Development:**
+>
+> For detailed instructions on building InterceptSuite for each platform, see the [**Cross-Platform Build Guide**](CROSS_PLATFORM.md). This guide includes platform-specific prerequisites, build commands, and troubleshooting tips.
 
-- OpenSSL for TLS/SSL functionality
-- .NET Framework for the GUI implementation
+### 🤝 Contributing
+
+- **🐛 Bug Reports** - Found an issue? Report it on our GitHub Issues page with detailed reproduction steps.
+- **✨ Feature Requests** - Have an idea for improvement? We welcome feature requests and enhancement suggestions.
+- **🔧 Pull Requests** - Ready to contribute code? Check our contribution guidelines before submitting PRs.
+- **📚 Documentation** - Help improve our documentation, examples, and tutorials for better user experience.
+
+## 📄 License
+
+InterceptSuite is open source software, committed to transparency and community collaboration.
+
+![AGPL License](https://img.shields.io/badge/License-AGPL%20v3.0-blue?style=for-the-badge&logo=gnu)
+
+This project is licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**
+
+[![📖 Read Full License](https://img.shields.io/badge/%F0%9F%93%96%20Read%20Full%20License-007bff?style=for-the-badge&logoColor=white)](LICENSE)
+
+*The AGPL-3.0 license ensures that InterceptSuite remains free and open source, while requiring that any network-based services using this code also provide their source code to users.*
+
+---
+
+## 🙏 Acknowledgments
+
+Special thanks to the amazing open source communities and technologies that make InterceptSuite possible.
+
+### 🔐 OpenSSL
+![OpenSSL](https://img.shields.io/badge/OpenSSL-721412?style=for-the-badge&logo=openssl&logoColor=white)
+
+Providing robust TLS/SSL functionality and cryptographic operations
+
+### 🚀 Tauri + Rust + C
+![Tauri](https://img.shields.io/badge/Tauri-FFC131?style=for-the-badge&logo=tauri&logoColor=black)
+![Rust](https://img.shields.io/badge/Rust-000000?style=for-the-badge&logo=rust&logoColor=white)
+![C](https://img.shields.io/badge/C-00599C?style=for-the-badge&logo=c&logoColor=white)
+
+High-performance C core engine with modern Tauri + Rust GUI for optimal performance and user experience
+
+### 🔨 CMake
+![CMake](https://img.shields.io/badge/CMake-064F8C?style=for-the-badge&logo=cmake&logoColor=white)
+
+Enabling cross-platform build system management and compilation
+
+### 💖 Community Support
+
+InterceptSuite is built with love by the cybersecurity community, for the cybersecurity community. Thank you to all contributors, testers, and users who help make this project better every day!
+
+---
+
+![Made with Love](https://img.shields.io/badge/Made%20with%20❤️%20for%20the%20Security%20Community-FF69B4?style=for-the-badge)
+
+**🛡️ Secure by Design • 🌍 Cross-Platform • 🔓 Open Source**
+
+[![⭐ Star on GitHub](https://img.shields.io/badge/⭐%20Star%20on%20GitHub-333?style=for-the-badge&logo=github)](https://github.com/anof-cyber/InterceptSuite)
+[![🐛 Report Issues](https://img.shields.io/badge/🐛%20Report%20Issues-red?style=for-the-badge&logo=github)](https://github.com/anof-cyber/InterceptSuite/issues)
