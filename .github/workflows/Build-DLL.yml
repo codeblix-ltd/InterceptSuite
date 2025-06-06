@@ -15,19 +15,16 @@ jobs:
           - os: windows-latest
             platform: windows
             script: build-windows.ps1
-            shell: powershell
             artifact_pattern: "build/**/*.dll"
 
           - os: ubuntu-latest
             platform: linux
             script: build-linux.sh
-            shell: bash
             artifact_pattern: "build/**/*.so"
 
           - os: macos-13-large
             platform: macos
             script: build-macos.sh
-            shell: bash
             artifact_pattern: "build/**/*.dylib"
 
     runs-on: ${{ matrix.os }}
@@ -59,9 +56,34 @@ jobs:
       if: matrix.platform != 'windows'
       run: chmod +x ${{ matrix.script }}
 
-    - name: Build native library
+    - name: Build native library (Windows)
+      if: matrix.platform == 'windows'
       run: ./${{ matrix.script }}
-      shell: ${{ matrix.shell }}
+      shell: powershell
+
+    - name: Build native library (Unix)
+      if: matrix.platform != 'windows'
+      run: ./${{ matrix.script }}
+      shell: bash
+
+    - name: Verify build output
+      run: |
+        if [ "${{ matrix.platform }}" = "windows" ]; then
+          if [ -d "build" ]; then
+            find build -name "*.dll" -o -name "*.lib" | head -10
+          else
+            echo "❌ Build directory not found"
+            exit 1
+          fi
+        else
+          if [ -d "build" ]; then
+            find build -name "*.so" -o -name "*.dylib" | head -10
+          else
+            echo "❌ Build directory not found"
+            exit 1
+          fi
+        fi
+      shell: bash
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
