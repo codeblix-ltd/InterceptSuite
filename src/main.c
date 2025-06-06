@@ -752,10 +752,8 @@ INTERCEPT_API intercept_bool_t export_certificate(const char* output_directory, 
         g_status_callback("ERROR: Failed to read source key file");
       }
       return FALSE;
-    }
-
-    // Write to output location
-    success = write_memory_to_file(output_path, key_data, key_size);
+    }    // Write to output location
+    success = write_memory_to_file(output_path, key_data, (size_t)key_size);
     free(key_data);
 
     if (success && g_status_callback) {
@@ -811,10 +809,8 @@ INTERCEPT_API intercept_bool_t export_certificate(const char* output_directory, 
 
     // Get DER data from BIO
     char* der_data;
-    long der_size = BIO_get_mem_data(der_bio, &der_data);
-
-    // Write DER data to output file
-    success = write_memory_to_file(output_path, der_data, der_size);
+    long der_size = BIO_get_mem_data(der_bio, &der_data);    // Write DER data to output file
+    success = write_memory_to_file(output_path, der_data, (size_t)der_size);
 
     BIO_free(der_bio);
     X509_free(cert);

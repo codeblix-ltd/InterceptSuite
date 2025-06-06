@@ -37,17 +37,16 @@ char * read_file_to_memory(const char * filename, long * file_size) {
 }
 
 /* Helper function to write buffer to file */
-int write_memory_to_file(const char * filename,
-  const char * data, size_t size) {
+int write_memory_to_file(const char* filename,
+  const char* data, size_t data_size) {
   FILE * file = fopen(filename, "wb");
   if (!file) {
     return 0;
   }
-
-  size_t written = fwrite(data, 1, size, file);
+  size_t written = fwrite(data, 1, data_size, file);
   fclose(file);
 
-  return (written == size) ? 1 : 0;
+  return (written == data_size) ? 1 : 0;
 }
 
 int init_openssl(void) {
@@ -274,10 +273,9 @@ static int save_ca_cert_to_files(void) {
     fprintf(stderr, "Failed to get certificate file paths\n");
     return 0;
   }
-
   // Write to files
-  int success = write_memory_to_file(cert_path, pem_cert_data, cert_len) &&
-                write_memory_to_file(key_path, pem_key_data, key_len);
+  int success = write_memory_to_file(cert_path, pem_cert_data, (size_t)cert_len) &&
+                write_memory_to_file(key_path, pem_key_data, (size_t)key_len);
 
   BIO_free(cert_bio);
   BIO_free(key_bio);

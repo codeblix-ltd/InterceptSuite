@@ -19,7 +19,6 @@
     #define INTERCEPT_IMPORT __declspec(dllimport)
     typedef BOOL intercept_bool_t;
 #elif defined(__APPLE__)
-    #define INTERCEPT_MACOS
     #include <stdbool.h>
     #define INTERCEPT_EXPORT __attribute__((visibility("default")))
     #define INTERCEPT_IMPORT
