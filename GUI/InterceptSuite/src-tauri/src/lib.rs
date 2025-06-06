@@ -493,6 +493,18 @@ static PROCESSED_PACKETS_INIT: Once = Once::new();
 static mut INTERCEPTED_DATA_STORAGE: Option<Arc<Mutex<Vec<InterceptedData>>>> = None;
 static INTERCEPTED_DATA_STORAGE_INIT: Once = Once::new();
 
+// Logs storage for status messages from C DLL
+static mut LOGS_STORAGE: Option<Arc<Mutex<Vec<LogEntry>>>> = None;
+static LOGS_STORAGE_INIT: Once = Once::new();
+
+// Define LogEntry for storing log messages from the C DLL
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct LogEntry {
+    pub id: String,
+    pub timestamp: String,
+    pub message: String,
+}
+
 // Define InterceptedData for storing intercepted packet information
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct InterceptedData {
@@ -583,6 +595,16 @@ fn get_intercepted_data_storage() -> Arc<Mutex<Vec<InterceptedData>>> {
     }
 }
 
+fn get_logs_storage() -> Arc<Mutex<Vec<LogEntry>>> {
+    unsafe {
+        LOGS_STORAGE_INIT.call_once(|| {
+            LOGS_STORAGE = Some(Arc::new(Mutex::new(Vec::new())));
+        });
+
+        LOGS_STORAGE.as_ref().unwrap().clone()
+    }
+}
+
 fn set_app_handle(app_handle: AppHandle) {
     unsafe {
         APP_HANDLE_INIT.call_once(|| {
@@ -609,6 +631,13 @@ fn generate_history_id() -> String {
     }
 }
 
+fn generate_log_id() -> String {
+    unsafe {
+        CONNECTION_COUNTER += 1;
+        format!("log_{}", CONNECTION_COUNTER)
+    }
+}
+
 fn store_connection_event(event: ConnectionEvent) {
     if let Ok(mut connections) = get_connection_storage().lock() {
         connections.push(event);
@@ -629,6 +658,18 @@ fn store_proxy_history_entry(entry: ProxyHistoryEntry) {
         // Keep only the last 10000 entries
         if history.len() > 10000 {
             history.remove(0);
+        }
+    }
+}
+
+fn store_log_entry(entry: LogEntry) {
+    if let Ok(mut logs) = get_logs_storage().lock() {
+        logs.push(entry);
+
+        // Limit the number of stored log entries to prevent memory issues
+        // Keep only the last 10000 entries
+        if logs.len() > 10000 {
+            logs.remove(0);
         }
     }
 }
@@ -715,10 +756,25 @@ unsafe extern "C" fn status_callback(status: *const c_char) {
     let status_str = CStr::from_ptr(status).to_string_lossy().to_string();
     println!("Status from C library: {}", status_str);
 
+    // Create log entry and store in memory
+    let log_entry = LogEntry {
+        id: generate_log_id(),
+        timestamp: chrono::Utc::now().to_rfc3339(),
+        message: status_str.clone(),
+    };
+
+    // Store in memory
+    store_log_entry(log_entry);
+
     // Emit to frontend as a notification if we have an app handle
     if let Some(app_handle) = get_app_handle() {
         if let Err(e) = app_handle.emit("status-message", &status_str) {
             eprintln!("Failed to emit status message event: {}", e);
+        }
+
+        // Also emit as log-message for logs tab
+        if let Err(e) = app_handle.emit("log-message", &status_str) {
+            eprintln!("Failed to emit log message event: {}", e);
         }
     }
 }
@@ -1249,6 +1305,32 @@ async fn update_proxy_history_entry(packet_id: i32, edited_data: String) -> Resu
     }
 }
 
+#[tauri::command]
+async fn get_logs() -> Result<Vec<LogEntry>, String> {
+    let storage = get_logs_storage();
+    let logs = storage.lock().map_err(|e| format!("Failed to acquire logs lock: {}", e))?;
+    Ok(logs.clone())
+}
+
+#[tauri::command]
+async fn clear_logs() -> Result<(), String> {
+    let storage = get_logs_storage();
+    let mut logs = storage.lock().map_err(|e| format!("Failed to acquire logs lock: {}", e))?;
+    logs.clear();
+    Ok(())
+}
+
+#[tauri::command]
+async fn clear_selected_logs(log_ids: Vec<String>) -> Result<(), String> {
+    let storage = get_logs_storage();
+    let mut logs = storage.lock().map_err(|e| format!("Failed to acquire logs lock: {}", e))?;
+
+    // Remove entries that match the provided log IDs
+    logs.retain(|log| !log_ids.contains(&log.id));
+
+    Ok(())
+}
+
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -1274,7 +1356,10 @@ pub fn run() {
             respond_to_intercept,
             setup_intercept_callback,
             get_intercepted_data,
-            update_proxy_history_entry
+            update_proxy_history_entry,
+            get_logs,
+            clear_logs,
+            clear_selected_logs
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri app");

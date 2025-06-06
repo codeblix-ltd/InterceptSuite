@@ -1,5 +1,5 @@
 /*
- * TLS MITM Proxy - Utility Functions Header
+ * InterceptSuite - Utility Functions Header
  *
  * Defines utility functions for the TLS MITM proxy,
  * including logging, command line parsing, and IP validation.

@@ -32,10 +32,8 @@ export interface ProxyRequest {
 
 export interface LogEntry {
   id: string;
-  level: 'info' | 'warn' | 'error' | 'debug';
+  timestamp: string;
   message: string;
-  timestamp: Date;
-  source: string;
 }
 
 export interface ProxySettings {
