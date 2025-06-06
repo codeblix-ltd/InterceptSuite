@@ -31,7 +31,16 @@ void init_config(void) {
   memset( & config, 0, sizeof(proxy_config));
   config.port = DEFAULT_PROXY_PORT;
   strncpy(config.bind_addr, DEFAULT_BIND_ADDR, sizeof(config.bind_addr) - 1);
-  strncpy(config.log_file, DEFAULT_LOGFILE, sizeof(config.log_file) - 1);
+
+  // Use platform-specific default log file path
+  const char* default_log_path = get_default_log_file_path();
+  if (default_log_path) {
+    strncpy(config.log_file, default_log_path, sizeof(config.log_file) - 1);
+  } else {
+    // Fallback to current directory if user data initialization fails
+    strncpy(config.log_file, "tls_proxy.log", sizeof(config.log_file) - 1);
+  }
+
   config.log_fp = NULL;
   config.verbose = 0;
 }

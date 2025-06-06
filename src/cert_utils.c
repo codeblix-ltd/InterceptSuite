@@ -132,47 +132,8 @@ void print_openssl_error(void) {
   }
 }
 
-int load_or_generate_ca_cert(void) {
-  printf("Checking for CA certificate and key files: %s and %s\n", CA_CERT_FILE, CA_KEY_FILE);
-
-  // Try to read files into memory
-  long cert_size = 0, key_size = 0;
-  char * cert_data = read_file_to_memory(CA_CERT_FILE, & cert_size);
-  char * key_data = read_file_to_memory(CA_KEY_FILE, & key_size);
-
-  if (!cert_data || !key_data) {
-    printf("Certificate or key file not found. Will generate new ones.\n");
-    if (cert_data) free(cert_data);
-    if (key_data) free(key_data);
-  } else {
-    // Load existing CA cert and key using memory BIOs
-    printf("Loading existing CA cert and key from %s and %s\n", CA_CERT_FILE, CA_KEY_FILE);
-
-    BIO * cert_bio = BIO_new_mem_buf(cert_data, cert_size);
-    BIO * key_bio = BIO_new_mem_buf(key_data, key_size);
-
-    if (cert_bio && key_bio) {
-      ca_cert = PEM_read_bio_X509(cert_bio, NULL, NULL, NULL);
-      ca_key = PEM_read_bio_PrivateKey(key_bio, NULL, NULL, NULL);
-    }
-
-    if (cert_bio) BIO_free(cert_bio);
-    if (key_bio) BIO_free(key_bio);
-    free(cert_data);
-    free(key_data);
-
-    if (ca_cert && ca_key) {
-      return 1; // Successfully loaded
-    }
-
-    // If we got here, something failed
-    if (ca_cert) X509_free(ca_cert);
-    if (ca_key) EVP_PKEY_free(ca_key);
-    ca_cert = NULL;
-    ca_key = NULL;
-  }
-
-  // Generate new CA cert and key
+// New separate function for CA certificate generation
+static int generate_new_ca_cert(void) {
   printf("Generating new CA cert and key\n");
 
   // Generate key
@@ -180,7 +141,9 @@ int load_or_generate_ca_cert(void) {
   if (!ca_key) {
     print_openssl_error();
     return 0;
-  } // Generate RSA key using modern OpenSSL 3.0 API
+  }
+
+  // Generate RSA key using modern OpenSSL 3.0 API
   EVP_PKEY_CTX * pkey_ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, NULL);
   if (!pkey_ctx) {
     print_openssl_error();
@@ -205,7 +168,7 @@ int load_or_generate_ca_cert(void) {
     return 0;
   }
 
-  if (EVP_PKEY_keygen(pkey_ctx, & ca_key) <= 0) {
+  if (EVP_PKEY_keygen(pkey_ctx, &ca_key) <= 0) {
     print_openssl_error();
     EVP_PKEY_CTX_free(pkey_ctx);
     EVP_PKEY_free(ca_key);
@@ -236,15 +199,14 @@ int load_or_generate_ca_cert(void) {
   X509_set_pubkey(ca_cert, ca_key);
 
   X509_NAME * name = X509_get_subject_name(ca_cert);
-  X509_NAME_add_entry_by_txt(name, "CN", MBSTRING_ASC, (unsigned char * )
-    "Intercept Suite", -1, -1, 0);
+  X509_NAME_add_entry_by_txt(name, "CN", MBSTRING_ASC, (unsigned char *)"Intercept Suite", -1, -1, 0);
   X509_set_issuer_name(ca_cert, name);
 
   // Add extensions
   X509V3_CTX ctx;
-  X509V3_set_ctx( & ctx, ca_cert, ca_cert, NULL, NULL, 0);
+  X509V3_set_ctx(&ctx, ca_cert, ca_cert, NULL, NULL, 0);
 
-  X509_EXTENSION * ext = X509V3_EXT_conf_nid(NULL, & ctx, NID_basic_constraints, "critical,CA:TRUE");
+  X509_EXTENSION * ext = X509V3_EXT_conf_nid(NULL, &ctx, NID_basic_constraints, "critical,CA:TRUE");
   if (!ext) {
     print_openssl_error();
     X509_free(ca_cert);
@@ -267,6 +229,11 @@ int load_or_generate_ca_cert(void) {
     return 0;
   }
 
+  return 1;
+}
+
+// New separate function for saving CA certificate to files
+static int save_ca_cert_to_files(void) {
   // Write to files using memory BIOs
   BIO * cert_bio = BIO_new(BIO_s_mem());
   BIO * key_bio = BIO_new(BIO_s_mem());
@@ -274,50 +241,132 @@ int load_or_generate_ca_cert(void) {
   if (!cert_bio || !key_bio) {
     if (cert_bio) BIO_free(cert_bio);
     if (key_bio) BIO_free(key_bio);
-    X509_free(ca_cert);
-    EVP_PKEY_free(ca_key);
-    ca_cert = NULL;
-    ca_key = NULL;
     return 0;
   }
 
   // Write certificate and key to memory BIOs
   if (PEM_write_bio_X509(cert_bio, ca_cert) != 1 ||
-    PEM_write_bio_PrivateKey(key_bio, ca_key, NULL, NULL, 0, NULL, NULL) != 1) {
+      PEM_write_bio_PrivateKey(key_bio, ca_key, NULL, NULL, 0, NULL, NULL) != 1) {
     BIO_free(cert_bio);
     BIO_free(key_bio);
-    X509_free(ca_cert);
-    EVP_PKEY_free(ca_key);
-    ca_cert = NULL;
-    ca_key = NULL;
     return 0;
-  } // Get data from BIOs
+  }
+  // Get data from BIOs
   char * pem_cert_data;
   char * pem_key_data;
-  long cert_len = BIO_get_mem_data(cert_bio, & pem_cert_data);
-  long key_len = BIO_get_mem_data(key_bio, & pem_key_data);
+  long cert_len = BIO_get_mem_data(cert_bio, &pem_cert_data);
+  long key_len = BIO_get_mem_data(key_bio, &pem_key_data);
+
+  // Initialize user data directory and get certificate paths
+  if (!init_user_data_directory()) {
+    BIO_free(cert_bio);
+    BIO_free(key_bio);
+    fprintf(stderr, "Failed to initialize user data directory\n");
+    return 0;
+  }
+
+  const char* cert_path = get_ca_cert_path();
+  const char* key_path = get_ca_key_path();
+
+  if (!cert_path || !key_path) {
+    BIO_free(cert_bio);
+    BIO_free(key_bio);
+    fprintf(stderr, "Failed to get certificate file paths\n");
+    return 0;
+  }
 
   // Write to files
-  int success = write_memory_to_file(CA_CERT_FILE, pem_cert_data, cert_len) &&
-    write_memory_to_file(CA_KEY_FILE, pem_key_data, key_len);
+  int success = write_memory_to_file(cert_path, pem_cert_data, cert_len) &&
+                write_memory_to_file(key_path, pem_key_data, key_len);
 
   BIO_free(cert_bio);
   BIO_free(key_bio);
 
   if (success) {
-    printf("CA cert and key written to %s and %s\n", CA_CERT_FILE, CA_KEY_FILE);
+    printf("CA cert and key written to %s and %s\n", cert_path, key_path);
     printf("IMPORTANT: Install this CA cert in your system/browser certificate store!\n");
-    return 1;
+  } else {
+    fprintf(stderr, "Failed to write CA cert and key to files\n");
   }
 
-  fprintf(stderr, "Failed to write CA cert and key to files\n");
-  X509_free(ca_cert);
-  EVP_PKEY_free(ca_key);
-  ca_cert = NULL;
-  ca_key = NULL;
-
-  return 0;
+  return success;
 }
+
+// Simplified main function
+int load_or_generate_ca_cert(void) {
+  // Initialize user data directory first
+  if (!init_user_data_directory()) {
+    fprintf(stderr, "Failed to initialize user data directory\n");
+    return 0;
+  }
+
+  const char* cert_path = get_ca_cert_path();
+  const char* key_path = get_ca_key_path();
+
+  if (!cert_path || !key_path) {
+    fprintf(stderr, "Failed to get certificate file paths\n");
+    return 0;
+  }
+
+  printf("Checking for CA certificate and key files: %s and %s\n", cert_path, key_path);
+
+  // Try to read files into memory
+  long cert_size = 0, key_size = 0;
+  char * cert_data = read_file_to_memory(cert_path, &cert_size);
+  char * key_data = read_file_to_memory(key_path, &key_size);
+  if (!cert_data || !key_data) {
+    printf("Certificate or key file not found. Will generate new ones.\n");
+    if (cert_data) free(cert_data);
+    if (key_data) free(key_data);
+  } else {
+    // Load existing CA cert and key using memory BIOs
+    printf("Loading existing CA cert and key from %s and %s\n", cert_path, key_path);
+
+    BIO * cert_bio = BIO_new_mem_buf(cert_data, cert_size);
+    BIO * key_bio = BIO_new_mem_buf(key_data, key_size);
+
+    if (cert_bio && key_bio) {
+      ca_cert = PEM_read_bio_X509(cert_bio, NULL, NULL, NULL);
+      ca_key = PEM_read_bio_PrivateKey(key_bio, NULL, NULL, NULL);
+    }
+
+    if (cert_bio) BIO_free(cert_bio);
+    if (key_bio) BIO_free(key_bio);
+    free(cert_data);
+    free(key_data);
+
+    if (ca_cert && ca_key) {
+      printf("Successfully loaded existing CA certificate\n");
+      return 1; // Successfully loaded
+    }
+
+    // If we got here, something failed
+    printf("Failed to load existing certificates, generating new ones\n");
+    if (ca_cert) X509_free(ca_cert);
+    if (ca_key) EVP_PKEY_free(ca_key);
+    ca_cert = NULL;
+    ca_key = NULL;
+  }
+
+  // Generate new CA cert and key
+  if (!generate_new_ca_cert()) {
+    fprintf(stderr, "Failed to generate new CA certificate\n");
+    return 0;
+  }
+
+  // Save to files
+  if (!save_ca_cert_to_files()) {
+    fprintf(stderr, "Failed to save CA certificate to files\n");
+    X509_free(ca_cert);
+    EVP_PKEY_free(ca_key);
+    ca_cert = NULL;
+    ca_key = NULL;
+    return 0;
+  }
+
+  return 1;
+}
+
 
 int generate_cert_for_host(const char * hostname, X509 ** cert_out, EVP_PKEY ** key_out) {
   X509 * cert;

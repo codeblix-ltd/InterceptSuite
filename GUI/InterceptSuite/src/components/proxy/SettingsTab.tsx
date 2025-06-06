@@ -1,5 +1,5 @@
 // Settings tab component with form validation and proxy controls
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { open } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
 import { ProxySettings, ProxyStatusResponse, NetworkInterface } from '../../types';
@@ -21,11 +21,7 @@ export const SettingsTab: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isStartingProxy, setIsStartingProxy] = useState(false);
-  const [isStoppingProxy, setIsStoppingProxy] = useState(false);
-  const [isRefreshingInterfaces, setIsRefreshingInterfaces] = useState(false);
-  // Keep track of last settings load time to avoid unnecessary reloads
-  const lastLoadTime = useRef<number>(0);
-  const RELOAD_INTERVAL = 3000; // 3 seconds
+  const [isStoppingProxy, setIsStoppingProxy] = useState(false);  const [isRefreshingInterfaces, setIsRefreshingInterfaces] = useState(false);
 
   // Define callback functions first, before using them in useEffect
   const loadNetworkInterfaces = useCallback(async () => {
@@ -36,88 +32,35 @@ export const SettingsTab: React.FC = () => {
       console.error('Failed to load network interfaces:', error);
       // Keep default options on error
     }
-  }, []);
-
-  // Load proxy status to check if it's running and get current configuration
-  const loadProxyStatus = useCallback(async () => {
+  }, []);  const loadSettings = useCallback(async () => {
+    setLoading(true);
     try {
+      // Use proxy status as the primary source of truth for current configuration
       const status = await invoke<ProxyStatusResponse>('get_proxy_status');
 
       console.log('Proxy status:', status);
-      setIsProxyRunning(status.is_running);
 
-      // Update settings with values from the proxy if needed
-      if (status.is_running) {
-        setSettings(prev => ({
-          ...prev,
-          targetHost: status.bind_addr,
-          listenPort: status.port,
-          enableLogging: status.verbose_mode,
-          logFilePath: status.log_file
-        }));
-      }
-    } catch (error) {
-      console.error('Failed to get proxy status:', error);
-    }
-  }, []);
-
-  const loadSettings = useCallback(async () => {
-    setLoading(true);
-    try {
-      const savedSettings = await invoke<ProxySettings>('get_proxy_settings');
-      setSettings(savedSettings);
+      const currentSettings: ProxySettings = {
+        listenPort: status.port,
+        targetHost: status.bind_addr,
+        enableLogging: status.verbose_mode,
+        logFilePath: status.log_file
+      };      setSettings(currentSettings);
+      setIsProxyRunning(status.is_running); // Set proxy running status from same response
       setIsDirty(false); // Mark as clean since we just loaded from backend
-      lastLoadTime.current = Date.now();
-      console.log('Loaded settings from backend:', savedSettings);
+      console.log('Loaded settings from proxy status:', currentSettings);
     } catch (error) {
-      console.error('Failed to load settings:', error);
+      console.error('Failed to load settings from proxy status:', error);
       // Keep default settings on error
     } finally {
       setLoading(false);
     }
-  }, []);
-
-  // Load settings on component mount
+  }, []);  // Load settings on component mount (when user clicks on Settings tab)
   useEffect(() => {
     console.log('SettingsTab mounted, loading initial settings...');
     loadSettings();
     loadNetworkInterfaces();
-    loadProxyStatus();
-  }, [loadSettings, loadNetworkInterfaces, loadProxyStatus]);
-
-  // Listen for tab/window visibility changes to reload settings
-  // This ensures we show the latest settings when user returns to this tab
-  useEffect(() => {
-    // Set up a timer that checks if we should reload settings
-    const interval = setInterval(() => {
-      const now = Date.now();
-      const timeSinceLastLoad = now - lastLoadTime.current;
-
-      // Only reload if:
-      // 1. We're not currently in the middle of any operation
-      // 2. It's been more than RELOAD_INTERVAL since last load
-      // 3. Document is visible (tab is active)
-      if (!loading &&
-          !saving &&
-          !isStartingProxy &&
-          !isStoppingProxy &&
-          !document.hidden &&
-          timeSinceLastLoad > RELOAD_INTERVAL) {
-        console.log('Auto-reloading settings from memory (ensuring fresh data)...');
-        loadSettings();
-
-        // Also check proxy status for real-time updates
-        invoke('get_proxy_status')
-          .then((status: any) => {
-            console.log('Proxy status:', status);
-            setIsProxyRunning(status.is_running);
-          })
-          .catch(err => console.error('Failed to get proxy status:', err));
-      }
-    }, 1000); // Check every second
-
-    return () => clearInterval(interval);
-  }, [loading, saving, isStartingProxy, isStoppingProxy, loadSettings]);
+  }, [loadSettings, loadNetworkInterfaces]);
 
   const startProxy = async () => {
     setIsStartingProxy(true);

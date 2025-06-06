@@ -87,6 +87,7 @@ add_library(Intercept SHARED
     src/socks5.c
     src/tls_utils.c
     src/utils.c
+    src/user_data.c
 )
 
 # Define BUILDING_INTERCEPT_LIB for proper export symbol visibility

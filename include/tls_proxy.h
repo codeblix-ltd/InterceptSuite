@@ -17,6 +17,7 @@
 /* Include DLL interface header for platform detection and callback typedefs */
 #include "platform.h"
 #include "tls_proxy_dll.h"
+#include "user_data.h"
 
 
 
@@ -50,7 +51,6 @@ void **__cdecl OPENSSL_Applink(void);
 /* Default Constants */
 #define DEFAULT_PROXY_PORT 4444
 #define DEFAULT_BIND_ADDR "127.0.0.1"
-#define DEFAULT_LOGFILE "tls_proxy.log"
 #define BUFFER_SIZE 16384
 /* Only define MAX_HOSTNAME_LEN if not already defined */
 #ifndef MAX_HOSTNAME_LEN
@@ -59,8 +59,7 @@ void **__cdecl OPENSSL_Applink(void);
 #define MAX_FILEPATH_LEN 512
 #define MAX_IP_ADDR_LEN 46  /* Max length for IPv6 addresses */
 #define CERT_EXPIRY_DAYS 365
-#define CA_CERT_FILE "Intercept_Suite_Cert.pem"
-#define CA_KEY_FILE "Intercept_Suite_key.key"
+/* Certificate file paths are now managed by user_data.h functions */
 
 /* Platform-specific defines and typedefs */
 /* socket_t already defined in platform.h */
