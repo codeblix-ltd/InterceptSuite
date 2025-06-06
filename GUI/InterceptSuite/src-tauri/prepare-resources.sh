@@ -23,8 +23,6 @@ echo "Build configuration: $BUILD_CONFIG"
 RESOURCES_DIR="$TAURI_DIR/resources"
 mkdir -p "$RESOURCES_DIR"
 
-# Clear existing resources
-rm -rf "$RESOURCES_DIR"/*
 
 # Determine the platform
 case "$(uname -s)" in

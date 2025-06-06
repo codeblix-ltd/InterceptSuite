@@ -48,74 +48,6 @@ jobs:
           librsvg2-dev \
           patchelf
 
-    - name: Create complete mock environment FIRST
-      run: |
-        echo "=== Creating complete mock environment ==="
-
-        # Create ALL necessary directories first
-        mkdir -p src-tauri/resources
-        mkdir -p src-tauri/capabilities
-        mkdir -p ../build
-        mkdir -p ../src
-        mkdir -p ../include
-
-        # Create mock source files (since build.rs checks for ../../src)
-        echo "// Mock C source file" > ../src/main.c
-        echo "// Mock header file" > ../include/tls_proxy.h
-
-        # Create CMakeLists.txt (since build.rs checks for it)
-        cat > ../CMakeLists.txt << 'EOF'
-        cmake_minimum_required(VERSION 3.10)
-        project(Intercept)
-        # Mock CMakeLists.txt for CI
-        EOF
-
-        # Create mock libraries
-        if [ "${{ runner.os }}" = "Windows" ]; then
-          echo "Mock Windows DLL content" > ../build/Intercept.dll
-          echo "Mock Windows LIB content" > ../build/Intercept.lib
-        elif [ "${{ runner.os }}" = "macOS" ]; then
-          echo "Mock macOS dylib content" > ../build/libIntercept.dylib
-          echo "Mock macOS static lib content" > ../build/libIntercept.a
-        else
-          echo "Mock Linux shared lib content" > ../build/libIntercept.so
-          echo "Mock Linux static lib content" > ../build/libIntercept.a
-        fi
-
-        # Create MULTIPLE resource files (the glob pattern needs files)
-        echo '{"app": "interceptsuite"}' > src-tauri/resources/config.json
-        echo "Application resources file" > src-tauri/resources/app.txt
-        echo "Sample data file" > src-tauri/resources/sample.dat
-        echo "Configuration template" > src-tauri/resources/template.conf
-        echo "README for resources" > src-tauri/resources/README.md
-
-        # Create capabilities file if referenced
-        echo '{}' > src-tauri/capabilities/default.json
-
-        # Verify everything was created
-        echo "=== Verification ==="
-        echo "Source directory:"
-        ls -la ../src/ || echo "No src directory"
-        echo "Build directory:"
-        ls -la ../build/ || echo "No build directory"
-        echo "Resources directory:"
-        ls -la src-tauri/resources/ || echo "No resources directory"
-        echo "Capabilities directory:"
-        ls -la src-tauri/capabilities/ || echo "No capabilities directory"
-
-        # Test the exact glob pattern that's failing
-        echo "Testing glob pattern 'resources/*':"
-        ls -la src-tauri/resources/* || echo "Glob pattern failed"
-
-        # Check if build.rs exists and what it contains
-        if [ -f "src-tauri/build.rs" ]; then
-          echo "=== build.rs contents ==="
-          cat src-tauri/build.rs
-        else
-          echo "No build.rs found"
-        fi
-      shell: bash
-
     - name: Cache dependencies
       uses: actions/cache@v4
       with:
@@ -131,36 +63,31 @@ jobs:
     - name: Install dependencies
       run: npm ci
 
+    - name: Create resources directory with files
+      run: |
+        echo "=== Creating resources directory ==="
+        mkdir -p src-tauri/resources
+
+        # Create simple text files for the glob pattern
+        echo "CI build resource file" > src-tauri/resources/ci-build.txt
+        echo "Mock config data" > src-tauri/resources/config.txt
+        echo "Test resource" > src-tauri/resources/test.txt
+
+        echo "=== Verifying resources ==="
+        ls -la src-tauri/resources/
+        echo "Testing glob pattern:"
+        ls src-tauri/resources/*
+      shell: bash
+
     - name: Build frontend
       run: |
         echo "=== Building frontend ==="
         npm run build
 
-    - name: Debug before Tauri build
-      run: |
-        echo "=== Final verification before Tauri build ==="
-        echo "Current working directory: $(pwd)"
-        echo "Contents of src-tauri/resources/:"
-        find src-tauri/resources -type f -exec ls -la {} \; 2>/dev/null || echo "No files in resources"
-        echo "Testing glob from src-tauri directory:"
-        cd src-tauri && ls resources/* || echo "Glob failed from src-tauri"
-        cd ..
-
-        # Check if there's a prepare-resources script
-        if [ -f "src-tauri/prepare-resources.js" ]; then
-          echo "=== Running prepare-resources script ==="
-          node src-tauri/prepare-resources.js Release || echo "prepare-resources script failed"
-        fi
-      shell: bash
-
     - name: Build Tauri application
       run: |
         echo "=== Building Tauri application ==="
         npm run tauri build
-      env:
-        TAURI_SKIP_NATIVE_LIB_CHECK: "true"
-        # Skip the problematic glob check if possible
-        TAURI_SKIP_RESOURCE_CHECK: "true"
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4

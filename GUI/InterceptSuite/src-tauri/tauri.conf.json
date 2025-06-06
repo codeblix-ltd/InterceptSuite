@@ -36,7 +36,7 @@
     ],
     "externalBin": [],
     "copyright": "© 2025 InterceptSuite/AnoF-Cyber/Sourav Kalal",
-    "category": "Cybersecurity",
+    "category": "DeveloperTool",
     "shortDescription": "Network traffic interception tool designed for TLS/SSL inspection, analysis, and manipulation",
     "longDescription": "InterceptSuite is a powerful network traffic interception tool designed for TLS/SSL inspection, analysis, and manipulation at the network level. Unlike tools like Burp Suite or OWASP ZAP that focus specifically on HTTP/HTTPS traffic, InterceptSuite aims to provide visibility into any TLS-encrypted protocol, operating at the TCP/TLS layer.",
     "homepage": "https://github.com/yourusername/InterceptSuite",

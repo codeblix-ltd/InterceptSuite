@@ -15,12 +15,6 @@ Write-Host "Preparing native libraries for bundling..." -ForegroundColor Green
 Write-Host "Workspace root: $WorkspaceRoot"
 Write-Host "Build configuration: $BuildConfig"
 
-# Create a resources directory in the Tauri project
-$ResourcesDir = Join-Path $TauriDir "resources"
-if (Test-Path $ResourcesDir) {
-    Remove-Item $ResourcesDir -Recurse -Force
-}
-New-Item -ItemType Directory -Path $ResourcesDir | Out-Null
 
 Write-Host "Detected platform: Windows"
 
