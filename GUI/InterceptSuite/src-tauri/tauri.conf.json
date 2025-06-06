@@ -13,8 +13,8 @@
     "windows": [
       {
         "title": "interceptsuite",
-        "width": 800,
-        "height": 600
+        "width": 900,
+        "height": 900
       }
     ],
     "security": {
@@ -35,10 +35,14 @@
       "resources/*"
     ],
     "externalBin": [],
-    "copyright": "© 2025 InterceptSuite",
-    "category": "DeveloperTool",
-    "shortDescription": "TLS Intercept Suite",
-    "longDescription": "A powerful TLS interception and analysis tool for network security analysis",
+    "copyright": "© 2025 InterceptSuite/AnoF-Cyber/Sourav Kalal",
+    "category": "Cybersecurity",
+    "shortDescription": "Network traffic interception tool designed for TLS/SSL inspection, analysis, and manipulation",
+    "longDescription": "InterceptSuite is a powerful network traffic interception tool designed for TLS/SSL inspection, analysis, and manipulation at the network level. Unlike tools like Burp Suite or OWASP ZAP that focus specifically on HTTP/HTTPS traffic, InterceptSuite aims to provide visibility into any TLS-encrypted protocol, operating at the TCP/TLS layer.",
+    "homepage": "https://github.com/yourusername/InterceptSuite",
+    "publisher": "Sourav Kalal",
+    "license": "GNU Affero General Public License v3.0 (AGPL-3.0)",
+    "licenseFile": "../../../LICENSE",
     "windows": {
       "certificateThumbprint": null,
       "digestAlgorithm": "sha256",
