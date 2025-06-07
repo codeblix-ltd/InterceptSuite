@@ -250,7 +250,8 @@ jobs:
             #### Debian/Ubuntu (.deb):
             ```bash
             sudo dpkg -i InterceptSuite-v*-linux-x64.deb
-            sudo apt-get install -f  # Fix any missing dependencies
+            sudo apt-get install -f
+            # Fix any missing dependencies
             ```
 
             #### RedHat/Fedora/CentOS (.rpm):
@@ -297,7 +298,8 @@ jobs:
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "### 📦 Artifacts Created:" >> $GITHUB_STEP_SUMMARY
         echo "- ✅ Native C Library (libIntercept.so)" >> $GITHUB_STEP_SUMMARY
-        echo "- ✅ Tauri GUI Application" >> $GITHUB_STEP_SUMMARY        echo "- ✅ Linux AppImage (Universal)" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Tauri GUI Application" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Linux AppImage (Universal)" >> $GITHUB_STEP_SUMMARY
         echo "- ✅ Debian Package (.deb)" >> $GITHUB_STEP_SUMMARY
         echo "- ✅ RPM Package (.rpm)" >> $GITHUB_STEP_SUMMARY
         echo "- ✅ Developer Library Package" >> $GITHUB_STEP_SUMMARY
