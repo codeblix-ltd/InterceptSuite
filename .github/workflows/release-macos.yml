@@ -78,8 +78,9 @@ jobs:
         targets: aarch64-apple-darwin
 
     - name: Install Rust dependencies
+      working-directory: GUI/InterceptSuite/src-tauri
       run: |
-        cargo install tauri-cli --version "^2.0.0"
+        cargo install --path . --bin tauri
     - name: Cache Rust dependencies
       uses: actions/cache@v4
       with:
