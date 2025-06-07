@@ -134,7 +134,7 @@ jobs:
         }
 
         # Copy the DLL to resources if it's not there
-        if (Test-Path "Intercept.dll" -and -not (Test-Path "resources\Intercept.dll")) {
+        if ((Test-Path "Intercept.dll") -and (-not (Test-Path "resources\Intercept.dll"))) {
           Copy-Item "Intercept.dll" "resources\" -Force
           Write-Host "✅ Copied Intercept.dll to resources directory" -ForegroundColor Green
         }
