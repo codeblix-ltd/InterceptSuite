@@ -1,0 +1,93 @@
+name: C InterceptSuite Build
+
+on:
+  push:
+    branches: [ Cross-Platform, master ]
+  pull_request:
+    branches: [ Cross-Platform, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            platform: windows
+            script: build_windows.ps1
+            artifact_pattern: "build/**/*.dll"
+
+          - os: ubuntu-latest
+            platform: linux
+            script: build_linux.sh
+            artifact_pattern: "build/**/*.so"
+
+          - os: macos-14
+            platform: macos
+            script: build_macos.sh
+            artifact_pattern: "build/**/*.dylib"
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install platform dependencies (Linux)
+      if: matrix.platform == 'linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential cmake libssl-dev pkg-config
+
+    - name: Install platform dependencies (macOS)
+      if: matrix.platform == 'macos'
+      run: |
+        brew update
+        brew install openssl cmake
+
+    - name: Setup vcpkg (Windows)
+      if: matrix.platform == 'windows'
+      run: |
+        git clone https://github.com/Microsoft/vcpkg.git vcpkg
+        cd vcpkg
+        .\bootstrap-vcpkg.bat -disableMetrics
+
+    - name: Make script executable (Unix)
+      if: matrix.platform != 'windows'
+      run: chmod +x ${{ matrix.script }}
+
+    - name: Build native library (Windows)
+      if: matrix.platform == 'windows'
+      run: ./${{ matrix.script }}
+      shell: powershell
+
+    - name: Build native library (Unix)
+      if: matrix.platform != 'windows'
+      run: ./${{ matrix.script }}
+      shell: bash
+
+    - name: Verify build output
+      run: |
+        if [ "${{ matrix.platform }}" = "windows" ]; then
+          if [ -d "build" ]; then
+            find build -name "*.dll" -o -name "*.lib" | head -10
+          else
+            echo "❌ Build directory not found"
+            exit 1
+          fi
+        else
+          if [ -d "build" ]; then
+            find build -name "*.so" -o -name "*.dylib" | head -10
+          else
+            echo "❌ Build directory not found"
+            exit 1
+          fi
+        fi
+      shell: bash
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: interceptsuite-${{ matrix.platform }}
+        path: ${{ matrix.artifact_pattern }}
+        retention-days: 30

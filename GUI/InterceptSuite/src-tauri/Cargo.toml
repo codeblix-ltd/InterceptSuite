@@ -1,0 +1,30 @@
+[package]
+name = "interceptsuite"
+version = "1.0.1"
+description = "A powerful SOCKS5 proxy based network traffic interception tool for Windows that enables TLS/SSL inspection, analysis, and manipulation at the network level."
+authors = ["Sourav Kalal"]
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "interceptsuite_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+libloading = "0.8"
+lazy_static = "1.4"
+anyhow = "1.0"
+tokio = { version = "1", features = ["full"] }
+chrono = { version = "0.4", features = ["serde"] }
+

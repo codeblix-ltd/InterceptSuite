@@ -7,11 +7,15 @@
  * https://stackoverflow.com/questions/76621500/openssl-fatal-openssl-uplink5c149000-08-no-openssl-applink-in-c-sharp-wrap
  */
 
+/* Define that we're building the library so exports are properly defined */
+#define BUILDING_INTERCEPT_LIB
+
 #ifdef _WIN32
 #include <openssl/applink.c>
+#include "../include/tls_proxy_dll.h"
 
 // Export the applink function to make it available to OpenSSL
-__declspec(dllexport) void **OPENSSL_Applink(void);
+INTERCEPT_API void **OPENSSL_Applink(void);
 
 // Force the applink function to be linked and available
 void force_applink_linkage(void) {

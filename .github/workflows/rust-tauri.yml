@@ -1,0 +1,133 @@
+name: Rust Tauri App Build
+
+on:
+  push:
+    branches: [ main, master, Cross-Platform ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-and-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [ubuntu-22.04, windows-latest, macos-latest]
+
+    runs-on: ${{ matrix.platform }}
+    defaults:
+      run:
+        working-directory: GUI/InterceptSuite
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: 'GUI/InterceptSuite/package-lock.json'
+
+    - name: Setup Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Install system dependencies (Ubuntu)
+      if: matrix.platform == 'ubuntu-22.04'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential \
+          libgtk-3-dev \
+          libwebkit2gtk-4.1-dev \
+          libappindicator3-dev \
+          librsvg2-dev \
+          patchelf
+
+    - name: Cache dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/bin/
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          GUI/InterceptSuite/src-tauri/target/
+          GUI/InterceptSuite/node_modules
+        key: ${{ runner.os }}-deps-${{ hashFiles('GUI/InterceptSuite/package-lock.json') }}-${{ hashFiles('GUI/InterceptSuite/src-tauri/Cargo.lock') }}
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Create resources directory with files
+      run: |
+        echo "=== Creating resources directory ==="
+        mkdir -p src-tauri/resources
+
+        # Create simple text files for the glob pattern
+        echo "CI build resource file" > src-tauri/resources/ci-build.txt
+        echo "Mock config data" > src-tauri/resources/config.txt
+        echo "Test resource" > src-tauri/resources/test.txt
+
+        echo "=== Verifying resources ==="
+        ls -la src-tauri/resources/
+        echo "Testing glob pattern:"
+        ls src-tauri/resources/*
+      shell: bash
+
+    - name: Build frontend
+      run: |
+        echo "=== Building frontend ==="
+        npm run build
+
+    - name: Build Tauri application
+      run: |
+        echo "=== Building Tauri application ==="
+        npm run tauri build
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: tauri-${{ runner.os }}-build
+        path: |
+          GUI/InterceptSuite/src-tauri/target/release/bundle/**/*
+        if-no-files-found: warn
+        retention-days: 30
+
+  security-check:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    defaults:
+      run:
+        working-directory: GUI/InterceptSuite
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+
+    - name: Setup Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run security audits
+      run: |
+        echo "=== Running npm audit ==="
+        npm audit --audit-level moderate || true
+
+        echo "=== Installing cargo-audit ==="
+        cargo install cargo-audit
+
+        echo "=== Running cargo audit ==="
+        cd src-tauri
+        cargo audit || true

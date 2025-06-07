@@ -13,12 +13,16 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <winsock2.h>
-#include <ws2tcpip.h>
-#include <windows.h>
-#include <process.h>
-#include <iphlpapi.h>  /* For IP address validation */
 
+/* Include DLL interface header for platform detection and callback typedefs */
+#include "platform.h"
+#include "tls_proxy_dll.h"
+#include "user_data.h"
+
+
+
+
+/* Common OpenSSL headers for all platforms */
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 #include <openssl/x509.h>
@@ -27,8 +31,10 @@
 #include <openssl/bio.h>
 #include <openssl/rsa.h>
 
-/* Include DLL interface header for callback typedefs */
-#include "tls_proxy_dll.h"
+/* Enable library export symbol visibility */
+#ifndef BUILDING_INTERCEPT_LIB
+#define BUILDING_INTERCEPT_LIB
+#endif
 
 /* Define certificate error codes if not available in this OpenSSL version */
 #ifndef SSL_R_TLSV1_ALERT_BAD_CERTIFICATE
@@ -45,7 +51,6 @@ void **__cdecl OPENSSL_Applink(void);
 /* Default Constants */
 #define DEFAULT_PROXY_PORT 4444
 #define DEFAULT_BIND_ADDR "127.0.0.1"
-#define DEFAULT_LOGFILE "tls_proxy.log"
 #define BUFFER_SIZE 16384
 /* Only define MAX_HOSTNAME_LEN if not already defined */
 #ifndef MAX_HOSTNAME_LEN
@@ -54,22 +59,15 @@ void **__cdecl OPENSSL_Applink(void);
 #define MAX_FILEPATH_LEN 512
 #define MAX_IP_ADDR_LEN 46  /* Max length for IPv6 addresses */
 #define CERT_EXPIRY_DAYS 365
-#define CA_CERT_FILE "Intercept_Suite_Cert.pem"
-#define CA_KEY_FILE "Intercept_Suite_key.key"
+/* Certificate file paths are now managed by user_data.h functions */
 
-/* Windows-specific defines and typedefs */
-typedef SOCKET socket_t;
-/* Only define socklen_t if not already defined in system headers */
-#ifndef _SOCKLEN_T_DEFINED
+/* Platform-specific defines and typedefs */
+/* socket_t already defined in platform.h */
+/* Only define socklen_t if not already defined in system headers and ws2tcpip.h didn't define it */
+#if !defined(_SOCKLEN_T_DEFINED) && !defined(_SOCKLEN_T)
 typedef unsigned int socklen_t;
 #endif
-#define THREAD_RETURN_TYPE unsigned __stdcall
-#define THREAD_RETURN return 0
-#define close_socket(s) closesocket(s)
-#define THREAD_HANDLE HANDLE
-#define CREATE_THREAD(handle, func, arg) handle = (HANDLE)_beginthreadex(NULL, 0, func, arg, 0, NULL)
-#define JOIN_THREAD(handle) WaitForSingleObject(handle, INFINITE); CloseHandle(handle)
-#define SLEEP(ms) Sleep(ms)
+
 
 /* Define SSL error reason codes if not available */
 #ifndef SSL_R_UNEXPECTED_EOF_WHILE_READING
@@ -133,8 +131,8 @@ typedef struct {
 /* Server thread control */
 typedef struct {
     int should_stop;              /* Flag to signal server thread to stop */
-    HANDLE thread_handle;         /* Server thread handle */
-    CRITICAL_SECTION cs;         /* Critical section for thread safety */
+    thread_t thread_handle;         /* Server thread handle */
+    mutex_t cs;             /* Critical section for thread safety */
     socket_t server_sock;        /* Server socket */
 } server_thread_t;
 
@@ -165,7 +163,7 @@ typedef struct {
     unsigned char *data;
     int data_length;
     int is_waiting_for_response;
-    HANDLE response_event;
+    event_t response_event;
     intercept_action_t action;
     unsigned char *modified_data;
     int modified_length;
@@ -175,7 +173,7 @@ typedef struct {
 typedef struct {
     intercept_direction_t enabled_directions;
     int is_interception_enabled;
-    CRITICAL_SECTION intercept_cs;
+    mutex_t intercept_cs;
 } intercept_config_t;
 
 /* Global certificate references */
@@ -193,19 +191,19 @@ extern intercept_config_t g_intercept_config;
 extern log_callback_t g_log_callback;
 extern status_callback_t g_status_callback;
 extern connection_callback_t g_connection_callback;
-extern stats_callback_t g_stats_callback;
 extern disconnect_callback_t g_disconnect_callback;
 extern intercept_callback_t g_intercept_callback;
 
 /* Function prototypes */
 int init_winsock(void);
 void cleanup_winsock(void);
-int start_proxy_server(void);
+intercept_bool_t start_proxy_server(void);
 int validate_ip_address(const char *ip_addr);
 void log_message(const char *format, ...);
 void close_log_file(void);
 
 /* Server thread function prototypes */
-THREAD_RETURN_TYPE WINAPI run_server_thread(void* arg);
+THREAD_RETURN_TYPE THREAD_CALL run_server_thread(void* arg);
+
 
 #endif /* TLS_PROXY_H */

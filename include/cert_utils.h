@@ -21,4 +21,8 @@ void print_openssl_error(void);
 SSL_CTX *create_server_ssl_context(void);
 SSL_CTX *create_client_ssl_context(void);
 
+/* File utility functions */
+char* read_file_to_memory(const char* filename, long* file_size);
+int write_memory_to_file(const char* filename, const char* data, size_t data_size);
+
 #endif /* CERT_UTILS_H */

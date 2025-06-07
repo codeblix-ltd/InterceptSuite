@@ -1,0 +1,223 @@
+/* InterceptTab.css - Dark mode compatible styles */
+.intercept-tab {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 16px;
+  gap: 16px;
+  background: var(--background);
+  color: var(--text-primary);
+}
+
+.intercept-controls {
+  padding: 16px;
+  background: var(--surface);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+}
+
+.control-row {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.toggle-button {
+  padding: 8px 16px;
+  font-weight: bold;
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.toggle-button.enabled {
+  background-color: var(--success-color);
+  color: white;
+}
+
+.toggle-button.enabled:hover {
+  background-color: #059669;
+}
+
+.toggle-button.disabled {
+  background-color: var(--error-color);
+  color: white;
+}
+
+.toggle-button.disabled:hover {
+  background-color: #dc2626;
+}
+
+.direction-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.direction-selector label {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.direction-selector select {
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface-darker);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.direction-selector select:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+}
+
+.status-display {
+  margin-left: auto;
+  font-style: italic;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.intercept-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--surface);
+  min-height: 0;
+}
+
+.queue-status {
+  padding: 12px 16px;
+  background: var(--surface-darker);
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.current-packet {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 16px;
+  background: var(--background);
+  min-height: 0;
+}
+
+.packet-header {
+  margin-bottom: 16px;
+  flex-shrink: 0;
+}
+
+.packet-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+  font-size: 13px;
+}
+
+.packet-meta div {
+  color: var(--text-primary);
+}
+
+.packet-meta strong {
+  color: var(--text-secondary);
+}
+
+.packet-data-viewer {
+  flex: 1;
+  min-height: 0;
+  margin-bottom: 16px;
+}
+
+.no-packets {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  color: var(--text-secondary);
+  font-style: italic;
+  font-size: 14px;
+}
+  .packet-data-viewer {
+  flex: 1;
+  min-height: 0;
+  margin-bottom: 16px;
+}
+
+.packet-actions {
+  display: flex;
+  gap: 12px;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.forward-button, .drop-button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: var(--radius);
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+  font-size: 14px;
+}
+
+.forward-button {
+  background-color: var(--primary-color);
+  color: white;
+}
+
+.forward-button:hover:not(:disabled) {
+  background-color: var(--primary-hover);
+}
+
+.drop-button {
+  background-color: var(--error-color);
+  color: white;
+}
+
+.drop-button:hover:not(:disabled) {
+  background-color: #dc2626;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.packet-details {
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  margin-bottom: 16px;
+}
+
+.hex-view {
+  max-height: 300px;
+  overflow-y: auto;
+  background: var(--surface-darker);
+  color: var(--text-primary);
+  padding: 12px;
+  border-radius: var(--radius);
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  white-space: pre-wrap;
+  border: 1px solid var(--border);
+}
+
+.hex-view pre {
+  margin: 0;
+  color: var(--text-primary);
+}
