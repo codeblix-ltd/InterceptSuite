@@ -214,10 +214,27 @@ impl InterceptLibrary {
         }
 
         // Try to get the current executable directory and add it to search paths
+        // macos need full path , search does not works
+        // windows - MSI and exe installer use separate location need to handle that
 
         if cfg!(target_os = "macos") {
             // Only use the full application bundle path - no searching
             possible_paths.push("/Applications/interceptsuite.app/Contents/Resources/resources/libIntercept.dylib".to_string());
+        }
+
+        if cfg!(target_os = "windows") {
+            // Only use the full application bundle path - no searching
+            if let Ok(local_app_data) = std::env::var("LOCALAPPDATA") {
+                possible_paths.push(format!("{}\\interceptsuite\\resources\\{}", local_app_data, library_name));
+                possible_paths.push(format!("{}\\interceptsuite\\{}", local_app_data, library_name));
+            }
+
+            possible_paths.extend(vec![
+                format!("C:\\Program Files\\interceptsuite\\resources\\{}", library_name),
+                format!("C:\\Program Files\\interceptsuite\\{}", library_name),
+                format!("C:\\Program Files (x86)\\interceptsuite\\resources\\{}", library_name),
+                format!("C:\\Program Files (x86)\\interceptsuite\\{}", library_name),
+            ]);
         }
 
         if !cfg!(target_os = "macos") {

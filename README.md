@@ -15,6 +15,9 @@
 ![C](https://img.shields.io/badge/C-00599C?style=for-the-badge&logo=c&logoColor=white)
 [![Build Status](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/rust-tauri.yml/badge.svg)](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/rust-tauri.yml)
 [![C InterceptSuite Build](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/Build-DLL.yml/badge.svg)](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/Build-DLL.yml)
+[![Linux Release Build](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/release-linux.yml/badge.svg)](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/release-linux.yml)
+[![macOS Release Build](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/release-macos.yml/badge.svg)](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/release-macos.yml)
+[![Windows Release Build](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/release-windows.yml/badge.svg)](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/release-windows.yml)
 [![Downloads](https://img.shields.io/github/downloads/anof-cyber/InterceptSuite/total)](https://github.com/anof-cyber/InterceptSuite/releases)
 [![License](https://img.shields.io/github/license/anof-cyber/InterceptSuite)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/anof-cyber/InterceptSuite)](https://github.com/anof-cyber/InterceptSuite)
@@ -119,9 +122,9 @@ InterceptSuite bridges this gap by providing a **universal TLS interception engi
 
 >
 > **💖 Support Code Signing**: If you'd like to help us obtain code signing certificates, you can support the project through:
-> - **₿ Bitcoin**: `bc1qusxngf2w5gl2g8hw82ggct59227k4963f9fwhm`
-> - **💎 GitHub Sponsor**: [https://github.com/sponsors/Anof-cyber](https://github.com/sponsors/Anof-cyber)
-> - **☕ Buy Me a Coffee**: [https://www.buymeacoffee.com/AnoF](https://www.buymeacoffee.com/AnoF)
+- **₿ Bitcoin**: `bc1qusxngf2w5gl2g8hw82ggct59227k4963f9fwhm`
+- **💎 GitHub Sponsor**: [https://github.com/sponsors/Anof-cyber](https://github.com/sponsors/Anof-cyber)
+- **☕ Buy Me a Coffee**: [https://www.buymeacoffee.com/AnoF](https://www.buymeacoffee.com/AnoF)
 ## 📖 Usage
 
 For comprehensive setup and usage instructions, see our detailed **[Usage Guide](Usage.md)**.
