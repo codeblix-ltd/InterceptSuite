@@ -179,19 +179,16 @@ jobs:
 
     # =====================================================================
     # STEP 5: Upload to GitHub Release (if this is a release)
-    # =====================================================================
-
-    - name: Upload to GitHub Release
+    # =====================================================================    - name: Upload to GitHub Release
       if: github.event_name == 'release' || startsWith(github.ref, 'refs/tags/')
       uses: softprops/action-gh-release@v2
-      with:
-      files: |
+      with:        files: |
           release-artifacts/InterceptSuite-v*-macos-arm64.dmg
           release-artifacts/libIntercept-v*-macos-arm64.dylib
           release-artifacts/InterceptSuite-Library-v*-macos-arm64.tar.gz
           release-artifacts/checksums-macos.txt
-      name: "InterceptSuite ${{ github.ref_name }} - macOS Release"
-      body: |
+        name: "InterceptSuite ${{ github.ref_name }} - macOS Release"
+        body: |
           ## 🍎 macOS Release - ${{ github.ref_name }} (Apple Silicon)
 
           ### 📦 What's Included:
