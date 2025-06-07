@@ -198,12 +198,18 @@ impl InterceptLibrary {
         }
         if cfg!(target_os = "macos") {
             possible_paths.extend(vec![
+                // Standard macOS app bundle paths
                 format!("../Resources/{}", library_name),
                 format!("../Resources/resources/{}", library_name),
                 format!("../../Resources/{}", library_name),
                 format!("../../Resources/resources/{}", library_name),
                 format!("../../../Resources/{}", library_name),
                 format!("../../../Resources/resources/{}", library_name),
+                // Additional common macOS bundle locations
+                format!("./Contents/Resources/{}", library_name),
+                format!("./Contents/Resources/resources/{}", library_name),
+                format!("../Contents/Resources/{}", library_name),
+                format!("../Contents/Resources/resources/{}", library_name),
             ]);
         }
 
