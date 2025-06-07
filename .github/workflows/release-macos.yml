@@ -80,7 +80,7 @@ jobs:
     - name: Install Rust dependencies
       working-directory: GUI/InterceptSuite/src-tauri
       run: |
-        cargo install --path . --bin tauri
+        cargo fetch --locked
     - name: Cache Rust dependencies
       uses: actions/cache@v4
       with:
