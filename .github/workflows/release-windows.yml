@@ -55,7 +55,6 @@ jobs:
 
     - name: Setup MSVC
       uses: microsoft/setup-msbuild@v2
-
     - name: Build C Library (.dll)
       shell: pwsh
       run: |
@@ -64,6 +63,24 @@ jobs:
         Write-Host "=== Verifying DLL build ===" -ForegroundColor Green
         Get-ChildItem -Path "build\" -Recurse -Filter "*.dll"
         Get-ChildItem -Path "build\" -Recurse -Filter "*.lib"
+
+        Write-Host "=== Copying OpenSSL DLLs to build directory ===" -ForegroundColor Green
+        # Try to copy OpenSSL DLLs from vcpkg to build directory
+        $vcpkgBinDir = "${{ github.workspace }}\vcpkg\installed\x64-windows\bin"
+        $buildReleaseDir = "build\Release"
+
+        if (Test-Path "$vcpkgBinDir\libcrypto-3-x64.dll") {
+          Copy-Item "$vcpkgBinDir\libcrypto-3-x64.dll" "$buildReleaseDir\" -Force
+          Write-Host "✅ Copied libcrypto-3-x64.dll to build directory" -ForegroundColor Green
+        }
+
+        if (Test-Path "$vcpkgBinDir\libssl-3-x64.dll") {
+          Copy-Item "$vcpkgBinDir\libssl-3-x64.dll" "$buildReleaseDir\" -Force
+          Write-Host "✅ Copied libssl-3-x64.dll to build directory" -ForegroundColor Green
+        }
+
+        Write-Host "=== Final build directory contents ===" -ForegroundColor Green
+        Get-ChildItem -Path "$buildReleaseDir" -Filter "*.dll"
 
     # =====================================================================
     # STEP 2: Setup Rust and Node.js for Tauri App
@@ -100,11 +117,66 @@ jobs:
     # =====================================================================
     # STEP 3: Build Tauri Application
     # =====================================================================
-
     - name: Install Node.js dependencies
       working-directory: GUI/InterceptSuite
       run: npm ci
 
+    - name: Prepare native libraries for Tauri
+      working-directory: GUI/InterceptSuite/src-tauri
+      shell: pwsh
+      run: |
+        Write-Host "=== Preparing native libraries ===" -ForegroundColor Green
+        .\prepare-resources.ps1
+
+        # Ensure resources directory exists and has proper structure
+        if (-not (Test-Path "resources")) {
+          New-Item -ItemType Directory -Path "resources" -Force
+        }
+
+        # Copy the DLL to resources if it's not there
+        if (Test-Path "Intercept.dll" -and -not (Test-Path "resources\Intercept.dll")) {
+          Copy-Item "Intercept.dll" "resources\" -Force
+          Write-Host "✅ Copied Intercept.dll to resources directory" -ForegroundColor Green
+        }
+          # Copy OpenSSL DLLs from build directory if they exist
+        $buildDir = "${{ github.workspace }}\build\Release"
+        if (Test-Path "$buildDir\libcrypto-3-x64.dll") {
+          Copy-Item "$buildDir\libcrypto-3-x64.dll" "resources\" -Force
+          Write-Host "✅ Copied libcrypto-3-x64.dll to resources" -ForegroundColor Green
+        } else {
+          Write-Host "⚠️ libcrypto-3-x64.dll not found in build directory" -ForegroundColor Yellow
+          # Try to find OpenSSL DLLs from vcpkg
+          $vcpkgDir = "${{ github.workspace }}\vcpkg\installed\x64-windows\bin"
+          if (Test-Path "$vcpkgDir\libcrypto-3-x64.dll") {
+            Copy-Item "$vcpkgDir\libcrypto-3-x64.dll" "resources\" -Force
+            Write-Host "✅ Copied libcrypto-3-x64.dll from vcpkg to resources" -ForegroundColor Green
+          } else {
+            Write-Host "⚠️ libcrypto-3-x64.dll not found in vcpkg either" -ForegroundColor Yellow
+          }
+        }
+
+        if (Test-Path "$buildDir\libssl-3-x64.dll") {
+          Copy-Item "$buildDir\libssl-3-x64.dll" "resources\" -Force
+          Write-Host "✅ Copied libssl-3-x64.dll to resources" -ForegroundColor Green
+        } else {
+          Write-Host "⚠️ libssl-3-x64.dll not found in build directory" -ForegroundColor Yellow
+          # Try to find OpenSSL DLLs from vcpkg
+          $vcpkgDir = "${{ github.workspace }}\vcpkg\installed\x64-windows\bin"
+          if (Test-Path "$vcpkgDir\libssl-3-x64.dll") {
+            Copy-Item "$vcpkgDir\libssl-3-x64.dll" "resources\" -Force
+            Write-Host "✅ Copied libssl-3-x64.dll from vcpkg to resources" -ForegroundColor Green
+          } else {
+            Write-Host "⚠️ libssl-3-x64.dll not found in vcpkg either" -ForegroundColor Yellow
+          }
+        }
+
+        Write-Host "=== Verifying resources directory ===" -ForegroundColor Green
+        if (Test-Path "resources") {
+          Get-ChildItem -Path "resources" -Recurse
+        } else {
+          Write-Host "❌ Resources directory still doesn't exist!" -ForegroundColor Red
+          exit 1
+        }
 
     - name: Build frontend
       working-directory: GUI/InterceptSuite
