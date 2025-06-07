@@ -1,7 +1,12 @@
 cmake_minimum_required(VERSION 3.14)
 
 # Set triplet and architecture BEFORE project() call
-if(APPLE)
+if(WIN32)
+    # Use static triplet for Windows to avoid DLL dependencies
+    set(VCPKG_TARGET_TRIPLET "x64-windows-static" CACHE STRING "")
+    set(ENV{VCPKG_DEFAULT_TRIPLET} "x64-windows-static")
+    message(STATUS "Using Windows static triplet for self-contained builds")
+elseif(APPLE)
     # Detect if we're on ARM64 Mac and set the appropriate triplet
     execute_process(COMMAND uname -m OUTPUT_VARIABLE UNAME_MACHINE OUTPUT_STRIP_TRAILING_WHITESPACE)
     if(UNAME_MACHINE MATCHES "arm64|aarch64")
@@ -31,6 +36,12 @@ set(CMAKE_C_STANDARD 11)
 
 # Build as a shared library
 set(BUILD_SHARED_LIBS ON)
+
+# Configure OpenSSL for static linking
+set(OPENSSL_USE_STATIC_LIBS TRUE)
+if(WIN32)
+    set(OPENSSL_MSVC_STATIC_RT ON)
+endif()
 
 # Enable position-independent code for all targets
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -107,79 +118,14 @@ target_link_libraries(Intercept PRIVATE
     ${PLATFORM_LIBS}
 )
 
-# Platform-specific library handling
-if(WIN32)
-    # Handle OpenSSL DLLs for Windows
-    set(OPENSSL_CRYPTO_DLL "")
-    set(OPENSSL_SSL_DLL "")
-
-    # Try standard installation paths
-    #  C:/vcpkg/packages/openssl_x64-windows/
-    if(EXISTS "C:/Program Files/OpenSSL-Win64/bin/libcrypto-3-x64.dll")
-        set(OPENSSL_CRYPTO_DLL "C:/Program Files/OpenSSL-Win64/bin/libcrypto-3-x64.dll")
-        set(OPENSSL_SSL_DLL "C:/Program Files/OpenSSL-Win64/bin/libssl-3-x64.dll")
-    elseif(EXISTS "C:/Program Files (x86)/OpenSSL-Win64/bin/libcrypto-3-x64.dll")
-        set(OPENSSL_CRYPTO_DLL "C:/Program Files (x86)/OpenSSL-Win64/bin/libcrypto-3-x64.dll")
-        set(OPENSSL_SSL_DLL "C:/Program Files (x86)/OpenSSL-Win64/bin/libssl-3-x64.dll")
-    elseif(EXISTS "C:/vcpkg/packages/openssl_x64-windows/bin/libcrypto-3-x64.dll")
-        set(OPENSSL_CRYPTO_DLL "C:/vcpkg/packages/openssl_x64-windows/bin/libcrypto-3-x64.dll")
-        set(OPENSSL_SSL_DLL "C:/vcpkg/packages/openssl_x64-windows/bin/libssl-3-x64.dll")
-    endif()
-
-    # Try to get DLLs from vcpkg if not found yet
-    if(NOT OPENSSL_CRYPTO_DLL OR NOT EXISTS "${OPENSSL_CRYPTO_DLL}")
-        if(DEFINED VCPKG_INSTALLED_DIR)
-            if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-                set(VCPKG_BIN_DIR "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/debug/bin")
-            else()
-                set(VCPKG_BIN_DIR "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/bin")
-            endif()
-
-            if(EXISTS "${VCPKG_BIN_DIR}/libcrypto-3-x64.dll")
-                set(OPENSSL_CRYPTO_DLL "${VCPKG_BIN_DIR}/libcrypto-3-x64.dll")
-                set(OPENSSL_SSL_DLL "${VCPKG_BIN_DIR}/libssl-3-x64.dll")
-            elseif(EXISTS "${VCPKG_BIN_DIR}/libcrypto.dll")
-                set(OPENSSL_CRYPTO_DLL "${VCPKG_BIN_DIR}/libcrypto.dll")
-                set(OPENSSL_SSL_DLL "${VCPKG_BIN_DIR}/libssl.dll")
-            endif()
-        endif()
-    endif()
-
-    message(STATUS "OpenSSL found: ${OPENSSL_FOUND}")
-    message(STATUS "OpenSSL version: ${OPENSSL_VERSION}")
-    message(STATUS "OpenSSL Crypto DLL: ${OPENSSL_CRYPTO_DLL}")
-    message(STATUS "OpenSSL SSL DLL: ${OPENSSL_SSL_DLL}")
-
-    # Copy DLLs to output directory if they were found
-    if(OPENSSL_CRYPTO_DLL AND EXISTS "${OPENSSL_CRYPTO_DLL}")
-        add_custom_command(TARGET Intercept POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                "${OPENSSL_SSL_DLL}"
-                "${OPENSSL_CRYPTO_DLL}"
-                $<TARGET_FILE_DIR:Intercept>
-        )
-    else()
-        message(WARNING "OpenSSL DLLs not found - DLL might not run without them")
-    endif()
-endif()
-
 # Platform-specific library installation
-if(WIN32)
-    # Windows: Install OpenSSL DLLs if found
-    if(OPENSSL_CRYPTO_DLL AND EXISTS "${OPENSSL_CRYPTO_DLL}")
-        install(FILES
-            "${OPENSSL_CRYPTO_DLL}"
-            "${OPENSSL_SSL_DLL}"
-            DESTINATION ${INSTALL_RUNTIME_DIR}
-        )
-    endif()
-elseif(APPLE)
+if(APPLE)
     # macOS: Add rpaths for OpenSSL libraries
     set_target_properties(Intercept PROPERTIES
         INSTALL_RPATH "@loader_path/../lib"
         BUILD_WITH_INSTALL_RPATH TRUE
     )
-else()
+elseif(UNIX AND NOT APPLE)
     # Linux: Add rpaths for OpenSSL libraries
     set_target_properties(Intercept PROPERTIES
         INSTALL_RPATH "$ORIGIN/../lib"

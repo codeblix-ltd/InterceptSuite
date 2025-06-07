@@ -55,34 +55,42 @@ jobs:
 
 
     - name: Setup MSVC
-      uses: microsoft/setup-msbuild@v2
-    - name: Build C Library (.dll)
+      uses: microsoft/setup-msbuild@v2    - name: Build C Library (.dll)
       shell: pwsh
       run: |
-        Write-Host "=== Building InterceptSuite C Library for Windows ===" -ForegroundColor Green
-        vcpkg install
+        Write-Host "=== Building InterceptSuite C Library for Windows with Static OpenSSL ===" -ForegroundColor Green
+
+        # Set environment variables for static linking
+        $env:VCPKG_DEFAULT_TRIPLET = "x64-windows-static"
+
+        # Install dependencies with static triplet
+        .\vcpkg\vcpkg.exe install --triplet x64-windows-static
+
+        # Build the library
         .\build_windows.ps1 -VcpkgRoot "${{ github.workspace }}\vcpkg"
-        Write-Host "=== Verifying DLL build ===" -ForegroundColor Green
+
+        Write-Host "=== Verifying DLL build (static linking) ===" -ForegroundColor Green
         Get-ChildItem -Path "build\" -Recurse -Filter "*.dll"
         Get-ChildItem -Path "build\" -Recurse -Filter "*.lib"
 
-        Write-Host "=== Copying OpenSSL DLLs to build directory ===" -ForegroundColor Green
-        # Try to copy OpenSSL DLLs from vcpkg to build directory
-        $vcpkgBinDir = "${{ github.workspace }}\vcpkg\installed\x64-windows\bin"
-        $buildReleaseDir = "build\Release"
+        # Verify the built DLL size and dependencies
+        $dllPath = "build\Release\Intercept.dll"
+        if (Test-Path $dllPath) {
+          $dllSize = (Get-Item $dllPath).Length
+          Write-Host "✅ Intercept.dll built successfully - Size: $dllSize bytes" -ForegroundColor Green
 
-        if (Test-Path "$vcpkgBinDir\libcrypto-3-x64.dll") {
-          Copy-Item "$vcpkgBinDir\libcrypto-3-x64.dll" "$buildReleaseDir\" -Force
-          Write-Host "✅ Copied libcrypto-3-x64.dll to build directory" -ForegroundColor Green
+          # Check dependencies using dumpbin if available
+          try {
+            $dumpbinOutput = & "dumpbin.exe" /dependents $dllPath 2>$null
+            Write-Host "=== DLL Dependencies ===" -ForegroundColor Cyan
+            Write-Host $dumpbinOutput
+          } catch {
+            Write-Host "⚠️ dumpbin not available, skipping dependency check" -ForegroundColor Yellow
+          }
+        } else {
+          Write-Error "❌ Intercept.dll not found in build directory"
+          exit 1
         }
-
-        if (Test-Path "$vcpkgBinDir\libssl-3-x64.dll") {
-          Copy-Item "$vcpkgBinDir\libssl-3-x64.dll" "$buildReleaseDir\" -Force
-          Write-Host "✅ Copied libssl-3-x64.dll to build directory" -ForegroundColor Green
-        }
-
-        Write-Host "=== Final build directory contents ===" -ForegroundColor Green
-        Get-ChildItem -Path "$buildReleaseDir" -Filter "*.dll"
 
     # =====================================================================
     # STEP 2: Setup Rust and Node.js for Tauri App
@@ -121,13 +129,11 @@ jobs:
     # =====================================================================
     - name: Install Node.js dependencies
       working-directory: GUI/InterceptSuite
-      run: npm ci
-
-    - name: Prepare native libraries for Tauri
+      run: npm ci    - name: Prepare native libraries for Tauri
       working-directory: GUI/InterceptSuite/src-tauri
       shell: pwsh
       run: |
-        Write-Host "=== Preparing native libraries ===" -ForegroundColor Green
+        Write-Host "=== Preparing native libraries (static linking) ===" -ForegroundColor Green
         .\prepare-resources.ps1
 
         # Ensure resources directory exists and has proper structure
@@ -140,37 +146,9 @@ jobs:
           Copy-Item "Intercept.dll" "resources\" -Force
           Write-Host "✅ Copied Intercept.dll to resources directory" -ForegroundColor Green
         }
-          # Copy OpenSSL DLLs from build directory if they exist
-        $buildDir = "${{ github.workspace }}\build\Release"
-        if (Test-Path "$buildDir\libcrypto-3-x64.dll") {
-          Copy-Item "$buildDir\libcrypto-3-x64.dll" "resources\" -Force
-          Write-Host "✅ Copied libcrypto-3-x64.dll to resources" -ForegroundColor Green
-        } else {
-          Write-Host "⚠️ libcrypto-3-x64.dll not found in build directory" -ForegroundColor Yellow
-          # Try to find OpenSSL DLLs from vcpkg
-          $vcpkgDir = "${{ github.workspace }}\vcpkg\installed\x64-windows\bin"
-          if (Test-Path "$vcpkgDir\libcrypto-3-x64.dll") {
-            Copy-Item "$vcpkgDir\libcrypto-3-x64.dll" "resources\" -Force
-            Write-Host "✅ Copied libcrypto-3-x64.dll from vcpkg to resources" -ForegroundColor Green
-          } else {
-            Write-Host "⚠️ libcrypto-3-x64.dll not found in vcpkg either" -ForegroundColor Yellow
-          }
-        }
 
-        if (Test-Path "$buildDir\libssl-3-x64.dll") {
-          Copy-Item "$buildDir\libssl-3-x64.dll" "resources\" -Force
-          Write-Host "✅ Copied libssl-3-x64.dll to resources" -ForegroundColor Green
-        } else {
-          Write-Host "⚠️ libssl-3-x64.dll not found in build directory" -ForegroundColor Yellow
-          # Try to find OpenSSL DLLs from vcpkg
-          $vcpkgDir = "${{ github.workspace }}\vcpkg\installed\x64-windows\bin"
-          if (Test-Path "$vcpkgDir\libssl-3-x64.dll") {
-            Copy-Item "$vcpkgDir\libssl-3-x64.dll" "resources\" -Force
-            Write-Host "✅ Copied libssl-3-x64.dll from vcpkg to resources" -ForegroundColor Green
-          } else {
-            Write-Host "⚠️ libssl-3-x64.dll not found in vcpkg either" -ForegroundColor Yellow
-          }
-        }
+        # With static linking, no OpenSSL DLLs are needed
+        Write-Host "ℹ️ Using static OpenSSL linking - no separate DLLs required" -ForegroundColor Cyan
 
         Write-Host "=== Verifying resources directory ===" -ForegroundColor Green
         if (Test-Path "resources") {
