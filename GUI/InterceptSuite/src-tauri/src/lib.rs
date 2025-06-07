@@ -196,6 +196,16 @@ impl InterceptLibrary {
                 format!("/opt/interceptsuite/lib/{}", library_name),
             ]);
         }
+        if cfg!(target_os = "macos") {
+            possible_paths.extend(vec![
+                format!("../Resources/{}", library_name),
+                format!("../Resources/resources/{}", library_name),
+                format!("../../Resources/{}", library_name),
+                format!("../../Resources/resources/{}", library_name),
+                format!("../../../Resources/{}", library_name),
+                format!("../../../Resources/resources/{}", library_name),
+            ]);
+        }
 
         // Try to get the current executable directory and add it to search paths
         if let Ok(exe_path) = std::env::current_exe() {
