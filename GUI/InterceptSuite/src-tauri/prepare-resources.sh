@@ -96,11 +96,20 @@ case "$PLATFORM" in
 
     "macos")
         if [ -f "$BUILD_DIR/$BUILD_CONFIG/libIntercept.dylib" ]; then
-            cp "$BUILD_DIR/$BUILD_CONFIG/libIntercept.dylib" "$RESOURCES_DIR/"
-            echo "Copied libIntercept.dylib"
-        else
-            echo "Warning: libIntercept.dylib not found in $BUILD_DIR/$BUILD_CONFIG/"
+        cp "$BUILD_DIR/$BUILD_CONFIG/libIntercept.dylib" "$RESOURCES_DIR/"
+        echo "Copied libIntercept.dylib from $BUILD_DIR/$BUILD_CONFIG/"
+    elif [ -f "$BUILD_DIR/libIntercept.dylib" ]; then
+        cp "$BUILD_DIR/libIntercept.dylib" "$RESOURCES_DIR/"
+        echo "Copied libIntercept.dylib from $BUILD_DIR/"
+    else
+        echo "Warning: libIntercept.dylib not found in $BUILD_DIR/$BUILD_CONFIG/ or $BUILD_DIR/"
+        echo "Available files in build directory:"
+        ls -la "$BUILD_DIR/" || echo "Build directory not found"
+        if [ -d "$BUILD_DIR/$BUILD_CONFIG" ]; then
+            echo "Available files in $BUILD_DIR/$BUILD_CONFIG/:"
+            ls -la "$BUILD_DIR/$BUILD_CONFIG/"
         fi
+    fi
 
         # Copy OpenSSL libraries
         for ssl_lib in libssl.dylib libcrypto.dylib; do
