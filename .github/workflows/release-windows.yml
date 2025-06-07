@@ -55,7 +55,8 @@ jobs:
 
 
     - name: Setup MSVC
-      uses: microsoft/setup-msbuild@v2    - name: Build C Library (.dll)
+      uses: microsoft/setup-msbuild@v2
+    - name: Build C Library (.dll)
       shell: pwsh
       run: |
         Write-Host "=== Building InterceptSuite C Library for Windows with Static OpenSSL ===" -ForegroundColor Green

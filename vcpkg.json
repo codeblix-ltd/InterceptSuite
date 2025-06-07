@@ -17,11 +17,5 @@
       "name": "vcpkg-cmake-config",
       "host": true
     }
-  ],
-  "overrides": [
-    {
-      "name": "openssl",
-      "version": "3.5.0"
-    }
   ]
 }
