@@ -6,6 +6,9 @@ on:
   push:
     tags:
       - 'v*'  # Run when tag is pushed matching pattern v*, like v1.0.0
+    branches:
+      - master
+      - Cross-Platform
   workflow_dispatch:  # Allow manual triggering
 
 permissions:
