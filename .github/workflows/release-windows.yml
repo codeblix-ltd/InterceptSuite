@@ -52,7 +52,7 @@ jobs:
         .\bootstrap-vcpkg.bat -disableMetrics
         # Update vcpkg to latest
         git pull origin master
-        .\vcpkg.exe install openssl
+
 
     - name: Setup MSVC
       uses: microsoft/setup-msbuild@v2
@@ -60,6 +60,7 @@ jobs:
       shell: pwsh
       run: |
         Write-Host "=== Building InterceptSuite C Library for Windows ===" -ForegroundColor Green
+        vcpkg install
         .\build_windows.ps1 -VcpkgRoot "${{ github.workspace }}\vcpkg"
         Write-Host "=== Verifying DLL build ===" -ForegroundColor Green
         Get-ChildItem -Path "build\" -Recurse -Filter "*.dll"
