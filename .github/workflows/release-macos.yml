@@ -78,7 +78,7 @@ jobs:
     - name: Setup Rust
       uses: dtolnay/rust-toolchain@stable
       with:
-        targets: x86_64-apple-darwin,aarch64-apple-darwin
+        targets: aarch64-apple-darwin
 
     - name: Install Rust dependencies
       run: |
@@ -117,20 +117,18 @@ jobs:
       working-directory: GUI/InterceptSuite
       run: |
         echo "=== Building React frontend ==="
-        npm run build
-
-    - name: Build Tauri App (Universal Binary)
+        npm run build    - name: Build Tauri App (Apple Silicon)
       working-directory: GUI/InterceptSuite
       run: |
-        echo "=== Building Tauri app for macOS ==="
-        npm run tauri build -- --target universal-apple-darwin
+        echo "=== Building Tauri app for macOS Apple Silicon ==="
+        npm run tauri build -- --target aarch64-apple-darwin
 
         echo "=== Verifying Tauri build output ==="
-        ls -la src-tauri/target/universal-apple-darwin/release/bundle/
+        ls -la src-tauri/target/aarch64-apple-darwin/release/bundle/
 
         # Check if DMG was created
-        if [ -d "src-tauri/target/universal-apple-darwin/release/bundle/dmg" ]; then
-          ls -la src-tauri/target/universal-apple-darwin/release/bundle/dmg/
+        if [ -d "src-tauri/target/aarch64-apple-darwin/release/bundle/dmg" ]; then
+          ls -la src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/
         fi
 
     # =====================================================================
@@ -150,22 +148,20 @@ jobs:
           VERSION="dev-build"
         fi
 
-        echo "Building for version: $VERSION"
-
-        # Copy DMG file
-        if [ -f "GUI/InterceptSuite/src-tauri/target/universal-apple-darwin/release/bundle/dmg/interceptsuite_${VERSION}_universal.dmg" ]; then
-          cp "GUI/InterceptSuite/src-tauri/target/universal-apple-darwin/release/bundle/dmg/interceptsuite_${VERSION}_universal.dmg" "release-artifacts/InterceptSuite-v${VERSION}-macos-universal.dmg"
+        echo "Building for version: $VERSION"        # Copy DMG file (ARM64/Apple Silicon)
+        if [ -f "GUI/InterceptSuite/src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/interceptsuite_${VERSION}_aarch64.dmg" ]; then
+          cp "GUI/InterceptSuite/src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/interceptsuite_${VERSION}_aarch64.dmg" "release-artifacts/InterceptSuite-v${VERSION}-macos-arm64.dmg"
           echo "✅ DMG file copied"
         else
           echo "❌ DMG file not found, checking for alternative names..."
-          find GUI/InterceptSuite/src-tauri/target/universal-apple-darwin/release/bundle/dmg/ -name "*.dmg" -exec cp {} "release-artifacts/InterceptSuite-v${VERSION}-macos-universal.dmg" \;
+          find GUI/InterceptSuite/src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/ -name "*.dmg" -exec cp {} "release-artifacts/InterceptSuite-v${VERSION}-macos-arm64.dmg" \;
         fi
 
         # Copy standalone dylib for developers
-        cp build/libIntercept.dylib "release-artifacts/libIntercept-v${VERSION}-macos-universal.dylib"
+        cp build/libIntercept.dylib "release-artifacts/libIntercept-v${VERSION}-macos-arm64.dylib"
 
         # Create a library-only package for developers
-        tar -czf "release-artifacts/InterceptSuite-Library-v${VERSION}-macos-universal.tar.gz" \
+        tar -czf "release-artifacts/InterceptSuite-Library-v${VERSION}-macos-arm64.tar.gz" \
           build/libIntercept.dylib \
           include/tls_proxy_dll.h \
           include/tls_proxy.h \
@@ -188,20 +184,18 @@ jobs:
     - name: Upload to GitHub Release
       if: github.event_name == 'release' || startsWith(github.ref, 'refs/tags/')
       uses: softprops/action-gh-release@v2
-      with:
-        files: |
-          release-artifacts/InterceptSuite-v*-macos-universal.dmg
-          release-artifacts/libIntercept-v*-macos-universal.dylib
-          release-artifacts/InterceptSuite-Library-v*-macos-universal.tar.gz
+      with:        files: |
+          release-artifacts/InterceptSuite-v*-macos-arm64.dmg
+          release-artifacts/libIntercept-v*-macos-arm64.dylib
+          release-artifacts/InterceptSuite-Library-v*-macos-arm64.tar.gz
           release-artifacts/checksums-macos.txt
-        name: "InterceptSuite ${{ github.ref_name }} - macOS Release"
-        body: |
-          ## 🍎 macOS Release - ${{ github.ref_name }}
+        name: "InterceptSuite ${{ github.ref_name }} - macOS Release"        body: |
+          ## 🍎 macOS Release - ${{ github.ref_name }} (Apple Silicon)
 
           ### 📦 What's Included:
-          - **InterceptSuite-v*-macos-universal.dmg** - Complete application with GUI (Universal Binary - Intel & Apple Silicon)
-          - **libIntercept-v*-macos-universal.dylib** - Native library for developers
-          - **InterceptSuite-Library-v*-macos-universal.tar.gz** - Development package with headers and documentation
+          - **InterceptSuite-v*-macos-arm64.dmg** - Complete application with GUI (Apple Silicon/ARM64)
+          - **libIntercept-v*-macos-arm64.dylib** - Native library for developers
+          - **InterceptSuite-Library-v*-macos-arm64.tar.gz** - Development package with headers and documentation
           - **checksums-macos.txt** - SHA256 checksums for verification
 
           ### ⚠️ Installation Notes:
@@ -210,8 +204,9 @@ jobs:
           - Or temporarily disable Gatekeeper: `sudo spctl --master-disable`
 
           ### 🔧 System Requirements:
-          - macOS 10.13 (High Sierra) or later
-          - Intel Mac or Apple Silicon Mac (Universal Binary)
+          - macOS 11.0 (Big Sur) or later
+          - Apple Silicon Mac (M1/M2/M3) - **ARM64 only**
+          - **Note**: This build does NOT support Intel Macs
 
           ### 🛡️ Security:
           Please verify downloads using the provided checksums before installation.
@@ -239,9 +234,8 @@ jobs:
         echo "- ✅ Tauri GUI Application" >> $GITHUB_STEP_SUMMARY
         echo "- ✅ macOS DMG Installer" >> $GITHUB_STEP_SUMMARY
         echo "- ✅ Developer Library Package" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### 🔍 Build Details:" >> $GITHUB_STEP_SUMMARY
-        echo "- **Platform**: macOS Universal (Intel + Apple Silicon)" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY        echo "### 🔍 Build Details:" >> $GITHUB_STEP_SUMMARY
+        echo "- **Platform**: macOS Apple Silicon (ARM64)" >> $GITHUB_STEP_SUMMARY
         echo "- **Build Type**: Release" >> $GITHUB_STEP_SUMMARY
         echo "- **C Library**: $(file build/libIntercept.dylib)" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
