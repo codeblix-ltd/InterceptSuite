@@ -116,13 +116,13 @@ jobs:
     - name: Build Tauri App
       working-directory: GUI/InterceptSuite
       run: |
-        echo "=== Building Tauri app for macOS ==="
+        echo "=== Building Tauri app for macOS (Apple Silicon) ==="
         npm run tauri build
         echo "=== Verifying Tauri build output ==="
-        ls -la src-tauri/target/universal-apple-darwin/release/bundle/
+        ls -la src-tauri/target/release/bundle/
         # Check if DMG was created
-        if [ -d "src-tauri/target/universal-apple-darwin/release/bundle/dmg" ]; then
-          ls -la src-tauri/target/universal-apple-darwin/release/bundle/dmg/
+        if [ -d "src-tauri/target/release/bundle/dmg" ]; then
+          ls -la src-tauri/target/release/bundle/dmg/
         fi
     # =====================================================================
     # STEP 4: Create Release Artifacts
@@ -142,13 +142,13 @@ jobs:
         fi
         echo "Building for version: $VERSION"
 
-        # Copy DMG file (Apple Silicon)
-        if [ -f "GUI/InterceptSuite/src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/interceptsuite_${VERSION}_aarch64.dmg" ]; then
-          cp "GUI/InterceptSuite/src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/interceptsuite_${VERSION}_aarch64.dmg" "release-artifacts/InterceptSuite-v${VERSION}-macos-arm64.dmg"
+        # Copy DMG file (Apple Silicon) - corrected path
+        if [ -f "GUI/InterceptSuite/src-tauri/target/release/bundle/dmg/interceptsuite_${VERSION}_aarch64.dmg" ]; then
+          cp "GUI/InterceptSuite/src-tauri/target/release/bundle/dmg/interceptsuite_${VERSION}_aarch64.dmg" "release-artifacts/InterceptSuite-v${VERSION}-macos-arm64.dmg"
           echo "✅ DMG file copied"
         else
-          echo "❌ DMG file not found, checking for alternative names..."
-          find GUI/InterceptSuite/src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/ -name "*.dmg" -exec cp {} "release-artifacts/InterceptSuite-v${VERSION}-macos-arm64.dmg" \;
+          echo "❌ DMG file not found with expected name, checking for any DMG files..."
+          find GUI/InterceptSuite/src-tauri/target/release/bundle/dmg/ -name "*.dmg" -exec cp {} "release-artifacts/InterceptSuite-v${VERSION}-macos-arm64.dmg" \;
         fi
 
         # Copy standalone dylib for developers
