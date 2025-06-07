@@ -114,12 +114,16 @@ if(WIN32)
     set(OPENSSL_SSL_DLL "")
 
     # Try standard installation paths
+    #  C:/vcpkg/packages/openssl_x64-windows/
     if(EXISTS "C:/Program Files/OpenSSL-Win64/bin/libcrypto-3-x64.dll")
         set(OPENSSL_CRYPTO_DLL "C:/Program Files/OpenSSL-Win64/bin/libcrypto-3-x64.dll")
         set(OPENSSL_SSL_DLL "C:/Program Files/OpenSSL-Win64/bin/libssl-3-x64.dll")
     elseif(EXISTS "C:/Program Files (x86)/OpenSSL-Win64/bin/libcrypto-3-x64.dll")
         set(OPENSSL_CRYPTO_DLL "C:/Program Files (x86)/OpenSSL-Win64/bin/libcrypto-3-x64.dll")
         set(OPENSSL_SSL_DLL "C:/Program Files (x86)/OpenSSL-Win64/bin/libssl-3-x64.dll")
+    elseif(EXISTS "C:/vcpkg/packages/openssl_x64-windows/bin/libcrypto-3-x64.dll")
+        set(OPENSSL_CRYPTO_DLL "C:/vcpkg/packages/openssl_x64-windows/bin/libcrypto-3-x64.dll")
+        set(OPENSSL_SSL_DLL "C:/vcpkg/packages/openssl_x64-windows/bin/libssl-3-x64.dll")
     endif()
 
     # Try to get DLLs from vcpkg if not found yet

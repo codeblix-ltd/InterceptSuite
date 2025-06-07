@@ -56,6 +56,7 @@ $VcpkgBinPaths = @(
     "$VcpkgRoot\installed\x64-windows\bin",
     "$VcpkgRoot\packages\openssl_x64-windows\bin",
     "$VcpkgRoot\packages\openssl-windows_x64-windows\bin"
+    " C:/vcpkg/packages/openssl_x64-windows/bin/"
 )
 
 $FoundOpenSSL = $false
