@@ -52,7 +52,7 @@ jobs:
         .\bootstrap-vcpkg.bat -disableMetrics
         # Update vcpkg to latest
         git pull origin master
-        .\vcpkg.exe install openssl:x64-windows --recurse
+        .\vcpkg.exe install openssl
 
     - name: Setup MSVC
       uses: microsoft/setup-msbuild@v2
