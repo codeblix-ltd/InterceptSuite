@@ -1,0 +1,310 @@
+name: Linux Release Build
+
+on:
+  release:
+    types: [published, created]
+  push:
+    tags:
+      - 'v*'  # Run when tag is pushed matching pattern v*, like v1.0.0
+    branches:
+      - master
+      - Cross-Platform
+  workflow_dispatch:  # Allow manual triggering
+
+permissions:
+  contents: write  # Needed to create releases and upload artifacts
+
+env:
+  BUILD_TYPE: Release
+
+jobs:
+  build-linux-release:
+    runs-on: ubuntu-22.04
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    # =====================================================================
+    # STEP 1: Build C Library (.so) using vcpkg and cmake
+    # =====================================================================
+
+    - name: Install system dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y \
+          build-essential \
+          cmake \
+          pkg-config \
+          libc6-dev \
+          libssl-dev \
+          libgtk-3-dev \
+          libwebkit2gtk-4.0-dev \
+          libappindicator3-dev \
+          librsvg2-dev \
+          patchelf
+
+    - name: Cache vcpkg
+      uses: actions/cache@v4
+      with:
+        path: |
+          ${{ github.workspace }}/vcpkg
+          !${{ github.workspace }}/vcpkg/buildtrees
+          !${{ github.workspace }}/vcpkg/packages
+          !${{ github.workspace }}/vcpkg/downloads
+        key: vcpkg-linux-${{ hashFiles('vcpkg.json') }}-v2
+
+    - name: Setup vcpkg
+      uses: actions/checkout@v4
+      with:
+        repository: microsoft/vcpkg
+        path: vcpkg
+        fetch-depth: 0
+
+    - name: Bootstrap vcpkg
+      run: |
+        cd vcpkg
+        ./bootstrap-vcpkg.sh -disableMetrics
+        # Update vcpkg to latest
+        git pull origin master
+
+    - name: Build C Library (.so)
+      run: |
+        echo "=== Building InterceptSuite C Library for Linux ==="
+        chmod +x build_linux.sh
+        ./build_linux.sh --vcpkg-root=${{ github.workspace }}/vcpkg
+        echo "=== Verifying shared library build ==="
+        ls -la build/
+        file build/libIntercept.so
+        ldd build/libIntercept.so
+
+    # =====================================================================
+    # STEP 2: Setup Rust and Node.js for Tauri App
+    # =====================================================================
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: 'GUI/InterceptSuite/package-lock.json'
+
+    - name: Setup Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: x86_64-unknown-linux-gnu
+
+    - name: Install Rust dependencies
+      working-directory: GUI/InterceptSuite/src-tauri
+      run: |
+        cargo fetch --locked
+
+    - name: Cache Rust dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/bin/
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          GUI/InterceptSuite/src-tauri/target/
+        key: linux-rust-${{ hashFiles('GUI/InterceptSuite/src-tauri/Cargo.lock') }}
+
+    # =====================================================================
+    # STEP 3: Build Tauri Application
+    # =====================================================================
+
+    - name: Install Node.js dependencies
+      working-directory: GUI/InterceptSuite
+      run: npm ci
+
+    - name: Prepare native libraries for Tauri
+      working-directory: GUI/InterceptSuite/src-tauri
+      run: |
+        echo "=== Preparing native libraries ==="
+        chmod +x prepare-resources.sh
+        ./prepare-resources.sh
+        echo "=== Verifying resources ==="
+        ls -la resources/
+
+    - name: Build frontend
+      working-directory: GUI/InterceptSuite
+      run: |
+        echo "=== Building React frontend ==="
+        npm run build
+
+    - name: Build Tauri App
+      working-directory: GUI/InterceptSuite
+      run: |
+        echo "=== Building Tauri app for Linux x64 ==="
+        npm run tauri build
+        echo "=== Verifying Tauri build output ==="
+        ls -la src-tauri/target/release/bundle/
+        # Check if AppImage was created
+        if [ -d "src-tauri/target/release/bundle/appimage" ]; then
+          echo "AppImage files:"
+          ls -la src-tauri/target/release/bundle/appimage/
+        fi
+        # Check if deb package was created
+        if [ -d "src-tauri/target/release/bundle/deb" ]; then
+          echo "DEB files:"
+          ls -la src-tauri/target/release/bundle/deb/
+        fi
+        # Check if rpm package was created
+        if [ -d "src-tauri/target/release/bundle/rpm" ]; then
+          echo "RPM files:"
+          ls -la src-tauri/target/release/bundle/rpm/
+        fi
+
+    # =====================================================================
+    # STEP 4: Create Release Artifacts
+    # =====================================================================
+
+    - name: Prepare release artifacts
+      run: |
+        echo "=== Preparing release artifacts ==="
+        mkdir -p release-artifacts
+
+        # Extract version from tag or use default
+        if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+          VERSION="${{ github.ref_name }}"
+          VERSION=${VERSION#v}  # Remove 'v' prefix if present
+        else
+          VERSION="dev-build"
+        fi
+        echo "Building for version: $VERSION"        # Copy AppImage file (if exists)
+        if [ -d "GUI/InterceptSuite/src-tauri/target/release/bundle/appimage" ]; then
+          find GUI/InterceptSuite/src-tauri/target/release/bundle/appimage/ -name "*.AppImage" -exec cp {} "release-artifacts/InterceptSuite-v${VERSION}-linux-x64.AppImage" \;
+          echo "✅ AppImage file copied"
+        fi
+
+        # Copy DEB package (if exists)
+        if [ -d "GUI/InterceptSuite/src-tauri/target/release/bundle/deb" ]; then
+          find GUI/InterceptSuite/src-tauri/target/release/bundle/deb/ -name "*.deb" -exec cp {} "release-artifacts/InterceptSuite-v${VERSION}-linux-x64.deb" \;
+          echo "✅ DEB package copied"
+        fi
+
+        # Copy RPM package (if exists)
+        if [ -d "GUI/InterceptSuite/src-tauri/target/release/bundle/rpm" ]; then
+          find GUI/InterceptSuite/src-tauri/target/release/bundle/rpm/ -name "*.rpm" -exec cp {} "release-artifacts/InterceptSuite-v${VERSION}-linux-x64.rpm" \;
+          echo "✅ RPM package copied"
+        fi
+
+        # Copy standalone shared library for developers
+        cp build/libIntercept.so "release-artifacts/libIntercept-v${VERSION}-linux-x64.so"
+
+        # Create a library-only package for developers
+        tar -czf "release-artifacts/InterceptSuite-Library-v${VERSION}-linux-x64.tar.gz" \
+          build/libIntercept.so \
+          include/tls_proxy_dll.h \
+          include/tls_proxy.h \
+          Library_INTEGRATION.md
+
+        echo "=== Release artifacts prepared ==="
+        ls -la release-artifacts/    - name: Generate checksums
+      run: |
+        cd release-artifacts
+        sha256sum *.AppImage *.deb *.rpm *.so *.tar.gz > checksums-linux.txt 2>/dev/null || true
+        echo "=== Checksums generated ==="
+        cat checksums-linux.txt || echo "No checksums to display"
+
+    # =====================================================================
+    # STEP 5: Upload to GitHub Release (if this is a release)
+    # =====================================================================
+
+    - name: Upload to GitHub Release
+      if: github.event_name == 'release' || startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v2
+      with:
+        files: |
+            release-artifacts/InterceptSuite-v*-linux-x64.AppImage
+            release-artifacts/InterceptSuite-v*-linux-x64.deb
+            release-artifacts/InterceptSuite-v*-linux-x64.rpm
+            release-artifacts/libIntercept-v*-linux-x64.so
+            release-artifacts/InterceptSuite-Library-v*-linux-x64.tar.gz
+            release-artifacts/checksums-linux.txt
+        name: "InterceptSuite ${{ github.ref_name }} - Linux Release"
+        body: |
+            ## 🐧 Linux Release - ${{ github.ref_name }}
+            ### 📦 What's Included:
+            - **InterceptSuite-v*-linux-x64.AppImage** - Portable application (universal Linux)
+            - **InterceptSuite-v*-linux-x64.deb** - Debian/Ubuntu package installer
+            - **InterceptSuite-v*-linux-x64.rpm** - RedHat/Fedora/SUSE package installer
+            - **libIntercept-v*-linux-x64.so** - Native shared library for developers
+            - **InterceptSuite-Library-v*-linux-x64.tar.gz** - Development package with headers and documentation
+            - **checksums-linux.txt** - SHA256 checksums for verification
+
+            ### 🚀 Installation Options:
+
+            #### AppImage (Recommended - Universal):
+            ```bash
+            chmod +x InterceptSuite-v*-linux-x64.AppImage
+            ./InterceptSuite-v*-linux-x64.AppImage
+            ```
+
+            #### Debian/Ubuntu (.deb):
+            ```bash
+            sudo dpkg -i InterceptSuite-v*-linux-x64.deb
+            sudo apt-get install -f  # Fix any missing dependencies
+            ```
+
+            #### RedHat/Fedora/CentOS (.rpm):
+            ```bash
+            # Fedora/CentOS 8+
+            sudo dnf install InterceptSuite-v*-linux-x64.rpm
+
+            # RHEL/CentOS 7
+            sudo yum install InterceptSuite-v*-linux-x64.rpm
+
+            # openSUSE
+            sudo zypper install InterceptSuite-v*-linux-x64.rpm
+            ```
+
+            ### 🔧 System Requirements:
+            - **Linux x86_64 (64-bit)**
+            - **GLIBC 2.31 or later** (Ubuntu 20.04+, Debian 11+)
+            - **GTK3 libraries** (usually pre-installed)          ### 📋 Tested Distributions:
+            - **Debian-based**: Ubuntu 20.04+, Debian 11+, Linux Mint 20+
+            - **RedHat-based**: Fedora 36+, CentOS 8+, RHEL 8+, Rocky Linux 8+
+            - **SUSE-based**: openSUSE Leap 15.4+, SLES 15+
+            - **Arch-based**: Arch Linux, Manjaro (current)
+
+            ### 🛡️ Security:
+            Please verify downloads using the provided checksums before installation.
+        draft: false
+        prerelease: ${{ contains(github.ref, 'alpha') || contains(github.ref, 'beta') || contains(github.ref, 'rc') }}
+
+    # =====================================================================
+    # STEP 6: Upload Build Artifacts (for all builds)
+    # =====================================================================
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: linux-release-artifacts
+        path: release-artifacts/
+        retention-days: 30
+        if-no-files-found: error
+
+    - name: Build Summary
+      run: |
+        echo "## 🐧 Linux Build Completed Successfully! 🎉" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 📦 Artifacts Created:" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Native C Library (libIntercept.so)" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Tauri GUI Application" >> $GITHUB_STEP_SUMMARY        echo "- ✅ Linux AppImage (Universal)" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Debian Package (.deb)" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ RPM Package (.rpm)" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Developer Library Package" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 🔍 Build Details:" >> $GITHUB_STEP_SUMMARY
+        echo "- **Platform**: Linux x86_64" >> $GITHUB_STEP_SUMMARY
+        echo "- **Build Type**: Release" >> $GITHUB_STEP_SUMMARY
+        echo "- **C Library**: $(file build/libIntercept.so)" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        if [ -f "release-artifacts/checksums-linux.txt" ]; then
+          echo "### 🔐 Checksums:" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat release-artifacts/checksums-linux.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+        fi
