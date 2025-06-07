@@ -130,7 +130,8 @@ jobs:
     # =====================================================================
     - name: Install Node.js dependencies
       working-directory: GUI/InterceptSuite
-      run: npm ci    - name: Prepare native libraries for Tauri
+      run: npm ci
+    - name: Prepare native libraries for Tauri
       working-directory: GUI/InterceptSuite/src-tauri
       shell: pwsh
       run: |
