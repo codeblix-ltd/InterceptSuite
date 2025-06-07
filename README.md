@@ -14,7 +14,7 @@
 ![Rust](https://img.shields.io/badge/Rust-000000?style=for-the-badge&logo=rust&logoColor=white)
 ![C](https://img.shields.io/badge/C-00599C?style=for-the-badge&logo=c&logoColor=white)
 [![Build Status](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/rust-tauri.yml/badge.svg)](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/rust-tauri.yml)
-[![C InterceptSuite Build](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/Build-DLL.yml/badge.svg)](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/Build-DLL.yml)
+[![C InterceptSuite Build](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/Build-Lib.yml/badge.svg)](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/Build-Lib.yml)
 [![Linux Release Build](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/release-linux.yml/badge.svg)](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/release-linux.yml)
 [![macOS Release Build](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/release-macos.yml/badge.svg)](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/release-macos.yml)
 [![Windows Release Build](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/release-windows.yml/badge.svg)](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/release-windows.yml)
