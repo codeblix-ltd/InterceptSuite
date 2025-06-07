@@ -28,7 +28,6 @@ jobs:
     # =====================================================================
     # STEP 1: Build C Library (.so) using vcpkg and cmake
     # =====================================================================
-
     - name: Install system dependencies
       run: |
         sudo apt update
@@ -42,7 +41,10 @@ jobs:
           libwebkit2gtk-4.0-dev \
           libappindicator3-dev \
           librsvg2-dev \
-          patchelf
+          patchelf \
+          libsoup-3.0-dev \
+          libjavascriptcoregtk-4.1-dev \
+          libwebkit2gtk-4.1-dev
 
     - name: Cache vcpkg
       uses: actions/cache@v4
@@ -172,7 +174,9 @@ jobs:
         else
           VERSION="dev-build"
         fi
-        echo "Building for version: $VERSION"        # Copy AppImage file (if exists)
+        echo "Building for version: $VERSION"
+
+        # Copy AppImage file (if exists)
         if [ -d "GUI/InterceptSuite/src-tauri/target/release/bundle/appimage" ]; then
           find GUI/InterceptSuite/src-tauri/target/release/bundle/appimage/ -name "*.AppImage" -exec cp {} "release-artifacts/InterceptSuite-v${VERSION}-linux-x64.AppImage" \;
           echo "✅ AppImage file copied"
@@ -201,7 +205,7 @@ jobs:
           Library_INTEGRATION.md
 
         echo "=== Release artifacts prepared ==="
-        ls -la release-artifacts/    - name: Generate checksums
+        ls -la release-artifacts/
     - name: Generate checksums
       run: |
         cd release-artifacts
