@@ -214,6 +214,13 @@ impl InterceptLibrary {
         }
 
         // Try to get the current executable directory and add it to search paths
+
+        if cfg!(target_os = "macos") {
+            // Only use the full application bundle path - no searching
+            possible_paths.push("/Applications/interceptsuite.app/Contents/Resources/resources/libIntercept.dylib".to_string());
+        }
+
+        if !cfg!(target_os = "macos") {
         if let Ok(exe_path) = std::env::current_exe() {
             if let Some(exe_dir) = exe_path.parent() {
                 possible_paths.push(exe_dir.join(library_name).to_string_lossy().to_string());
@@ -221,6 +228,7 @@ impl InterceptLibrary {
                 possible_paths.push(exe_dir.join("bin").join(library_name).to_string_lossy().to_string());
             }
         }
+    }
 
         let mut library = None;
         let mut last_error = String::new();
