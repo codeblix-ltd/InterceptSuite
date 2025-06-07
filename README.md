@@ -121,7 +121,7 @@ InterceptSuite bridges this gap by providing a **universal TLS interception engi
 >
 
 >
-> **💖 Support Code Signing**: If you'd like to help us obtain code signing certificates, you can support the project through:
+**💖 Support Code Signing**: If you'd like to help us obtain code signing certificates, you can support the project through:
 - **₿ Bitcoin**: `bc1qusxngf2w5gl2g8hw82ggct59227k4963f9fwhm`
 - **💎 GitHub Sponsor**: [https://github.com/sponsors/Anof-cyber](https://github.com/sponsors/Anof-cyber)
 - **☕ Buy Me a Coffee**: [https://www.buymeacoffee.com/AnoF](https://www.buymeacoffee.com/AnoF)
