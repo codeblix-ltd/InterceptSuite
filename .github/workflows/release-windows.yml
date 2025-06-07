@@ -105,14 +105,6 @@ jobs:
       working-directory: GUI/InterceptSuite
       run: npm ci
 
-    - name: Prepare native libraries for Tauri
-      working-directory: GUI/InterceptSuite/src-tauri
-      shell: pwsh
-      run: |
-        Write-Host "=== Preparing native libraries ===" -ForegroundColor Green
-        .\prepare-resources.ps1
-        Write-Host "=== Verifying resources ===" -ForegroundColor Green
-        Get-ChildItem -Path "resources\" -Recurse
 
     - name: Build frontend
       working-directory: GUI/InterceptSuite
