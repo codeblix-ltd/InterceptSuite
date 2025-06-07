@@ -228,57 +228,7 @@ jobs:
             release-artifacts/libIntercept-v*-linux-x64.so
             release-artifacts/InterceptSuite-Library-v*-linux-x64.tar.gz
             release-artifacts/checksums-linux.txt
-        name: "InterceptSuite ${{ github.ref_name }} - Linux Release"
-        body: |
-            ## 🐧 Linux Release - ${{ github.ref_name }}
-            ### 📦 What's Included:
-            - **InterceptSuite-v*-linux-x64.AppImage** - Portable application (universal Linux)
-            - **InterceptSuite-v*-linux-x64.deb** - Debian/Ubuntu package installer
-            - **InterceptSuite-v*-linux-x64.rpm** - RedHat/Fedora/SUSE package installer
-            - **libIntercept-v*-linux-x64.so** - Native shared library for developers
-            - **InterceptSuite-Library-v*-linux-x64.tar.gz** - Development package with headers and documentation
-            - **checksums-linux.txt** - SHA256 checksums for verification
 
-            ### 🚀 Installation Options:
-
-            #### AppImage (Recommended - Universal):
-            ```bash
-            chmod +x InterceptSuite-v*-linux-x64.AppImage
-            ./InterceptSuite-v*-linux-x64.AppImage
-            ```
-
-            #### Debian/Ubuntu (.deb):
-            ```bash
-            sudo dpkg -i InterceptSuite-v*-linux-x64.deb
-            sudo apt-get install -f
-            # Fix any missing dependencies
-            ```
-
-            #### RedHat/Fedora/CentOS (.rpm):
-            ```bash
-            # Fedora/CentOS 8+
-            sudo dnf install InterceptSuite-v*-linux-x64.rpm
-
-            # RHEL/CentOS 7
-            sudo yum install InterceptSuite-v*-linux-x64.rpm
-
-            # openSUSE
-            sudo zypper install InterceptSuite-v*-linux-x64.rpm
-            ```
-
-            ### 🔧 System Requirements:
-            - **Linux x86_64 (64-bit)**
-            - **GLIBC 2.31 or later** (Ubuntu 20.04+, Debian 11+)
-            - **GTK3 libraries** (usually pre-installed)          ### 📋 Tested Distributions:
-            - **Debian-based**: Ubuntu 20.04+, Debian 11+, Linux Mint 20+
-            - **RedHat-based**: Fedora 36+, CentOS 8+, RHEL 8+, Rocky Linux 8+
-            - **SUSE-based**: openSUSE Leap 15.4+, SLES 15+
-            - **Arch-based**: Arch Linux, Manjaro (current)
-
-            ### 🛡️ Security:
-            Please verify downloads using the provided checksums before installation.
-        draft: false
-        prerelease: ${{ contains(github.ref, 'alpha') || contains(github.ref, 'beta') || contains(github.ref, 'rc') }}
 
     # =====================================================================
     # STEP 6: Upload Build Artifacts (for all builds)

@@ -283,55 +283,6 @@ jobs:
             release-artifacts/libIntercept-v*-windows-x64.lib
             release-artifacts/InterceptSuite-Library-v*-windows-x64.zip
             release-artifacts/checksums-windows.txt
-        name: "InterceptSuite ${{ github.ref_name }} - Windows Release"
-        body: |
-            ## 🪟 Windows Release - ${{ github.ref_name }}
-            ### 📦 What's Included:
-            - **InterceptSuite-v*-windows-x64.msi** - Windows Installer package (recommended)
-            - **InterceptSuite-v*-windows-x64-installer.exe** - NSIS installer (alternative)
-            - **libIntercept-v*-windows-x64.dll** - Native DLL for developers
-            - **libIntercept-v*-windows-x64.lib** - Import library for developers
-            - **InterceptSuite-Library-v*-windows-x64.zip** - Development package with headers and documentation
-            - **checksums-windows.txt** - SHA256 checksums for verification
-
-            ### 🚀 Installation Options:
-
-            #### MSI Installer (Recommended):
-            1. Download `InterceptSuite-v*-windows-x64.msi`
-            2. Double-click to run the installer
-            3. Follow the installation wizard
-            4. The application will be available in Start Menu
-
-            #### NSIS Installer (Alternative):
-            1. Download `InterceptSuite-v*-windows-x64-installer.exe`
-            2. Right-click and "Run as Administrator"
-            3. Follow the installation wizard
-            4. The application will be available in Start Menu
-
-            ### 🔧 System Requirements:
-            - **Windows 10 version 1909 or later (64-bit)**
-            - **Windows 11 (64-bit)** - Recommended
-            - **Microsoft Visual C++ Redistributable** (usually auto-installed)
-            - **WebView2 Runtime** (auto-installed if missing)
-
-            ### 🛡️ Security Notes:
-            - Both installers are code-signed
-            - Windows Defender SmartScreen may show a warning for first-time downloads
-            - Please verify downloads using the provided checksums before installation
-            - If Windows blocks the installer, right-click → Properties → Unblock
-
-            ### 🔧 For Developers:
-            - Use the `.dll` and `.lib` files to integrate with your C/C++ projects
-            - Download the library package for headers and integration documentation
-            - Compatible with Visual Studio 2019/2022 and MinGW-w64
-
-            ### 📋 Tested Platforms:
-            - **Windows 11 (22H2, 23H2)**
-            - **Windows 10 (20H2, 21H1, 21H2, 22H2)**
-            - **Windows Server 2019/2022**
-
-        draft: false
-        prerelease: ${{ contains(github.ref, 'alpha') || contains(github.ref, 'beta') || contains(github.ref, 'rc') }}
 
     # =====================================================================
     # STEP 6: Upload Build Artifacts (for all builds)

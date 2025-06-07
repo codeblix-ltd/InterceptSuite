@@ -192,30 +192,6 @@ jobs:
           release-artifacts/libIntercept-v*-macos-arm64.dylib
           release-artifacts/InterceptSuite-Library-v*-macos-arm64.tar.gz
           release-artifacts/checksums-macos.txt
-        name: "InterceptSuite ${{ github.ref_name }} - macOS Release"
-        body: |
-          ## 🍎 macOS Release - ${{ github.ref_name }}
-
-          ### 📦 What's Included:
-          - **InterceptSuite-v*-macos-arm64.dmg** - Complete application with GUI (Apple Silicon only)
-          - **libIntercept-v*-macos-arm64.dylib** - Native library for developers
-          - **InterceptSuite-Library-v*-macos-arm64.tar.gz** - Development package with headers and documentation
-          - **checksums-macos.txt** - SHA256 checksums for verification
-
-          ### ⚠️ Installation Notes:
-          - DMG is **unsigned** - you may need to bypass Gatekeeper
-          - Right-click the app → "Open" → Confirm to run
-          - Or temporarily disable Gatekeeper: `sudo spctl --master-disable`
-
-          ### 🔧 System Requirements:
-          - **macOS 11.0 (Big Sur) or later**
-          - **Apple Silicon Mac (M1/M2/M3) required**
-          - Intel Macs are NOT supported by this build
-
-          ### 🛡️ Security:
-          Please verify downloads using the provided checksums before installation.
-        draft: false
-        prerelease: ${{ contains(github.ref, 'alpha') || contains(github.ref, 'beta') || contains(github.ref, 'rc') }}
 
     # =====================================================================
     # STEP 6: Upload Build Artifacts (for all builds)
