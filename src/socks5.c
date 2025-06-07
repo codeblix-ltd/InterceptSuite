@@ -64,7 +64,7 @@ int handle_socks5_handshake(socket_t client_sock, char * target_host, int * targ
       int err = errno;
       #endif
       if (config.verbose) {
-        printf("SOCKS5 error receiving greeting: %d (received %d/%d bytes)\n",
+        log_message("SOCKS5 error receiving greeting: %d (received %d/%d bytes)\n",
           err, total_received, 2);
       }
       return 0;
@@ -76,7 +76,7 @@ int handle_socks5_handshake(socket_t client_sock, char * target_host, int * targ
 
   if (buffer[0] != 5) { // Must be SOCKS5
     if (config.verbose) {
-      printf("Not a SOCKS5 request (version: %d)\n", buffer[0]);
+      log_message("Not a SOCKS5 request (version: %d)\n", buffer[0]);
     }
     return 0;
   }
@@ -85,7 +85,7 @@ int handle_socks5_handshake(socket_t client_sock, char * target_host, int * targ
   int nmethods = buffer[1];
   if (nmethods <= 0) {
     if (config.verbose) {
-      printf("Invalid number of authentication methods: %d\n", nmethods);
+      log_message("Invalid number of authentication methods: %d\n", nmethods);
     }
     return 0;
   }
@@ -97,11 +97,11 @@ int handle_socks5_handshake(socket_t client_sock, char * target_host, int * targ
     if (received <= 0) {
       #ifdef INTERCEPT_WINDOWS
       if (config.verbose) {
-        printf("Failed to receive auth methods: %d\n", GET_SOCKET_ERROR());
+        log_message("Failed to receive auth methods: %d\n", GET_SOCKET_ERROR());
       }
       #else
       if (config.verbose) {
-        printf("Failed to receive auth methods: %s\n", strerror(errno));
+        log_message("Failed to receive auth methods: %s\n", strerror(errno));
       }
       #endif
       return 0;
@@ -120,7 +120,7 @@ int handle_socks5_handshake(socket_t client_sock, char * target_host, int * targ
 
   if (!has_no_auth) {
     if (config.verbose) {
-      printf("No auth method not supported by client\n");
+      log_message("No auth method not supported by client\n");
     }
     log_message("Client doesn't support no-auth method, rejecting");
 
@@ -130,7 +130,7 @@ int handle_socks5_handshake(socket_t client_sock, char * target_host, int * targ
     if (send(client_sock, (char * ) reply, 2, 0) != 2) {
       int error = GET_SOCKET_ERROR();
       if (config.verbose) {
-        printf("Failed to send auth rejection: %d\n", error);
+        log_message("Failed to send auth rejection: %d\n", error);
       }
       log_message("Failed to send auth rejection: %d", error);
     }
@@ -149,7 +149,7 @@ int handle_socks5_handshake(socket_t client_sock, char * target_host, int * targ
     int result = send(client_sock, (char * ) reply + sent, 2 - sent, 0);
     if (result <= 0) {
       if (config.verbose) {
-        printf("Failed to send auth method response: %d\n", GET_SOCKET_ERROR());
+        log_message("Failed to send auth method response: %d\n", GET_SOCKET_ERROR());
       }
       return 0;
     }
@@ -157,7 +157,7 @@ int handle_socks5_handshake(socket_t client_sock, char * target_host, int * targ
   }
 
   if (config.verbose) {
-    printf("SOCKS5 authentication negotiation successful\n");
+    log_message("SOCKS5 authentication negotiation successful\n");
   }
   // Step 2: Client Connection Request
   memset(buffer, 0, sizeof(buffer));
@@ -168,7 +168,7 @@ int handle_socks5_handshake(socket_t client_sock, char * target_host, int * targ
     received = recv(client_sock, (char * ) buffer + total_received, 4 - total_received, 0);
     if (received <= 0) {
       if (config.verbose) {
-        printf("Failed to receive connection request: %d\n", GET_SOCKET_ERROR());
+        log_message("Failed to receive connection request: %d\n", GET_SOCKET_ERROR());
       }
       return 0;
     }
@@ -179,7 +179,7 @@ int handle_socks5_handshake(socket_t client_sock, char * target_host, int * targ
   // Check SOCKS version and command
   if (buffer[0] != SOCKS5_VERSION) {
     if (config.verbose) {
-      printf("Not a SOCKS5 request (version: %d)\n", buffer[0]);
+      log_message("Not a SOCKS5 request (version: %d)\n", buffer[0]);
     }
     log_message("Invalid SOCKS version: received %d, expected %d", buffer[0], SOCKS5_VERSION);
     return 0;
@@ -188,7 +188,7 @@ int handle_socks5_handshake(socket_t client_sock, char * target_host, int * targ
   // Only support CONNECT command
   if (buffer[1] != SOCKS5_CMD_CONNECT) {
     if (config.verbose) {
-      printf("Unsupported command: %d (only CONNECT=%d supported)\n", buffer[1], SOCKS5_CMD_CONNECT);
+      log_message("Unsupported command: %d (only CONNECT=%d supported)\n", buffer[1], SOCKS5_CMD_CONNECT);
     }
     // Send command not supported response
     memset(reply, 0, sizeof(reply));
@@ -203,7 +203,7 @@ int handle_socks5_handshake(socket_t client_sock, char * target_host, int * targ
       int result = send(client_sock, (char * ) reply + sent, 10 - sent, 0);
       if (result <= 0) {
         if (config.verbose) {
-          printf("Failed to send command rejection: %d\n", GET_SOCKET_ERROR());
+          log_message("Failed to send command rejection: %d\n", GET_SOCKET_ERROR());
         }
         break;
       }
@@ -215,7 +215,7 @@ int handle_socks5_handshake(socket_t client_sock, char * target_host, int * targ
   // Check reserved byte (must be 0)
   if (buffer[2] != 0) {
     if (config.verbose) {
-      printf("Reserved byte is not 0 (value: %d)\n", buffer[2]);
+      log_message("Reserved byte is not 0 (value: %d)\n", buffer[2]);
     }
     // Some clients might still work, so we'll continue
   }
@@ -229,9 +229,8 @@ int handle_socks5_handshake(socket_t client_sock, char * target_host, int * targ
       if (received <= 0) {
         int error = GET_SOCKET_ERROR();
         if (config.verbose) {
-          printf("Failed to receive IPv4 address: %d\n", error);
+          log_message("Failed to receive IPv4 address: %d\n", error);
         }
-        log_message("Failed to receive IPv4 address: %d", error);
         return 0;
       }
       total_received += received;
@@ -249,7 +248,7 @@ int handle_socks5_handshake(socket_t client_sock, char * target_host, int * targ
       received = recv(client_sock, (char * ) buffer + total_received, 1 - total_received, 0);
       if (received <= 0) {
         if (config.verbose) {
-          printf("Failed to receive domain name length: %d\n", GET_SOCKET_ERROR());
+          log_message("Failed to receive domain name length: %d\n", GET_SOCKET_ERROR());
         }
         return 0;
       }
@@ -259,7 +258,7 @@ int handle_socks5_handshake(socket_t client_sock, char * target_host, int * targ
     int domain_len = buffer[0];
     if (domain_len <= 0 || domain_len >= MAX_HOSTNAME_LEN - 1) {
       if (config.verbose) {
-        printf("Invalid domain name length: %d\n", domain_len);
+        log_message("Invalid domain name length: %d\n", domain_len);
       }
       return 0;
     }
@@ -270,7 +269,7 @@ int handle_socks5_handshake(socket_t client_sock, char * target_host, int * targ
       received = recv(client_sock, (char * ) buffer + total_received, domain_len - total_received, 0);
       if (received <= 0) {
         if (config.verbose) {
-          printf("Failed to receive domain name: %d\n", GET_SOCKET_ERROR());
+          log_message("Failed to receive domain name: %d\n", GET_SOCKET_ERROR());
         }
         return 0;
       }
@@ -283,9 +282,7 @@ int handle_socks5_handshake(socket_t client_sock, char * target_host, int * targ
     memcpy(target_host, buffer, domain_len);
     target_host[domain_len] = '\0';
   } else if (atyp == SOCKS5_ADDR_IPV6) { // IPv6
-    if (config.verbose) {
-      printf("IPv6 addresses are not supported\n");
-    }
+
     log_message("Client requested unsupported IPv6 connection");
 
     // Send address type not supported response
@@ -301,7 +298,7 @@ int handle_socks5_handshake(socket_t client_sock, char * target_host, int * targ
       int result = send(client_sock, (char * ) reply + sent, 10 - sent, 0);
       if (result <= 0) {
         if (config.verbose) {
-          printf("Failed to send IPv6 rejection: %d\n", GET_SOCKET_ERROR());
+          log_message("Failed to send IPv6 rejection: %d\n", GET_SOCKET_ERROR());
         }
         break;
       }
@@ -310,7 +307,7 @@ int handle_socks5_handshake(socket_t client_sock, char * target_host, int * targ
     return 0;
   } else { // Unknown address type
     if (config.verbose) {
-      printf("Unknown address type: %d\n", atyp);
+      log_message("Unknown address type: %d\n", atyp);
     }
     // Send address type not supported response
     memset(reply, 0, sizeof(reply));
@@ -325,7 +322,7 @@ int handle_socks5_handshake(socket_t client_sock, char * target_host, int * targ
       int result = send(client_sock, (char * ) reply + sent, 10 - sent, 0);
       if (result <= 0) {
         if (config.verbose) {
-          printf("Failed to send address type rejection: %d\n", GET_SOCKET_ERROR());
+          log_message("Failed to send address type rejection: %d\n", GET_SOCKET_ERROR());
         }
         break;
       }
@@ -339,7 +336,7 @@ int handle_socks5_handshake(socket_t client_sock, char * target_host, int * targ
     received = recv(client_sock, (char * ) buffer + total_received, 2 - total_received, 0);
     if (received <= 0) {
       if (config.verbose) {
-        printf("Failed to receive port: %d\n", GET_SOCKET_ERROR());
+        log_message("Failed to receive port: %d\n", GET_SOCKET_ERROR());
       }
       return 0;
     }
@@ -352,7 +349,7 @@ int handle_socks5_handshake(socket_t client_sock, char * target_host, int * targ
   * target_port = (buffer[0] << 8) | buffer[1];
 
   if (config.verbose) {
-    printf("SOCKS5 connection request for %s:%d\n", target_host, * target_port);
+    log_message("SOCKS5 connection request for %s:%d\n", target_host, * target_port);
   }
   // Step 5: Send Success Response (BND.ADDR and BND.PORT are ignored by most clients)
   memset(reply, 0, sizeof(reply));
@@ -378,7 +375,7 @@ int handle_socks5_handshake(socket_t client_sock, char * target_host, int * targ
     int result = send(client_sock, (char * ) reply + sent_bytes, 10 - sent_bytes, 0);
     if (result <= 0) {
       if (config.verbose) {
-        printf("Failed to send success response: %d\n", GET_SOCKET_ERROR());
+        log_message("Failed to send success response: %d\n", GET_SOCKET_ERROR());
       }
       return 0;
     }

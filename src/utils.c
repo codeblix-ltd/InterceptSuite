@@ -70,7 +70,7 @@ int validate_ip_address(const char * ip_addr) {
   if (result == ERROR_BUFFER_OVERFLOW) {
     pAddresses = (PIP_ADAPTER_ADDRESSES) malloc(bufferSize);
     if (pAddresses == NULL) {
-      fprintf(stderr, "Failed to allocate memory for adapter addresses\n");
+      log_message("Failed to allocate memory for adapter addresses\n");
       return 0;
     }
 
@@ -106,7 +106,7 @@ int validate_ip_address(const char * ip_addr) {
   char host[MAX_IP_ADDR_LEN];
 
   if (getifaddrs( & ifaddr) == -1) {
-    fprintf(stderr, "Failed to get network interfaces\n");
+    log_message("Failed to get network interfaces\n");
     return 0;
   }
 
@@ -123,7 +123,7 @@ int validate_ip_address(const char * ip_addr) {
         host, MAX_IP_ADDR_LEN,
         NULL, 0, NI_NUMERICHOST);
       if (s != 0) {
-        fprintf(stderr, "getnameinfo() failed\n");
+        log_message("getnameinfo() failed\n");
         continue;
       }
 
@@ -138,7 +138,7 @@ int validate_ip_address(const char * ip_addr) {
   #endif
 
   // IP not found on any interface
-  fprintf(stderr, "Error: IP address %s does not exist on any interface\n", ip_addr);
+  log_message("Error: IP address %s does not exist on any interface\n", ip_addr);
   return 0;
 }
 
@@ -161,9 +161,6 @@ int open_log_file(void) {
   char timestamp[26];
   strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", tm_info);
 
-  fprintf(config.log_fp, "=== TLS MITM Proxy Log Started at %s ===\n", timestamp);
-  fprintf(config.log_fp, "%-15s | %-15s | %-5s | %s\n", "Source IP", "Dest IP", "Port", "Message");
-  fprintf(config.log_fp, "---------------|----------------|-------|---------------------------\n");
   fflush(config.log_fp);
 
   return 1;

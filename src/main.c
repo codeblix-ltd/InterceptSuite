@@ -136,44 +136,44 @@ static void library_fini(void) {
 /* Exported functions */
 
 INTERCEPT_API intercept_bool_t start_proxy(void) {
-  send_status_update("Starting proxy initialization...");
+  log_message("Starting proxy initialization...");
   /* Open log file if configured */
   if (strlen(config.log_file) > 0) {
     send_status_update("Opening log file...");
     if (!open_log_file()) {
-      send_status_update("WARNING: Failed to open log file");
+      log_message("WARNING: Failed to open log file");
       /* Continue anyway as this is not critical */
     } else {
-      send_status_update("Log file opened successfully");
+      log_message("Log file opened successfully");
     }
   }
 
   /* Initialize Winsock */
-  send_status_update("Initializing Winsock...");
+  log_message("Initializing Winsock...");
   if (!init_winsock()) {
-    send_status_update("ERROR: Failed to initialize Winsock");
+    log_message("ERROR: Failed to initialize Winsock");
     return FALSE;
   }
-  send_status_update("Winsock initialized successfully");
+  log_message("Winsock initialized successfully");
 
   /* Initialize OpenSSL */
-  send_status_update("Initializing OpenSSL...");
+  log_message("Initializing OpenSSL...");
   if (!init_openssl()) {
-    send_status_update("ERROR: Failed to initialize OpenSSL");
+    log_message("ERROR: Failed to initialize OpenSSL");
     cleanup_winsock();
     return FALSE;
   }
-  send_status_update("OpenSSL initialized successfully");
+  log_message("OpenSSL initialized successfully");
 
   /* Load or generate CA certificate */
-  send_status_update("Loading or generating CA certificate...");
+  log_message("Loading or generating CA certificate...");
   if (!load_or_generate_ca_cert()) {
-    send_status_update("ERROR: Failed to load or generate CA certificate");
+    log_message("ERROR: Failed to load or generate CA certificate");
     cleanup_openssl();
     cleanup_winsock();
     return FALSE;
   }
-  send_status_update("Proxy initialization completed successfully");
+  log_message("Proxy initialization completed successfully");
 
   /* Start proxy server */
   /* Initialize critical section/mutex */
@@ -320,10 +320,10 @@ INTERCEPT_API intercept_bool_t set_config(const char * bind_addr, int port,
 
   /* Open new log file */
   if (!open_log_file()) {
-    send_status_update("WARNING: Failed to open log file");
+    log_message("WARNING: Failed to open log file");
     /* Continue anyway as this is not critical */
   } else {
-    send_status_update("Log file opened successfully");
+    log_message("Log file opened successfully");
   }
 
   return TRUE;
@@ -403,7 +403,7 @@ THREAD_RETURN_TYPE THREAD_CALL run_server_thread(void * arg) {
       #ifdef INTERCEPT_WINDOWS
       int err = GET_SOCKET_ERROR();
       if (err != WSAEWOULDBLOCK) {
-        fprintf(stderr, "Failed to accept connection: %d\n", err);
+        log_message("Failed to accept connection: %d\n", err);
       }
       #else
       if (errno != EWOULDBLOCK && errno != EAGAIN) {
@@ -699,7 +699,7 @@ INTERCEPT_API proxy_config_t get_proxy_config(void) {
 INTERCEPT_API intercept_bool_t export_certificate(const char* output_directory, int export_type) {
   if (!output_directory || strlen(output_directory) == 0) {
     if (g_status_callback) {
-      g_status_callback("ERROR: Invalid output directory");
+      log_message("ERROR: Invalid output directory");
     }
     return FALSE;
   }
@@ -707,7 +707,7 @@ INTERCEPT_API intercept_bool_t export_certificate(const char* output_directory, 
   // Ensure certificates are loaded/generated
   if (!load_or_generate_ca_cert()) {
     if (g_status_callback) {
-      g_status_callback("ERROR: Failed to load or generate CA certificate");
+      log_message("ERROR: Failed to load or generate CA certificate");
     }
     return FALSE;
   }
@@ -715,7 +715,7 @@ INTERCEPT_API intercept_bool_t export_certificate(const char* output_directory, 
   // Ensure output directory exists
   if (!ensure_directory_exists(output_directory)) {
     if (g_status_callback) {
-      g_status_callback("ERROR: Failed to create output directory");
+      log_message("ERROR: Failed to create output directory");
     }
     return FALSE;
   }

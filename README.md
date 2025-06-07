@@ -89,6 +89,37 @@ InterceptSuite bridges this gap by providing a **universal TLS interception engi
 3. **Launch** InterceptSuite from your applications menu or desktop shortcut
 
 > **Note:** Platform-specific native installers are available for seamless installation on all supported operating systems.
+
+### ⚠️ Security Warning - Unsigned Binaries
+
+> [!WARNING]
+> **Code Signing Status**: Current releases contain unsigned binaries and installers. This may trigger security warnings during installation and execution.
+
+#### Platform-Specific Behavior:
+
+- **🐧 Linux**: No security issues expected. Unsigned binaries run normally.
+
+- **🪟 Windows**:
+  - Windows Defender SmartScreen may display warnings about "unknown application"
+  - You may see prompts like "Windows protected your PC"
+  - Click "More info" → "Run anyway" to proceed with installation
+  - Some antivirus software may flag unsigned executables as potentially unwanted
+
+- **🍎 macOS**:
+  - Gatekeeper will prevent execution of unsigned applications
+  - You may see "cannot be opened because it is from an unidentified developer"
+  - **Workaround**: Right-click the application → "Open" → Confirm in dialog
+  - Alternative: Temporarily disable Gatekeeper: `sudo spctl --master-disable`
+
+> [!NOTE]
+> **Code Signing Costs & Open Source Reality**: Code signing certificates are paid services across all platforms - there are no free platforms available that support open source projects for binary signing. Apple, Microsoft, and other certificate authorities require paid certificates for code signing. Since InterceptSuite is an open source project, binaries remain unsigned without paid options.
+>
+
+>
+> **💖 Support Code Signing**: If you'd like to help us obtain code signing certificates, you can support the project through:
+> - **₿ Bitcoin**: `bc1qusxngf2w5gl2g8hw82ggct59227k4963f9fwhm`
+> - **💎 GitHub Sponsor**: [https://github.com/sponsors/Anof-cyber](https://github.com/sponsors/Anof-cyber)
+> - **☕ Buy Me a Coffee**: [https://www.buymeacoffee.com/AnoF](https://www.buymeacoffee.com/AnoF)
 ## 📖 Usage
 
 For comprehensive setup and usage instructions, see our detailed **[Usage Guide](Usage.md)**.

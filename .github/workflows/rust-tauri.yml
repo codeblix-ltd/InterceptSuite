@@ -1,4 +1,4 @@
-name: Tauri App CI/CD
+name: Rust Tauri App Build
 
 on:
   push:

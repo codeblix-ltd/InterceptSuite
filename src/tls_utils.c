@@ -69,7 +69,7 @@ void pretty_print_data(const char * direction,
         if (config.verbose) {
           char debug_msg[256];
           snprintf(debug_msg, sizeof(debug_msg), "[DEBUG] Filtered TLS protocol message (%s): len=%d, type=0x%02x", direction, len, data[0]);
-          send_status_update(debug_msg);
+          log_message(debug_msg);
         }
         return;
       }
@@ -87,7 +87,7 @@ void pretty_print_data(const char * direction,
         if (config.verbose) {
           char debug_msg[256];
           snprintf(debug_msg, sizeof(debug_msg), "[DEBUG] Filtered low-printable message (%s): len=%d, printable=%d/%d", direction, len, printable_chars, len);
-          send_status_update(debug_msg);
+          log_message(debug_msg);
         }
         return;
       }
@@ -200,13 +200,13 @@ void forward_data(SSL * src, SSL * dst,
 
     // Comprehensive parameter validation
     if (!src || !dst || !direction || !src_ip || !dst_ip) {
-      send_status_update("Error: Invalid parameters passed to forward_data");
+      log_message("Error: Invalid parameters passed to forward_data");
       return;
     }
 
     // Validate SSL objects are properly initialized
     if (SSL_get_fd(src) == -1 || SSL_get_fd(dst) == -1) {
-      send_status_update("Error: SSL objects not properly initialized");
+      log_message("Error: SSL objects not properly initialized");
       return;
     }
 
@@ -215,7 +215,7 @@ void forward_data(SSL * src, SSL * dst,
       if (config.verbose) {
         char status_msg[256];
         snprintf(status_msg, sizeof(status_msg), "Warning: SSL connection not in OK state (%s)", direction);
-        send_status_update(status_msg);
+        log_message(status_msg);
       }
     }
 
@@ -225,7 +225,7 @@ void forward_data(SSL * src, SSL * dst,
     // Get the socket file descriptor from the SSL with validation
     fd = SSL_get_fd(src);
     if (fd < 0) {
-      send_status_update("Error: Failed to get socket fd from SSL");
+      log_message("Error: Failed to get socket fd from SSL");
       print_openssl_error();
       return;
     }
@@ -237,7 +237,7 @@ void forward_data(SSL * src, SSL * dst,
       if (config.verbose) {
         char status_msg[256];
         snprintf(status_msg, sizeof(status_msg), "Socket error detected before forwarding (%s): %d", direction, socket_error);
-        send_status_update(status_msg);
+        log_message(status_msg);
       }
       return;
     }
@@ -246,7 +246,7 @@ void forward_data(SSL * src, SSL * dst,
     if (config.verbose) {
       char status_msg[256];
       snprintf(status_msg, sizeof(status_msg), "Starting data forwarding: %s -> %s:%d", src_ip, dst_ip, dst_port);
-      send_status_update(status_msg);
+      log_message(status_msg);
     }
 
     while (1) {
@@ -259,7 +259,7 @@ void forward_data(SSL * src, SSL * dst,
       tv.tv_usec = 0;
       ret = select((int)(fd + 1), & readfds, NULL, NULL, & tv);
       if (ret < 0) {
-        send_status_update("Error: select() failed in data forwarding");
+        log_message("Error: select() failed in data forwarding");
         break;
       } else if (ret == 0) {
         // Timeout occurred, continue waiting but increment timeout counter
@@ -271,7 +271,7 @@ void forward_data(SSL * src, SSL * dst,
           if (config.verbose) {
             char status_msg[256];
             snprintf(status_msg, sizeof(status_msg), "Connection idle timeout (%s)", direction);
-            send_status_update(status_msg);
+            log_message(status_msg);
           }
           break;
         }
@@ -283,7 +283,7 @@ void forward_data(SSL * src, SSL * dst,
 
       // Additional SSL state validation before read
       if (!SSL_is_init_finished(src)) {
-        send_status_update("Error: SSL handshake not completed for source");
+        log_message("Error: SSL handshake not completed for source");
         break;
       }
 
@@ -298,7 +298,7 @@ void forward_data(SSL * src, SSL * dst,
           if (config.verbose) {
             char status_msg[256];
             snprintf(status_msg, sizeof(status_msg), "Connection closed by peer (%s)", direction);
-            send_status_update(status_msg);
+            log_message(status_msg);
           }
         } else if (error == SSL_ERROR_SYSCALL) {
           unsigned long ssl_err = ERR_peek_error();
@@ -307,13 +307,13 @@ void forward_data(SSL * src, SSL * dst,
             if (config.verbose) {
               char status_msg[256];
               snprintf(status_msg, sizeof(status_msg), "Connection closed abruptly (%s)", direction);
-              send_status_update(status_msg);
+              log_message(status_msg);
             }
           } else {
             // Actual system error
             char error_msg[256];
             snprintf(error_msg, sizeof(error_msg), "SSL_read system error in %s: %d", direction, error);
-            send_status_update(error_msg);
+            log_message(error_msg);
             print_openssl_error();
           }
         } else if (error == SSL_ERROR_SSL &&
@@ -322,7 +322,7 @@ void forward_data(SSL * src, SSL * dst,
           if (config.verbose) {
             char status_msg[256];
             snprintf(status_msg, sizeof(status_msg), "Connection closed by peer with unexpected EOF (%s)", direction);
-            send_status_update(status_msg);
+            log_message(status_msg);
           }
           ERR_clear_error(); // Clear the error queue
         } else if (error == SSL_ERROR_WANT_READ || error == SSL_ERROR_WANT_WRITE) {
@@ -331,7 +331,7 @@ void forward_data(SSL * src, SSL * dst,
         } else {
           char error_msg[256];
           snprintf(error_msg, sizeof(error_msg), "SSL_read error in %s: %d", direction, error);
-          send_status_update(error_msg);
+          log_message(error_msg);
           print_openssl_error();
         }
         break;
@@ -363,7 +363,7 @@ void forward_data(SSL * src, SSL * dst,
           // POSIX: Assume event creation succeeded
           if (0) {
             #endif
-            send_status_update("Error: Failed to create intercept response event");
+            log_message("Error: Failed to create intercept response event");
             break;
           }
 
@@ -371,7 +371,7 @@ void forward_data(SSL * src, SSL * dst,
           intercept_data.data = malloc(len);
           if (!intercept_data.data) {
             CLOSE_EVENT(intercept_data.response_event);
-            send_status_update("Error: Failed to allocate memory for intercept data");
+            log_message("Error: Failed to allocate memory for intercept data");
             break;
           }
           memcpy(intercept_data.data, buffer, len);
@@ -431,7 +431,7 @@ void forward_data(SSL * src, SSL * dst,
 
         // Additional SSL state validation before write
         if (!SSL_is_init_finished(dst)) {
-          send_status_update("Error: SSL handshake not completed for destination");
+          log_message("Error: SSL handshake not completed for destination");
           break;
         }
 
@@ -454,11 +454,11 @@ void forward_data(SSL * src, SSL * dst,
               (error == SSL_ERROR_SYSCALL && ERR_peek_error() == 0)) {
               char status_msg[256];
               snprintf(status_msg, sizeof(status_msg), "Peer closed connection while writing (%s)", direction);
-              send_status_update(status_msg);
+              log_message(status_msg);
             } else {
               char error_msg[256];
               snprintf(error_msg, sizeof(error_msg), "SSL_write error in %s: %d", direction, error);
-              send_status_update(error_msg);
+              log_message(error_msg);
               print_openssl_error();
             }
             return; // Exit the function on write error
@@ -486,7 +486,7 @@ void forward_data(SSL * src, SSL * dst,
 
         // Validate parameters
         if (src == INVALID_SOCKET || dst == INVALID_SOCKET || !direction || !src_ip || !dst_ip) {
-          send_status_update("Error: Invalid parameters passed to forward_tcp_data");
+          log_message("Error: Invalid parameters passed to forward_tcp_data");
           return;
         }
 
@@ -494,7 +494,7 @@ void forward_data(SSL * src, SSL * dst,
         if (config.verbose) {
           char status_msg[256];
           snprintf(status_msg, sizeof(status_msg), "Starting TCP data forwarding: %s -> %s:%d", src_ip, dst_ip, dst_port);
-          send_status_update(status_msg);
+          log_message(status_msg);
         }
 
         while (1) {
@@ -507,7 +507,7 @@ void forward_data(SSL * src, SSL * dst,
           tv.tv_usec = 0;
           ret = select((int)(src + 1), & readfds, NULL, NULL, & tv);
           if (ret < 0) {
-            send_status_update("Error: select() failed in TCP data forwarding");
+            log_message("Error: select() failed in TCP data forwarding");
             break;
           } else if (ret == 0) {
             // Timeout occurred
@@ -518,7 +518,7 @@ void forward_data(SSL * src, SSL * dst,
               if (config.verbose) {
                 char status_msg[256];
                 snprintf(status_msg, sizeof(status_msg), "TCP connection idle timeout (%s)", direction);
-                send_status_update(status_msg);
+                log_message(status_msg);
               }
               break;
             }
@@ -536,7 +536,7 @@ void forward_data(SSL * src, SSL * dst,
               if (config.verbose) {
                 char status_msg[256];
                 snprintf(status_msg, sizeof(status_msg), "TCP connection closed by peer (%s)", direction);
-                send_status_update(status_msg);
+                log_message(status_msg);
               }
             } else { // Error
               if (config.verbose) {
@@ -546,7 +546,7 @@ void forward_data(SSL * src, SSL * dst,
                 #else
                 snprintf(status_msg, sizeof(status_msg), "TCP recv error (%s): %s", direction, strerror(errno));
                 #endif
-                send_status_update(status_msg);
+                log_message(status_msg);
               }
             }
             break;
@@ -578,7 +578,7 @@ void forward_data(SSL * src, SSL * dst,
               // POSIX: Assume event creation succeeded
               if (0) {
                 #endif
-                send_status_update("Error: Failed to create intercept response event");
+                log_message("Error: Failed to create intercept response event");
                 break;
               }
 
@@ -586,7 +586,7 @@ void forward_data(SSL * src, SSL * dst,
               intercept_data.data = malloc(len);
               if (!intercept_data.data) {
                 CLOSE_EVENT(intercept_data.response_event);
-                send_status_update("Error: Failed to allocate memory for intercept data");
+                log_message("Error: Failed to allocate memory for intercept data");
                 break;
               }
               memcpy(intercept_data.data, buffer, len);
@@ -656,7 +656,7 @@ void forward_data(SSL * src, SSL * dst,
                   #else
                   snprintf(status_msg, sizeof(status_msg), "TCP send error (%s): %s", direction, strerror(errno));
                   #endif
-                  send_status_update(status_msg);
+                  log_message(status_msg);
                 }
                 return;
               }
@@ -699,7 +699,7 @@ void forward_data(SSL * src, SSL * dst,
           if (bytes_peeked >= 3 && peek_buffer[0] == 0x16 &&
             (peek_buffer[1] == 0x03 || peek_buffer[1] == 0x02 || peek_buffer[1] == 0x01)) {
             if (config.verbose) {
-              fprintf(stderr, "TLS protocol detected immediately\n");
+              log_message("TLS protocol detected immediately\n");
             }
             return PROTOCOL_TLS;
           }
@@ -707,7 +707,7 @@ void forward_data(SSL * src, SSL * dst,
           // For all other protocols (including HTTP, PostgreSQL, SMTP, etc.)
           // Return PROTOCOL_PLAIN_TCP and handle potential TLS upgrades later
           if (config.verbose) {
-            fprintf(stderr, "Non-TLS protocol detected, treating as plain TCP\n");
+            log_message("Non-TLS protocol detected, treating as plain TCP\n");
           }
           return PROTOCOL_PLAIN_TCP;
         }
@@ -717,7 +717,7 @@ void forward_data(SSL * src, SSL * dst,
          */
         THREAD_RETURN_TYPE forward_data_thread(void * arg) {
           if (arg == NULL) {
-            fprintf(stderr, "Error: NULL argument passed to forward_data_thread\n");
+            log_message("Error: NULL argument passed to forward_data_thread\n");
             THREAD_RETURN;
           }
 
@@ -731,7 +731,7 @@ void forward_data(SSL * src, SSL * dst,
 
             forward_data(info -> src, info -> dst, info -> direction, info -> src_ip, info -> dst_ip, info -> dst_port, info -> connection_id);
           } else {
-            fprintf(stderr, "Error: Invalid parameters in forward_data_thread\n");
+            log_message("Error: Invalid parameters in forward_data_thread\n");
           }
 
           // Free the allocated structure
@@ -744,7 +744,7 @@ void forward_data(SSL * src, SSL * dst,
          */
         THREAD_RETURN_TYPE forward_tcp_thread(void * arg) {
           if (arg == NULL) {
-            fprintf(stderr, "Error: NULL argument passed to forward_tcp_thread\n");
+            log_message("Error: NULL argument passed to forward_tcp_thread\n");
             THREAD_RETURN;
           }
 
@@ -758,7 +758,7 @@ void forward_data(SSL * src, SSL * dst,
 
             forward_tcp_data(info -> src, info -> dst, info -> direction, info -> src_ip, info -> dst_ip, info -> dst_port, info -> connection_id);
           } else {
-            fprintf(stderr, "Error: Invalid parameters in forward_tcp_thread\n");
+            log_message("Error: Invalid parameters in forward_tcp_thread\n");
           }
 
           // Free the allocated structure
@@ -784,13 +784,13 @@ void forward_data(SSL * src, SSL * dst,
 
           // Enhanced parameter validation
           if (!src || !dst || !src_ip || !dst_ip) {
-            send_status_update("Error: Invalid parameters passed to forward_data_with_detection");
+            log_message("Error: Invalid parameters passed to forward_data_with_detection");
             return;
           }
 
           // Validate SSL objects are properly initialized
           if (SSL_get_fd(src) == -1 || SSL_get_fd(dst) == -1) {
-            send_status_update("Error: SSL objects not properly initialized in detection");
+            log_message("Error: SSL objects not properly initialized in detection");
             return;
           }
 
@@ -799,14 +799,14 @@ void forward_data(SSL * src, SSL * dst,
             if (config.verbose) {
               char status_msg[256];
               snprintf(status_msg, sizeof(status_msg), "Warning: SSL connection not in OK state (with detection)");
-              send_status_update(status_msg);
+              log_message(status_msg);
             }
           }
 
           // Get the socket file descriptor from the SSL with validation
           fd = SSL_get_fd(src);
           if (fd < 0) {
-            send_status_update("Error: Failed to get socket fd from SSL");
+            log_message("Error: Failed to get socket fd from SSL");
             print_openssl_error();
             return;
           }
@@ -818,7 +818,7 @@ void forward_data(SSL * src, SSL * dst,
             if (config.verbose) {
               char status_msg[256];
               snprintf(status_msg, sizeof(status_msg), "Socket error detected in detection: %d", socket_error);
-              send_status_update(status_msg);
+              log_message(status_msg);
             }
             return;
           }
@@ -827,7 +827,7 @@ void forward_data(SSL * src, SSL * dst,
           if (config.verbose) {
             char status_msg[256];
             snprintf(status_msg, sizeof(status_msg), "Starting data forwarding with detection: %s -> %s:%d", src_ip, dst_ip, dst_port);
-            send_status_update(status_msg);
+            log_message(status_msg);
           }
 
           while (1) {
@@ -840,7 +840,7 @@ void forward_data(SSL * src, SSL * dst,
             tv.tv_usec = 0;
             ret = select((int)(fd + 1), & readfds, NULL, NULL, & tv);
             if (ret < 0) {
-              send_status_update("Error: select() failed in data forwarding with detection");
+              log_message("Error: select() failed in data forwarding with detection");
               break;
             } else if (ret == 0) {
               // Timeout occurred, continue waiting but increment timeout counter
@@ -852,7 +852,7 @@ void forward_data(SSL * src, SSL * dst,
                 if (config.verbose) {
                   char status_msg[256];
                   snprintf(status_msg, sizeof(status_msg), "Connection idle timeout (with detection)");
-                  send_status_update(status_msg);
+                  log_message(status_msg);
                 }
                 break;
               }
@@ -862,7 +862,7 @@ void forward_data(SSL * src, SSL * dst,
 
             // Additional SSL state validation before read
             if (!SSL_is_init_finished(src)) {
-              send_status_update("Error: SSL handshake not completed for source (with detection)");
+              log_message("Error: SSL handshake not completed for source (with detection)");
               break;
             }
 
@@ -877,7 +877,7 @@ void forward_data(SSL * src, SSL * dst,
                 if (config.verbose) {
                   char status_msg[256];
                   snprintf(status_msg, sizeof(status_msg), "Connection closed by peer (with detection)");
-                  send_status_update(status_msg);
+                  log_message(status_msg);
                 }
               } else if (error == SSL_ERROR_SYSCALL) {
                 unsigned long ssl_err = ERR_peek_error();
@@ -886,13 +886,13 @@ void forward_data(SSL * src, SSL * dst,
                   if (config.verbose) {
                     char status_msg[256];
                     snprintf(status_msg, sizeof(status_msg), "Connection closed abruptly (with detection)");
-                    send_status_update(status_msg);
+                    log_message(status_msg);
                   }
                 } else {
                   // Actual system error
                   char error_msg[256];
                   snprintf(error_msg, sizeof(error_msg), "SSL_read system error in detection: %d", error);
-                  send_status_update(error_msg);
+                  log_message(error_msg);
                   print_openssl_error();
                 }
               } else if (error == SSL_ERROR_SSL &&
@@ -901,7 +901,7 @@ void forward_data(SSL * src, SSL * dst,
                 if (config.verbose) {
                   char status_msg[256];
                   snprintf(status_msg, sizeof(status_msg), "Connection closed by peer with unexpected EOF (with detection)");
-                  send_status_update(status_msg);
+                  log_message(status_msg);
                 }
                 ERR_clear_error(); // Clear the error queue
               } else if (error == SSL_ERROR_WANT_READ || error == SSL_ERROR_WANT_WRITE) {
@@ -910,7 +910,7 @@ void forward_data(SSL * src, SSL * dst,
               } else {
                 char error_msg[256];
                 snprintf(error_msg, sizeof(error_msg), "SSL_read error in data forwarding with detection: %d", error);
-                send_status_update(error_msg);
+                log_message(error_msg);
                 print_openssl_error();
               }
               break;
@@ -921,7 +921,7 @@ void forward_data(SSL * src, SSL * dst,
 
             // Additional SSL state validation before write
             if (!SSL_is_init_finished(dst)) {
-              send_status_update("Error: SSL handshake not completed for destination (with detection)");
+              log_message("Error: SSL handshake not completed for destination (with detection)");
               break;
             } // Detect protocol and handle accordingly
             int protocol = detect_protocol(fd);
@@ -945,11 +945,11 @@ void forward_data(SSL * src, SSL * dst,
                     (error == SSL_ERROR_SYSCALL && ERR_peek_error() == 0)) {
                     char status_msg[256];
                     snprintf(status_msg, sizeof(status_msg), "Peer closed connection while writing (with detection)");
-                    send_status_update(status_msg);
+                    log_message(status_msg);
                   } else {
                     char error_msg[256];
                     snprintf(error_msg, sizeof(error_msg), "SSL_write error in data forwarding with detection");
-                    send_status_update(error_msg);
+                    log_message(error_msg);
                     print_openssl_error();
                   }
                   break; // Exit the while loop on write error
@@ -971,7 +971,7 @@ void forward_data(SSL * src, SSL * dst,
          */
         THREAD_RETURN_TYPE forward_data_with_detection_thread(void * arg) {
           if (arg == NULL) {
-            fprintf(stderr, "Error: NULL argument passed to forward_data_with_detection_thread\n");
+            log_message("Error: NULL argument passed to forward_data_with_detection_thread\n");
             THREAD_RETURN;
           }
 
@@ -985,7 +985,7 @@ void forward_data(SSL * src, SSL * dst,
 
             forward_data_with_detection(info -> src, info -> dst, info -> src_ip, info -> dst_ip, info -> dst_port, info -> connection_id);
           } else {
-            fprintf(stderr, "Error: Invalid parameters in forward_data_with_detection_thread\n");
+            log_message("Error: Invalid parameters in forward_data_with_detection_thread\n");
           }
 
           // Free the allocated structure
@@ -1050,7 +1050,6 @@ void forward_data(SSL * src, SSL * dst,
 
           log_message("SNI: Generating certificate for: %s", hostname_to_use);
           if (!generate_cert_for_host(hostname_to_use, & new_cert, & new_key)) {
-            fprintf(stderr, "SNI: Failed to generate certificate for %s\\\\n", hostname_to_use);
             log_message("SNI: Failed to generate certificate for %s", hostname_to_use);
             * ad = SSL_AD_INTERNAL_ERROR;
             return SSL_TLSEXT_ERR_ALERT_FATAL;
@@ -1059,7 +1058,6 @@ void forward_data(SSL * src, SSL * dst,
           SSL_CTX * original_ctx = SSL_get_SSL_CTX(s); // This is the server_ctx passed to SSL_new
           SSL_CTX * new_ctx_for_sni = SSL_CTX_new(SSL_CTX_get_ssl_method(original_ctx)); // Use the same method
           if (!new_ctx_for_sni) {
-            fprintf(stderr, "SNI: Failed to create new SSL_CTX for %s\\n", hostname_to_use);
             log_message("SNI: Failed to create new SSL_CTX for %s", hostname_to_use);
             X509_free(new_cert);
             EVP_PKEY_free(new_key);
@@ -1073,7 +1071,7 @@ void forward_data(SSL * src, SSL * dst,
           long options = SSL_CTX_get_options(original_ctx);
           SSL_CTX_set_options(new_ctx_for_sni, options); // Copy cipher list - Use a standard secure cipher list instead of copying
           if (SSL_CTX_set_cipher_list(new_ctx_for_sni, "HIGH:!aNULL:!eNULL:!EXPORT:!DES:!RC4:!MD5:!PSK:!SRP:!CAMELLIA") != 1) {
-            fprintf(stderr, "SNI: Warning: Failed to set cipher list on new_ctx_for_sni\\n");
+            log_message("SNI: Warning: Failed to set cipher list on new_ctx_for_sni\\n");
           }
 
           // Copy session cache mode
@@ -1083,7 +1081,6 @@ void forward_data(SSL * src, SSL * dst,
           if (SSL_CTX_use_certificate(new_ctx_for_sni, new_cert) != 1 ||
             SSL_CTX_use_PrivateKey(new_ctx_for_sni, new_key) != 1 ||
             !SSL_CTX_check_private_key(new_ctx_for_sni)) {
-            fprintf(stderr, "SNI: Failed to use generated cert/key for %s in new_ctx_for_sni\\n", hostname_to_use);
             log_message("SNI: Failed to use generated cert/key for %s", hostname_to_use);
             print_openssl_error();
             SSL_CTX_free(new_ctx_for_sni); // new_cert and new_key are freed when new_ctx_for_sni is freed if they were successfully added
@@ -1106,7 +1103,7 @@ void forward_data(SSL * src, SSL * dst,
          */
         THREAD_RETURN_TYPE handle_client(void * arg) {
           if (!arg) {
-            fprintf(stderr, "Error: NULL argument passed to handle_client\\n");
+            log_message("Error: NULL argument passed to handle_client\\n");
             THREAD_RETURN;
           }
           client_info * client = (client_info * ) arg;
@@ -1156,7 +1153,7 @@ void forward_data(SSL * src, SSL * dst,
           memset(target_host, 0, sizeof(target_host));
           if (!handle_socks5_handshake(client_sock, target_host, & target_port)) {
             if (config.verbose) {
-              fprintf(stderr, "Failed to handle SOCKS5 handshake\n");
+              log_message("Failed to handle SOCKS5 handshake\n");
             }
             send_disconnect_notification(connection_id, "SOCKS5 handshake failed");
             goto cleanup;
@@ -1166,16 +1163,16 @@ void forward_data(SSL * src, SSL * dst,
           send_connection_notification(client_ip, ntohs(client -> client_addr.sin_port), target_host, target_port, connection_id);
 
           if (config.verbose) {
-            printf("\nIntercepting connection to %s:%d\n", target_host, target_port);
+            log_message("\nIntercepting connection to %s:%d\n", target_host, target_port);
           }
 
           // Connect to the real server before deciding protocol type
           server_sock = socket(AF_INET, SOCK_STREAM, 0);
           if (server_sock == SOCKET_ERROR_VAL) {
             #ifdef INTERCEPT_WINDOWS
-            fprintf(stderr, "Failed to create socket for server connection: %d\n", GET_SOCKET_ERROR());
+            log_message("Failed to create socket for server connection: %d\n", GET_SOCKET_ERROR());
             #else
-            fprintf(stderr, "Failed to create socket for server connection: %s\n", strerror(errno));
+            log_message("Failed to create socket for server connection: %s\n", strerror(errno));
             #endif
             goto cleanup;
           } // Set server socket options
@@ -1190,9 +1187,9 @@ void forward_data(SSL * src, SSL * dst,
             setsockopt(server_sock, SOL_SOCKET, SO_SNDTIMEO, (const char * ) & server_timeout, sizeof(server_timeout)) != 0) {
             if (config.verbose) {
               #ifdef INTERCEPT_WINDOWS
-              fprintf(stderr, "Warning: Failed to set server socket timeout: %d\n", GET_SOCKET_ERROR());
+              log_message("Warning: Failed to set server socket timeout: %d\n", GET_SOCKET_ERROR());
               #else
-              fprintf(stderr, "Warning: Failed to set server socket timeout: %s\n", strerror(errno));
+              log_message("Warning: Failed to set server socket timeout: %s\n", strerror(errno));
               #endif
             }
           }
@@ -1200,7 +1197,7 @@ void forward_data(SSL * src, SSL * dst,
           // Resolve hostname
           struct hostent * host = gethostbyname(target_host);
           if (!host) {
-            fprintf(stderr, "Failed to resolve hostname %s: %d\n", target_host, GET_SOCKET_ERROR());
+            log_message("Failed to resolve hostname %s: %d\n", target_host, GET_SOCKET_ERROR());
             goto cleanup;
           }
 
@@ -1214,7 +1211,7 @@ void forward_data(SSL * src, SSL * dst,
           inet_ntop(AF_INET, & (server_addr.sin_addr), server_ip, MAX_IP_ADDR_LEN);
 
           if (config.verbose) {
-            printf("Connecting to real server at %s:%d...\n", target_host, target_port);
+            log_message("Connecting to real server at %s:%d...\n", target_host, target_port);
           }
 
           // Log connection attempt
@@ -1226,7 +1223,7 @@ void forward_data(SSL * src, SSL * dst,
             #else
             int error = errno;
             #endif
-            fprintf(stderr, "Failed to connect to server %s:%d: %d\n",
+            log_message("Failed to connect to server %s:%d: %d\n",
               target_host, target_port, error);
             log_message("Connection to %s:%d failed with error %d", target_host, target_port, error);
             goto cleanup;
@@ -1245,7 +1242,7 @@ void forward_data(SSL * src, SSL * dst,
           if (protocol_type == PROTOCOL_TLS) {
             // TLS handling path
             if (config.verbose) {
-              printf("Detected TLS protocol, proceeding with TLS interception\\n");
+              log_message("Detected TLS protocol, proceeding with TLS interception\\n");
             }
             send_status_update("Proceeding with TLS interception");
 
@@ -1258,7 +1255,7 @@ void forward_data(SSL * src, SSL * dst,
             // Create server context (for client -> proxy)
             server_ctx = create_server_ssl_context(); // This is our base/template context
             if (!server_ctx) {
-              fprintf(stderr, "Failed to create server SSL context\\n");
+              log_message(stderr, "Failed to create server SSL context\\n");
               goto cleanup;
             }
 
@@ -1278,25 +1275,25 @@ void forward_data(SSL * src, SSL * dst,
 
             // Create server SSL object and attach to client socket
             if (config.verbose) {
-              printf("Performing TLS handshake with client (SNI callback will set certificate)...\\n");
+              log_message("Performing TLS handshake with client (SNI callback will set certificate)...\\n");
             }
 
             // Additional validation before creating SSL object
             if (!server_ctx) {
-              fprintf(stderr, "Error: server_ctx is NULL when creating SSL object\n");
+              log_message("Error: server_ctx is NULL when creating SSL object\n");
               goto cleanup;
             }
 
             server_ssl = SSL_new(server_ctx);
             if (!server_ssl) {
-              fprintf(stderr, "Failed to create server SSL object\n");
+              log_message("Failed to create server SSL object\n");
               print_openssl_error();
               goto cleanup;
             }
 
             // Validate socket before setting fd
             if (client_sock == INVALID_SOCKET) {
-              fprintf(stderr, "Error: Invalid client socket for SSL\n");
+              log_message("Error: Invalid client socket for SSL\n");
               SSL_free(server_ssl);
               server_ssl = NULL;
               goto cleanup;
@@ -1304,7 +1301,7 @@ void forward_data(SSL * src, SSL * dst,
 
             // Set socket with error checking
             if (SSL_set_fd(server_ssl, (int) client_sock) != 1) {
-              fprintf(stderr, "Failed to set client socket fd for SSL\n");
+              log_message("Failed to set client socket fd for SSL\n");
               print_openssl_error();
               SSL_free(server_ssl);
               server_ssl = NULL;
@@ -1318,14 +1315,13 @@ void forward_data(SSL * src, SSL * dst,
             if (ret != 1) {
               int ssl_error = SSL_get_error(server_ssl, ret);
               unsigned long error_reason = ERR_peek_error();
-              fprintf(stderr, "Failed to perform TLS handshake with client: %d (reason: 0x%lx)\\n",
+              log_message("Failed to perform TLS handshake with client: %d (reason: 0x%lx)\\n",
                 ssl_error, error_reason); // Use %lx for unsigned long
               print_openssl_error();
 
               // Log more friendly message for common certificate errors
               if (ERR_GET_REASON(error_reason) == SSL_R_TLSV1_ALERT_BAD_CERTIFICATE ||
                 ERR_GET_REASON(error_reason) == SSL_R_CERTIFICATE_VERIFY_FAILED) { // Removed duplicate conditions
-                send_status_update("TLS handshake failed: Client rejected our certificate");
                 log_message("Certificate was rejected by client. Consider importing myCA.pem into client's trust store");
               } else {
                 char error_str[256] = {
@@ -1333,7 +1329,7 @@ void forward_data(SSL * src, SSL * dst,
                 };
                 ERR_error_string_n(error_reason, error_str, sizeof(error_str));
                 log_message("TLS handshake failed with error: %s", error_str);
-                send_status_update("TLS handshake failed - falling back to direct forwarding");
+
               }
 
               // Properly clean up TLS resources since we're falling back to TCP
@@ -1377,31 +1373,31 @@ void forward_data(SSL * src, SSL * dst,
             if (protocol_type == PROTOCOL_TLS) {
               client_ctx = create_client_ssl_context();
               if (!client_ctx) {
-                fprintf(stderr, "Failed to create client SSL context\n");
+                log_message("Failed to create client SSL context\n");
                 goto cleanup;
               }
 
               // Create client SSL object and attach to server socket
               if (config.verbose) {
-                printf("Performing TLS handshake with server...\n");
+                log_message("Performing TLS handshake with server...\n");
               }
 
               // Additional validation before creating client SSL object
               if (!client_ctx) {
-                fprintf(stderr, "Error: client_ctx is NULL when creating SSL object\n");
+                log_message("Error: client_ctx is NULL when creating SSL object\n");
                 goto cleanup;
               }
 
               client_ssl = SSL_new(client_ctx);
               if (!client_ssl) {
-                fprintf(stderr, "Failed to create client SSL object\n");
+                log_message("Failed to create client SSL object\n");
                 print_openssl_error();
                 goto cleanup;
               }
 
               // Validate server socket before setting fd
               if (server_sock == INVALID_SOCKET) {
-                fprintf(stderr, "Error: Invalid server socket for SSL\n");
+                log_message("Error: Invalid server socket for SSL\n");
                 SSL_free(client_ssl);
                 client_ssl = NULL;
                 goto cleanup;
@@ -1409,7 +1405,7 @@ void forward_data(SSL * src, SSL * dst,
 
               // Set socket with error checking
               if (SSL_set_fd(client_ssl, (int) server_sock) != 1) {
-                fprintf(stderr, "Failed to set server socket fd for SSL\n");
+                log_message("Failed to set server socket fd for SSL\n");
                 print_openssl_error();
                 SSL_free(client_ssl);
                 client_ssl = NULL;
@@ -1420,7 +1416,7 @@ void forward_data(SSL * src, SSL * dst,
               if (target_host && strlen(target_host) > 0) {
                 if (SSL_set_tlsext_host_name(client_ssl, target_host) != 1) {
                   if (config.verbose) {
-                    fprintf(stderr, "Warning: Failed to set SNI hostname\n");
+                    log_message("Warning: Failed to set SNI hostname\n");
                     print_openssl_error();
                   }
                 }
@@ -1432,11 +1428,10 @@ void forward_data(SSL * src, SSL * dst,
               ret = SSL_connect(client_ssl);
               if (ret != 1) {
                 int ssl_error = SSL_get_error(client_ssl, ret);
-                fprintf(stderr, "Failed to perform TLS handshake with server: %d\n", ssl_error);
+                log_message("Failed to perform TLS handshake with server: %d\n", ssl_error);
                 print_openssl_error();
 
                 // Fall back to TCP if server handshake fails
-                send_status_update("Server TLS handshake failed - falling back to TCP");
                 protocol_type = PROTOCOL_PLAIN_TCP;
 
                 // Clean up client SSL resources
@@ -1452,13 +1447,13 @@ void forward_data(SSL * src, SSL * dst,
               }
             }
             if (config.verbose) {
-              printf("TLS MITM established! Intercepting traffic between client and %s:%d\n",
+              log_message("TLS MITM established! Intercepting traffic between client and %s:%d\n",
                 target_host, target_port);
             }
             // Create a thread to forward data from client to server
             forward_info * client_to_server = (forward_info * ) malloc(sizeof(forward_info));
             if (!client_to_server) {
-              fprintf(stderr, "Memory allocation failed\n");
+              log_message(stderr, "Memory allocation failed\n");
               goto cleanup;
             }
             client_to_server -> src = server_ssl;
@@ -1472,7 +1467,6 @@ void forward_data(SSL * src, SSL * dst,
 
             // Log connection info
             log_message("Established connection: %s -> %s:%d", client_ip, server_ip, target_port); // Create a second thread for server->client direction
-            printf("Validate the connection");
             forward_info * server_to_client = (forward_info * ) malloc(sizeof(forward_info));
             if (!server_to_client) {
               fprintf(stderr, "Memory allocation failed\n");
@@ -1487,42 +1481,42 @@ void forward_data(SSL * src, SSL * dst,
             strncpy(server_to_client -> dst_ip, client_ip, MAX_IP_ADDR_LEN - 1);
             server_to_client -> dst_port = ntohs(client -> client_addr.sin_port);
             server_to_client -> connection_id = connection_id;
-            printf("Hello world connection print check");
+
             // Make sure strings are null-terminated
             client_to_server -> src_ip[MAX_IP_ADDR_LEN - 1] = '\0';
             client_to_server -> dst_ip[MAX_IP_ADDR_LEN - 1] = '\0';
             server_to_client -> src_ip[MAX_IP_ADDR_LEN - 1] = '\0';
             server_to_client -> dst_ip[MAX_IP_ADDR_LEN - 1] = '\0'; // Start both forwarding threads
-            printf("Create Threads Now");
+
             THREAD_HANDLE thread_id2 = INVALID_THREAD_ID;
             CREATE_THREAD(thread_id, forward_data_thread, client_to_server);
             CREATE_THREAD(thread_id2, forward_data_thread, server_to_client);
-            printf("Wait for Threads");
+
             // Wait for both threads to finish
             if (thread_id != INVALID_THREAD_ID) JOIN_THREAD(thread_id);
             if (thread_id2 != INVALID_THREAD_ID) JOIN_THREAD(thread_id2);
 
-            printf("Threads completed");
+
 
             if (config.verbose) {
-              printf("Connection to %s:%d closed\n", target_host, target_port);
+              log_message("Connection to %s:%d closed\n", target_host, target_port);
             }
           } else if (protocol_type == PROTOCOL_PLAIN_TCP) {
             // Non-TLS handling path (any protocol that doesn't start with TLS)
             // This includes HTTP, PostgreSQL, SMTP, and any protocol that might upgrade to TLS later
             if (config.verbose) {
-              printf("Detected plain TCP protocol (may upgrade to TLS later)\n");
+              log_message("Detected plain TCP protocol (may upgrade to TLS later)\n");
             }
-            send_status_update("Forwarding plain TCP traffic with protocol upgrade detection");
+            log_message("Forwarding plain TCP traffic with protocol upgrade detection");
 
             if (config.verbose) {
-              printf("Setting up direct TCP forwarding between client and %s:%d\n", target_host, target_port);
+              log_message("Setting up direct TCP forwarding between client and %s:%d\n", target_host, target_port);
             }
 
             // Create TCP forwarding info structs
             forward_tcp_info * client_to_server = (forward_tcp_info * ) malloc(sizeof(forward_tcp_info));
             if (!client_to_server) {
-              fprintf(stderr, "Memory allocation failed\n");
+              log_message("Memory allocation failed\n");
               goto cleanup;
             }
             client_to_server -> src = client_sock;
@@ -1537,7 +1531,7 @@ void forward_data(SSL * src, SSL * dst,
             // Create a second TCP info struct for server->client direction
             forward_tcp_info * server_to_client = (forward_tcp_info * ) malloc(sizeof(forward_tcp_info));
             if (!server_to_client) {
-              fprintf(stderr, "Memory allocation failed\n");
+              log_message("Memory allocation failed\n");
               free(client_to_server); // Don't leak memory
               goto cleanup;
             }
@@ -1567,13 +1561,13 @@ void forward_data(SSL * src, SSL * dst,
             if (thread_id2 != INVALID_THREAD_ID) JOIN_THREAD(thread_id2);
 
             if (config.verbose) {
-              printf("TCP connection to %s:%d closed\n", target_host, target_port);
+              log_message("TCP connection to %s:%d closed\n", target_host, target_port);
             }
           }
 
           cleanup:
             if (config.verbose) {
-              printf("Cleaning up connection to %s:%d (ID: %d)\\n", target_host, target_port, connection_id);
+              log_message("Cleaning up connection to %s:%d (ID: %d)\\n", target_host, target_port, connection_id);
             }
           send_disconnect_notification(connection_id, "Connection closed");
 
@@ -1659,7 +1653,7 @@ void forward_data(SSL * src, SSL * dst,
                 intercept_data -> action = INTERCEPT_ACTION_FORWARD;
                 intercept_data -> is_waiting_for_response = 0;
                 if (g_status_callback) {
-                  g_status_callback("Intercept timeout - data forwarded automatically");
+                  log_message("Intercept timeout - data forwarded automatically");
                 }
               }
 

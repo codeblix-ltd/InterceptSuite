@@ -50,7 +50,7 @@ int write_memory_to_file(const char* filename,
 }
 
 int init_openssl(void) {
-  printf("Initializing OpenSSL libraries...\n");
+  log_message("Initializing OpenSSL libraries...\n");
 
   // Clear any existing errors
   ERR_clear_error();
@@ -65,7 +65,7 @@ int init_openssl(void) {
   // Note: For production use, you should implement proper locking callbacks
   // For now, we'll rely on the fact that our DLL usage is single-threaded per connection
 
-  printf("Using older OpenSSL API (pre-1.1.0)\n");
+  log_message("Using older OpenSSL API (pre-1.1.0)\n");
   #else
   // For DLL builds, use explicit initialization flags with thread safety
   uint64_t init_flags = OPENSSL_INIT_LOAD_SSL_STRINGS |
@@ -74,27 +74,27 @@ int init_openssl(void) {
     OPENSSL_INIT_ADD_ALL_DIGESTS;
 
   if (OPENSSL_init_ssl(init_flags, NULL) != 1) {
-    fprintf(stderr, "Failed to initialize OpenSSL SSL\n");
+    log_message("Failed to initialize OpenSSL SSL\n");
     print_openssl_error();
     return 0;
   }
 
   if (OPENSSL_init_crypto(OPENSSL_INIT_ADD_ALL_CIPHERS | OPENSSL_INIT_ADD_ALL_DIGESTS, NULL) != 1) {
-    fprintf(stderr, "Failed to initialize OpenSSL crypto\n");
+    log_message("Failed to initialize OpenSSL crypto\n");
     print_openssl_error();
     return 0;
   }
 
-  printf("Using newer OpenSSL API (1.1.0+)\n");
+  log_message("Using newer OpenSSL API (1.1.0+)\n");
   #endif
 
   // Verify OpenSSL is properly initialized
   if (SSLeay() == 0) {
-    fprintf(stderr, "OpenSSL version check failed\n");
+    log_message("OpenSSL version check failed\n");
     return 0;
   }
 
-  printf("OpenSSL initialized successfully with applink support\n");
+  log_message("OpenSSL initialized successfully with applink support\n");
   return 1;
 }
 
@@ -127,13 +127,13 @@ void print_openssl_error(void) {
   unsigned long err;
   while ((err = ERR_get_error())) {
     char * str = ERR_error_string(err, NULL);
-    fprintf(stderr, "OpenSSL Error: %s\n", str);
+    log_message("OpenSSL Error: %s\n", str);
   }
 }
 
 // New separate function for CA certificate generation
 static int generate_new_ca_cert(void) {
-  printf("Generating new CA cert and key\n");
+  log_message("Generating new CA cert and key\n");
 
   // Generate key
   ca_key = EVP_PKEY_new();
@@ -260,7 +260,7 @@ static int save_ca_cert_to_files(void) {
   if (!init_user_data_directory()) {
     BIO_free(cert_bio);
     BIO_free(key_bio);
-    fprintf(stderr, "Failed to initialize user data directory\n");
+    log_message("Failed to initialize user data directory\n");
     return 0;
   }
 
@@ -270,7 +270,7 @@ static int save_ca_cert_to_files(void) {
   if (!cert_path || !key_path) {
     BIO_free(cert_bio);
     BIO_free(key_bio);
-    fprintf(stderr, "Failed to get certificate file paths\n");
+    log_message("Failed to get certificate file paths\n");
     return 0;
   }
   // Write to files
@@ -281,10 +281,9 @@ static int save_ca_cert_to_files(void) {
   BIO_free(key_bio);
 
   if (success) {
-    printf("CA cert and key written to %s and %s\n", cert_path, key_path);
-    printf("IMPORTANT: Install this CA cert in your system/browser certificate store!\n");
+    log_message("CA cert and key written to %s and %s\n", cert_path, key_path);
   } else {
-    fprintf(stderr, "Failed to write CA cert and key to files\n");
+    log_message("Failed to write CA cert and key to files\n");
   }
 
   return success;
@@ -294,7 +293,7 @@ static int save_ca_cert_to_files(void) {
 int load_or_generate_ca_cert(void) {
   // Initialize user data directory first
   if (!init_user_data_directory()) {
-    fprintf(stderr, "Failed to initialize user data directory\n");
+    log_message("Failed to initialize user data directory\n");
     return 0;
   }
 
@@ -302,23 +301,23 @@ int load_or_generate_ca_cert(void) {
   const char* key_path = get_ca_key_path();
 
   if (!cert_path || !key_path) {
-    fprintf(stderr, "Failed to get certificate file paths\n");
+    log_message("Failed to get certificate file paths\n");
     return 0;
   }
 
-  printf("Checking for CA certificate and key files: %s and %s\n", cert_path, key_path);
+  log_message("Checking for CA certificate and key files: %s and %s\n", cert_path, key_path);
 
   // Try to read files into memory
   long cert_size = 0, key_size = 0;
   char * cert_data = read_file_to_memory(cert_path, &cert_size);
   char * key_data = read_file_to_memory(key_path, &key_size);
   if (!cert_data || !key_data) {
-    printf("Certificate or key file not found. Will generate new ones.\n");
+    log_message("Certificate or key file not found. Will generate new ones.\n");
     if (cert_data) free(cert_data);
     if (key_data) free(key_data);
   } else {
     // Load existing CA cert and key using memory BIOs
-    printf("Loading existing CA cert and key from %s and %s\n", cert_path, key_path);
+    log_message("Loading existing CA cert and key from %s and %s\n", cert_path, key_path);
 
     BIO * cert_bio = BIO_new_mem_buf(cert_data, cert_size);
     BIO * key_bio = BIO_new_mem_buf(key_data, key_size);
@@ -334,12 +333,12 @@ int load_or_generate_ca_cert(void) {
     free(key_data);
 
     if (ca_cert && ca_key) {
-      printf("Successfully loaded existing CA certificate\n");
+      log_message("Successfully loaded existing CA certificate\n");
       return 1; // Successfully loaded
     }
 
     // If we got here, something failed
-    printf("Failed to load existing certificates, generating new ones\n");
+    log_message("Failed to load existing certificates, generating new ones\n");
     if (ca_cert) X509_free(ca_cert);
     if (ca_key) EVP_PKEY_free(ca_key);
     ca_cert = NULL;
@@ -348,13 +347,13 @@ int load_or_generate_ca_cert(void) {
 
   // Generate new CA cert and key
   if (!generate_new_ca_cert()) {
-    fprintf(stderr, "Failed to generate new CA certificate\n");
+    log_message("Failed to generate new CA certificate\n");
     return 0;
   }
 
   // Save to files
   if (!save_ca_cert_to_files()) {
-    fprintf(stderr, "Failed to save CA certificate to files\n");
+    log_message("Failed to save CA certificate to files\n");
     X509_free(ca_cert);
     EVP_PKEY_free(ca_key);
     ca_cert = NULL;
@@ -372,7 +371,7 @@ int generate_cert_for_host(const char * hostname, X509 ** cert_out, EVP_PKEY ** 
   X509_NAME * name;
 
   if (config.verbose) {
-    printf("Generating certificate for %s\n", hostname);
+    log_message("Generating certificate for %s\n", hostname);
   }
 
   // Generate key
@@ -481,7 +480,7 @@ SSL_CTX * create_server_ssl_context(void) {
   #endif
 
   if (!ctx) {
-    fprintf(stderr, "Failed to create SSL server context\n");
+    log_message("Failed to create SSL server context\n");
     print_openssl_error();
     return NULL;
   }
@@ -490,7 +489,7 @@ SSL_CTX * create_server_ssl_context(void) {
   long options = SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 | SSL_OP_SINGLE_DH_USE | SSL_OP_SINGLE_ECDH_USE;
   if (SSL_CTX_set_options(ctx, options) == 0) {
     if (config.verbose) {
-      fprintf(stderr, "Warning: Failed to set some SSL context options\n");
+      log_message("Warning: Failed to set some SSL context options\n");
       print_openssl_error();
     }
   }
@@ -498,7 +497,7 @@ SSL_CTX * create_server_ssl_context(void) {
   // Set cipher list for better security
   if (SSL_CTX_set_cipher_list(ctx, "HIGH:!aNULL:!eNULL:!EXPORT:!DES:!RC4:!MD5:!PSK:!SRP:!CAMELLIA") != 1) {
     if (config.verbose) {
-      fprintf(stderr, "Warning: Failed to set cipher list\n");
+      log_message("Warning: Failed to set cipher list\n");
       print_openssl_error();
     }
   }
@@ -522,7 +521,7 @@ SSL_CTX * create_client_ssl_context(void) {
   #endif
 
   if (!ctx) {
-    fprintf(stderr, "Failed to create SSL client context\n");
+    log_message("Failed to create SSL client context\n");
     print_openssl_error();
     return NULL;
   }
@@ -531,15 +530,16 @@ SSL_CTX * create_client_ssl_context(void) {
   long options = SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 | SSL_OP_SINGLE_DH_USE | SSL_OP_SINGLE_ECDH_USE;
   if (SSL_CTX_set_options(ctx, options) == 0) {
     if (config.verbose) {
-      fprintf(stderr, "Warning: Failed to set some SSL context options\n");
+      log_message("Warning: Failed to set some SSL context options\n");
       print_openssl_error();
     }
   }
 
   // Set cipher list for better security
+  // Should support older weak ciphers as well to support related hosts and IPs
   if (SSL_CTX_set_cipher_list(ctx, "HIGH:!aNULL:!eNULL:!EXPORT:!DES:!RC4:!MD5:!PSK:!SRP:!CAMELLIA") != 1) {
     if (config.verbose) {
-      fprintf(stderr, "Warning: Failed to set cipher list\n");
+      log_message("Warning: Failed to set cipher list\n");
       print_openssl_error();
     }
   }

@@ -79,7 +79,7 @@ int init_user_data_directory(void) {
         // Fallback to USERPROFILE\AppData\Roaming
         char* userprofile = getenv("USERPROFILE");
         if (!userprofile) {
-            fprintf(stderr, "Error: Could not determine user data directory on Windows\n");
+            log_message("Error: Could not determine user data directory on Windows\n");
             return 0;
         }
         snprintf(user_data_dir, sizeof(user_data_dir), "%s\\AppData\\Roaming\\InterceptSuite", userprofile);
@@ -93,7 +93,7 @@ int init_user_data_directory(void) {
     if (!home) {
         struct passwd* pw = getpwuid(getuid());
         if (!pw) {
-            fprintf(stderr, "Error: Could not determine home directory on macOS\n");
+            log_message("Error: Could not determine home directory on macOS\n");
             return 0;
         }
         home = pw->pw_dir;
@@ -110,7 +110,7 @@ int init_user_data_directory(void) {
         if (!home) {
             struct passwd* pw = getpwuid(getuid());
             if (!pw) {
-                fprintf(stderr, "Error: Could not determine home directory on Linux\n");
+                log_message("Error: Could not determine home directory on Linux\n");
                 return 0;
             }
             home = pw->pw_dir;
@@ -118,13 +118,13 @@ int init_user_data_directory(void) {
         snprintf(user_data_dir, sizeof(user_data_dir), "%s/.local/share/InterceptSuite", home);
     }
 #else
-    fprintf(stderr, "Error: Unsupported platform for user data directory\n");
+    log_message("Error: Unsupported platform for user data directory\n");
     return 0;
 #endif
 
     // Create the main directory and subdirectories
     if (!ensure_directory_exists(user_data_dir)) {
-        fprintf(stderr, "Error: Could not create user data directory: %s\n", user_data_dir);
+        log_message("Error: Could not create user data directory: %s\n", user_data_dir);
         return 0;
     }
 
@@ -132,7 +132,7 @@ int init_user_data_directory(void) {
     char cert_dir[USER_DATA_MAX_PATH];
     snprintf(cert_dir, sizeof(cert_dir), "%s%scertificates", user_data_dir, PATH_SEPARATOR);
     if (!ensure_directory_exists(cert_dir)) {
-        fprintf(stderr, "Error: Could not create certificates directory: %s\n", cert_dir);
+        log_message("Error: Could not create certificates directory: %s\n", cert_dir);
         return 0;
     }
 
@@ -140,7 +140,7 @@ int init_user_data_directory(void) {
     char log_dir[USER_DATA_MAX_PATH];
     snprintf(log_dir, sizeof(log_dir), "%s%slogs", user_data_dir, PATH_SEPARATOR);
     if (!ensure_directory_exists(log_dir)) {
-        fprintf(stderr, "Error: Could not create logs directory: %s\n", log_dir);
+        log_message("Error: Could not create logs directory: %s\n", log_dir);
         return 0;
     }
 
@@ -148,7 +148,7 @@ int init_user_data_directory(void) {
     char config_dir[USER_DATA_MAX_PATH];
     snprintf(config_dir, sizeof(config_dir), "%s%sconfig", user_data_dir, PATH_SEPARATOR);
     if (!ensure_directory_exists(config_dir)) {
-        fprintf(stderr, "Error: Could not create config directory: %s\n", config_dir);
+        log_message("Error: Could not create config directory: %s\n", config_dir);
         return 0;
     }
 
@@ -157,7 +157,7 @@ int init_user_data_directory(void) {
     snprintf(ca_key_path, sizeof(ca_key_path), "%s%sIntercept_Suite_key.key", cert_dir, PATH_SEPARATOR);
 
     initialized = 1;
-    printf("User data directory initialized: %s\n", user_data_dir);
+    log_message("User data directory initialized: %s\n", user_data_dir);
     return 1;
 }
 
