@@ -7,31 +7,22 @@ if(WIN32)
     set(ENV{VCPKG_DEFAULT_TRIPLET} "x64-windows-static")
     message(STATUS "Using Windows static triplet for self-contained builds")
 elseif(APPLE)
-    # Only force architecture if not building universal binary
-    if(NOT CMAKE_OSX_ARCHITECTURES)
-        # Detect if we're on ARM64 Mac and set the appropriate triplet
-        execute_process(COMMAND uname -m OUTPUT_VARIABLE UNAME_MACHINE OUTPUT_STRIP_TRAILING_WHITESPACE)
-        if(UNAME_MACHINE MATCHES "arm64|aarch64")
-            set(VCPKG_TARGET_TRIPLET "arm64-osx" CACHE STRING "")
-            set(ENV{VCPKG_DEFAULT_TRIPLET} "arm64-osx")
-            # Force CMake to target ARM64 - these MUST be set before project()
-            set(CMAKE_OSX_ARCHITECTURES "arm64" CACHE STRING "" FORCE)
-            set(CMAKE_SYSTEM_PROCESSOR "arm64" CACHE STRING "" FORCE)
-            set(CMAKE_HOST_SYSTEM_PROCESSOR "arm64" CACHE STRING "" FORCE)
-            set(CMAKE_C_COMPILER_TARGET "arm64-apple-darwin" CACHE STRING "" FORCE)
-            message(STATUS "Detected ARM64 macOS (${UNAME_MACHINE}), forcing ARM64 build")
-        else()
-            set(VCPKG_TARGET_TRIPLET "x64-osx" CACHE STRING "")
-            # Force CMake to target x86_64
-            set(CMAKE_OSX_ARCHITECTURES "x86_64" CACHE STRING "" FORCE)
-            set(CMAKE_SYSTEM_PROCESSOR "x86_64" CACHE STRING "" FORCE)
-            set(CMAKE_HOST_SYSTEM_PROCESSOR "x86_64" CACHE STRING "" FORCE)
-            set(CMAKE_C_COMPILER_TARGET "x86_64-apple-darwin" CACHE STRING "" FORCE)
-            message(STATUS "Detected x64 macOS (${UNAME_MACHINE}), forcing x64 build")
-        endif()
-    else()
-        message(STATUS "Using specified architectures: ${CMAKE_OSX_ARCHITECTURES}")
-    endif()
+    # macOS: Build for ARM64 only to avoid architecture mismatches
+    # Set vcpkg triplet for ARM64 macOS
+    set(VCPKG_TARGET_TRIPLET "arm64-osx" CACHE STRING "")
+    set(ENV{VCPKG_DEFAULT_TRIPLET} "arm64-osx")
+
+    # Force CMake to target ARM64 - these MUST be set before project()
+    set(CMAKE_OSX_ARCHITECTURES "arm64" CACHE STRING "" FORCE)
+    set(CMAKE_SYSTEM_PROCESSOR "arm64" CACHE STRING "" FORCE)
+    set(CMAKE_HOST_SYSTEM_PROCESSOR "arm64" CACHE STRING "" FORCE)
+    set(CMAKE_C_COMPILER_TARGET "arm64-apple-darwin" CACHE STRING "" FORCE)
+
+    # Set minimum macOS version
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "" FORCE)
+
+    message(STATUS "Building for ARM64 macOS only (Apple Silicon)")
+    message(STATUS "Note: Intel Macs are not supported in this configuration")
 endif()
 
 project(InterceptSuite C)
@@ -125,11 +116,18 @@ target_link_libraries(Intercept PRIVATE
 
 # Platform-specific library installation
 if(APPLE)
-    # macOS: Add rpaths for OpenSSL libraries
+    # macOS: Add rpaths for OpenSSL libraries and ensure proper linking
     set_target_properties(Intercept PROPERTIES
         INSTALL_RPATH "@loader_path/../lib"
         BUILD_WITH_INSTALL_RPATH TRUE
+        # Ensure we link for the correct architecture
+        OSX_ARCHITECTURES "arm64"
     )
+
+    # Verify we're building for the correct architecture
+    if(CMAKE_OSX_ARCHITECTURES AND NOT CMAKE_OSX_ARCHITECTURES STREQUAL "arm64")
+        message(FATAL_ERROR "This build is configured for ARM64 only. Found: ${CMAKE_OSX_ARCHITECTURES}")
+    endif()
 elseif(UNIX AND NOT APPLE)
     # Linux: Add rpaths for OpenSSL libraries
     set_target_properties(Intercept PROPERTIES

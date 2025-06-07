@@ -6,7 +6,8 @@
 
 #include "../include/utils.h"
 
-#ifndef INTERCEPT_WINDOWS#include <errno.h>
+#ifndef INTERCEPT_WINDOWS
+#include <errno.h>
 
 #include <string.h> /* for strerror() */
 

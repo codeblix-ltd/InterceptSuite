@@ -53,19 +53,8 @@ case "$PLATFORM" in
             echo "Warning: Intercept.dll not found in $BUILD_DIR/$BUILD_CONFIG/"
         fi
 
-        if [ -f "$BUILD_DIR/$BUILD_CONFIG/libcrypto-3-x64.dll" ]; then
-            cp "$BUILD_DIR/$BUILD_CONFIG/libcrypto-3-x64.dll" "$RESOURCES_DIR/"
-            echo "Copied libcrypto-3-x64.dll"
-        else
-            echo "Warning: libcrypto-3-x64.dll not found"
-        fi
-
-        if [ -f "$BUILD_DIR/$BUILD_CONFIG/libssl-3-x64.dll" ]; then
-            cp "$BUILD_DIR/$BUILD_CONFIG/libssl-3-x64.dll" "$RESOURCES_DIR/"
-            echo "Copied libssl-3-x64.dll"
-        else
-            echo "Warning: libssl-3-x64.dll not found"
-        fi
+        # Note: OpenSSL is now statically linked into Intercept.dll
+        # No need to copy separate OpenSSL DLLs anymore
         ;;
 
     "linux")
@@ -80,44 +69,42 @@ case "$PLATFORM" in
             echo "Warning: libIntercept.so not found in $BUILD_DIR/$BUILD_CONFIG/ or $BUILD_DIR/"
         fi
 
-        # Copy OpenSSL libraries if they exist
-        for ssl_lib in libssl.so libcrypto.so libssl.so.3 libcrypto.so.3; do
-            if [ -f "$BUILD_DIR/$BUILD_CONFIG/$ssl_lib" ]; then
-                cp "$BUILD_DIR/$BUILD_CONFIG/$ssl_lib" "$RESOURCES_DIR/"
-                echo "Copied $ssl_lib from $BUILD_DIR/$BUILD_CONFIG/"
-            elif [ -f "$BUILD_DIR/$ssl_lib" ]; then
-                cp "$BUILD_DIR/$ssl_lib" "$RESOURCES_DIR/"
-                echo "Copied $ssl_lib from $BUILD_DIR/"
-            fi
-        done
+        # Note: OpenSSL is now statically linked into libIntercept.so
+        # No need to copy separate OpenSSL libraries anymore
 
 
         ;;
 
     "macos")
         if [ -f "$BUILD_DIR/$BUILD_CONFIG/libIntercept.dylib" ]; then
-        cp "$BUILD_DIR/$BUILD_CONFIG/libIntercept.dylib" "$RESOURCES_DIR/"
-        echo "Copied libIntercept.dylib from $BUILD_DIR/$BUILD_CONFIG/"
-    elif [ -f "$BUILD_DIR/libIntercept.dylib" ]; then
-        cp "$BUILD_DIR/libIntercept.dylib" "$RESOURCES_DIR/"
-        echo "Copied libIntercept.dylib from $BUILD_DIR/"
-    else
-        echo "Warning: libIntercept.dylib not found in $BUILD_DIR/$BUILD_CONFIG/ or $BUILD_DIR/"
-        echo "Available files in build directory:"
-        ls -la "$BUILD_DIR/" || echo "Build directory not found"
-        if [ -d "$BUILD_DIR/$BUILD_CONFIG" ]; then
-            echo "Available files in $BUILD_DIR/$BUILD_CONFIG/:"
-            ls -la "$BUILD_DIR/$BUILD_CONFIG/"
-        fi
-    fi
-
-        # Copy OpenSSL libraries
-        for ssl_lib in libssl.dylib libcrypto.dylib; do
-            if [ -f "$BUILD_DIR/$BUILD_CONFIG/$ssl_lib" ]; then
-                cp "$BUILD_DIR/$BUILD_CONFIG/$ssl_lib" "$RESOURCES_DIR/"
-                echo "Copied $ssl_lib"
+            cp "$BUILD_DIR/$BUILD_CONFIG/libIntercept.dylib" "$RESOURCES_DIR/"
+            echo "Copied libIntercept.dylib from $BUILD_DIR/$BUILD_CONFIG/"
+        elif [ -f "$BUILD_DIR/libIntercept.dylib" ]; then
+            cp "$BUILD_DIR/libIntercept.dylib" "$RESOURCES_DIR/"
+            echo "Copied libIntercept.dylib from $BUILD_DIR/"
+        else
+            echo "Warning: libIntercept.dylib not found in $BUILD_DIR/$BUILD_CONFIG/ or $BUILD_DIR/"
+            echo "Available files in build directory:"
+            ls -la "$BUILD_DIR/" || echo "Build directory not found"
+            if [ -d "$BUILD_DIR/$BUILD_CONFIG" ]; then
+                echo "Available files in $BUILD_DIR/$BUILD_CONFIG/:"
+                ls -la "$BUILD_DIR/$BUILD_CONFIG/"
             fi
-        done
+        fi
+
+        # Verify the dylib architecture
+        if [ -f "$RESOURCES_DIR/libIntercept.dylib" ]; then
+            echo "Verifying dylib architecture:"
+            file "$RESOURCES_DIR/libIntercept.dylib"
+            if file "$RESOURCES_DIR/libIntercept.dylib" | grep -q "arm64"; then
+                echo "✅ Confirmed ARM64 architecture"
+            else
+                echo "⚠️  Warning: Expected ARM64 architecture not found"
+            fi
+        fi
+
+        # Note: OpenSSL is now statically linked into libIntercept.dylib
+        # No need to copy separate OpenSSL dylibs anymore
         ;;
 esac
 

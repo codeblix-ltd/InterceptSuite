@@ -53,12 +53,21 @@ if [ ! -d "build" ]; then
     mkdir build
 fi
 
+# Verify we're on ARM64 Mac
+echo "Verifying build environment..."
+ARCH=$(uname -m)
+echo "Detected architecture: $ARCH"
+if [ "$ARCH" != "arm64" ]; then
+    echo "Warning: Building on non-ARM64 system ($ARCH). This build is optimized for Apple Silicon."
+fi
+
 # Configure with CMake
-echo "Configuring with CMake..."
+echo "Configuring with CMake for ARM64..."
 cmake -B build -S . \
     -DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN_FILE" \
     -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
-    -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64"  # Universal binary for Intel and Apple Silicon
+    -DCMAKE_OSX_ARCHITECTURES=arm64 \
+    -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
 
 if [ $? -ne 0 ]; then
     echo "CMake configuration failed."
@@ -75,4 +84,21 @@ if [ $? -ne 0 ]; then
 fi
 
 echo "Build completed successfully."
-echo "Output library can be found at: build/libIntercept.dylib"
+
+# Verify the built library
+echo "Verifying built library..."
+if [ -f "build/libIntercept.dylib" ]; then
+    echo "✅ Library built successfully: build/libIntercept.dylib"
+    file build/libIntercept.dylib
+
+    # Check if it's ARM64
+    if file build/libIntercept.dylib | grep -q "arm64"; then
+        echo "✅ Confirmed ARM64 architecture"
+    else
+        echo "⚠️  Warning: Expected ARM64 architecture"
+        echo "   Actual: $(file build/libIntercept.dylib)"
+    fi
+else
+    echo "❌ Library not found at build/libIntercept.dylib"
+    exit 1
+fi

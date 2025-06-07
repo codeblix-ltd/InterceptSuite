@@ -8,7 +8,8 @@
 
 #include "../include/tls_proxy.h"
 
-#ifndef INTERCEPT_WINDOWS#include <ifaddrs.h>
+#ifndef INTERCEPT_WINDOWS
+#include <ifaddrs.h>
 
 #include <netdb.h>
 

@@ -57,10 +57,19 @@ jobs:
       run: |
         echo "=== Building InterceptSuite C Library for macOS ==="
         chmod +x build_macos.sh
-        ./build_macos.sh --vcpkg-root=${{ github.workspace }}/vcpkg
-        echo "=== Verifying dylib build ==="
+        ./build_macos.sh --vcpkg-root=${{ github.workspace }}/vcpkg        echo "=== Verifying dylib build ==="
         ls -la build/
         file build/libIntercept.dylib
+
+        # Verify architecture is ARM64
+        echo "=== Verifying architecture ==="
+        if file build/libIntercept.dylib | grep -q "arm64"; then
+          echo "✅ Confirmed ARM64 architecture"
+        else
+          echo "❌ ERROR: Expected ARM64 architecture not found"
+          file build/libIntercept.dylib
+          exit 1
+        fi
     # =====================================================================
     # STEP 2: Setup Rust and Node.js for Tauri App
     # =====================================================================
@@ -228,9 +237,8 @@ jobs:
         echo "- ✅ Tauri GUI Application" >> $GITHUB_STEP_SUMMARY
         echo "- ✅ macOS DMG Installer" >> $GITHUB_STEP_SUMMARY
         echo "- ✅ Developer Library Package" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### 🔍 Build Details:" >> $GITHUB_STEP_SUMMARY
-        echo "- **Platform**: macOS Universal (Intel + Apple Silicon)" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY        echo "### 🔍 Build Details:" >> $GITHUB_STEP_SUMMARY
+        echo "- **Platform**: macOS ARM64 (Apple Silicon only)" >> $GITHUB_STEP_SUMMARY
         echo "- **Build Type**: Release" >> $GITHUB_STEP_SUMMARY
         echo "- **C Library**: $(file build/libIntercept.dylib)" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
