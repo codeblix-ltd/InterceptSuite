@@ -107,9 +107,11 @@ InterceptSuite bridges this gap by providing a **universal TLS interception engi
 
 - **🍎 macOS**:
   - Gatekeeper will prevent execution of unsigned applications
-  - You may see "cannot be opened because it is from an unidentified developer"
-  - **Workaround**: Right-click the application → "Open" → Confirm in dialog
-  - Alternative: Temporarily disable Gatekeeper: `sudo spctl --master-disable`
+  - You may see "cannot be opened because it is from an unidentified developer" or "Interceptsuite is damaged and can't be opened."
+  - **Recommended Solution**: Remove quarantine attributes: `xattr -dr com.apple.quarantine /Applications/interceptsuite.app`
+  - **Alternative Method 1**: Right-click the application → "Open" → Confirm in dialog
+  - **Alternative Method 2**: Temporarily disable Gatekeeper: `sudo spctl --master-disable`
+  - **Note**: After removing quarantine attributes, the app will launch normally from both command line and GUI
 
 > [!NOTE]
 > **Code Signing Costs & Open Source Reality**: Code signing certificates are paid services across all platforms - there are no free platforms available that support open source projects for binary signing. Apple, Microsoft, and other certificate authorities require paid certificates for code signing. Since InterceptSuite is an open source project, binaries remain unsigned without paid options.
