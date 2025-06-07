@@ -57,7 +57,8 @@ jobs:
       run: |
         echo "=== Building InterceptSuite C Library for macOS ==="
         chmod +x build_macos.sh
-        ./build_macos.sh --vcpkg-root=${{ github.workspace }}/vcpkg        echo "=== Verifying dylib build ==="
+        ./build_macos.sh --vcpkg-root=${{ github.workspace }}/vcpkg
+        echo "=== Verifying dylib build ==="
         ls -la build/
         file build/libIntercept.dylib
 
