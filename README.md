@@ -19,8 +19,7 @@
 [![⭐ Star on GitHub](https://img.shields.io/badge/⭐%20Star%20on%20GitHub-333?style=for-the-badge&logo=github)](https://github.com/InterceptSuite/InterceptSuite)
 [![🐛 Report Issues](https://img.shields.io/badge/🐛%20Report%20Issues-red?style=for-the-badge&logo=github)](https://github.com/anof-cyber/InterceptSuite/issues)
 [![🚀 Get PRO Version](https://img.shields.io/badge/🚀%20Get%20PRO%20Version-FF6B35?style=for-the-badge)](https://interceptsuite.com)
-[![📖 Documentation](https://img.shields.io/badge/📖%20Documentation-28a745?style=for-the-badge)](https://doc.interceptsuite.com)
-[![🦀 Rust Tauri Build](https://img.shields.io/badge/🦀%20Rust%20Tauri%20Build-passing-brightgreen?style=for-the-badge&logo=github)](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/rust-tauri.yml)
+[![🦀 .NET Build](https://img.shields.io/badge/%20.NET%20Build-passing-brightgreen?style=for-the-badge&logo=github)](https://github.com/InterceptSuite/InterceptSuite/actions/workflows/Build-DotNet.yml)
 [![⚙️ C InterceptSuite Build](https://img.shields.io/badge/⚙️%20C%20InterceptSuite%20Build-passing-brightgreen?style=for-the-badge&logo=github)](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/Build-Lib.yml)
 [![🐧 Linux Release Build](https://img.shields.io/badge/🐧%20Linux%20Release%20Build-passing-brightgreen?style=for-the-badge&logo=github)](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/release-linux.yml)
 [![🍎 macOS Release Build](https://img.shields.io/badge/🍎%20macOS%20Release%20Build-passing-brightgreen?style=for-the-badge&logo=github)](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/release-macos.yml)
@@ -31,7 +30,6 @@
 
 ![Platform Support](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-purple?style=for-the-badge&logo=windows&logoColor=white)
 ![GUI](https://img.shields.io/badge/GUI-Avalonia%20.NET-9146FF?style=for-the-badge&logo=avalonia&logoColor=white)
-![Protocol](https://img.shields.io/badge/Protocol-SOCKS5-blue?style=for-the-badge&logo=socket.io&logoColor=white)
 ![Documentation](https://img.shields.io/badge/📖%20Documentation-doc.interceptsuite.com-28a745?style=for-the-badge&logo=gitbook&logoColor=white)
 
 
