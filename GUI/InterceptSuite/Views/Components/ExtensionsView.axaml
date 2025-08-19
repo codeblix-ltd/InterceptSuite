@@ -1,0 +1,263 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:InterceptSuite.ViewModels"
+             xmlns:views="using:InterceptSuite.Views"
+             xmlns:converters="using:InterceptSuite.Converters"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="1000" d:DesignHeight="600"
+             x:Class="InterceptSuite.Views.Components.ExtensionsView"
+             x:DataType="vm:ExtensionsViewModel">
+
+    <UserControl.Resources>
+        <converters:BoolToStatusColorConverter x:Key="BoolToStatusColorConverter"/>
+        <converters:BoolToToggleTextConverter x:Key="BoolToToggleTextConverter"/>
+    </UserControl.Resources>
+
+    <TabControl>
+        <!-- Extensions Tab -->
+        <TabItem Header="Extensions">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <!-- Header with controls -->
+                <Grid Grid.Row="0" Margin="10" ColumnDefinitions="Auto,Auto,*">
+                    <Button Grid.Column="0"
+                            Content="Add"
+                            Command="{Binding LoadExtensionCommand}"
+                            Background="#4CAF50"
+                            Foreground="White"
+                            Padding="15,8"
+                            Margin="0,0,10,0"
+                            CornerRadius="3"/>
+
+                    <Button Grid.Column="1"
+                            Content="Remove"
+                            Command="{Binding RemoveSelectedExtensionCommand}"
+                            Background="#f44336"
+                            Foreground="White"
+                            Padding="15,8"
+                            Margin="0,0,10,0"
+                            CornerRadius="3"
+                            IsEnabled="{Binding SelectedExtension, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+
+                
+                </Grid>
+
+                <!-- Main content area -->
+                <Grid Grid.Row="1" Margin="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="2*"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="1*"/>
+                    </Grid.RowDefinitions>
+
+            <!-- Extensions table -->
+            <Border Grid.Row="0"
+                    Background="#252A3D"
+                    BorderBrush="#404656"
+                    BorderThickness="1"
+                    CornerRadius="3">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Table header -->
+                    <Border Grid.Row="0"
+                            Background="#2A2D3A"
+                            BorderBrush="#3E4651"
+                            BorderThickness="0,0,0,1">
+                        <Grid Height="35">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="30"/>
+                                <ColumnDefinition Width="150"/>
+                                <ColumnDefinition Width="80"/>
+                                <ColumnDefinition Width="80"/>
+                                <ColumnDefinition Width="100"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Header separators -->
+                            <Border Grid.Column="1" BorderBrush="#3E4651" BorderThickness="1,0,0,0"/>
+                            <Border Grid.Column="2" BorderBrush="#3E4651" BorderThickness="1,0,0,0"/>
+                            <Border Grid.Column="3" BorderBrush="#3E4651" BorderThickness="1,0,0,0"/>
+                            <Border Grid.Column="4" BorderBrush="#3E4651" BorderThickness="1,0,0,0"/>
+                            <Border Grid.Column="5" BorderBrush="#3E4651" BorderThickness="1,0,0,0"/>
+
+                            <CheckBox Grid.Column="0" IsEnabled="False" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="1" Text="Name" Foreground="#B0B7C3" FontWeight="SemiBold" FontSize="13" Padding="12,0" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="2" Text="Version" Foreground="#B0B7C3" FontWeight="SemiBold" FontSize="13" Padding="12,0" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="3" Text="Type" Foreground="#B0B7C3" FontWeight="SemiBold" FontSize="13" Padding="12,0" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="4" Text="Status" Foreground="#B0B7C3" FontWeight="SemiBold" FontSize="13" Padding="12,0" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="5" Text="File Path" Foreground="#B0B7C3" FontWeight="SemiBold" FontSize="13" Padding="12,0" VerticalAlignment="Center"/>
+                        </Grid>
+                    </Border>
+
+                    <!-- Extensions list -->
+                    <ListBox Grid.Row="1"
+                             ItemsSource="{Binding Extensions}"
+                             SelectedItem="{Binding SelectedExtension}"
+                             Background="Transparent"
+                             BorderThickness="0"
+                             ScrollViewer.HorizontalScrollBarVisibility="Auto">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Border BorderBrush="#3E4651"
+                                        BorderThickness="0,0,0,1"
+                                        Background="Transparent"
+                                        Height="32">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="30"/>
+                                            <ColumnDefinition Width="150"/>
+                                            <ColumnDefinition Width="80"/>
+                                            <ColumnDefinition Width="80"/>
+                                            <ColumnDefinition Width="100"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <!-- Column separators -->
+                                        <Border Grid.Column="1" BorderBrush="#3E4651" BorderThickness="1,0,0,0"/>
+                                        <Border Grid.Column="2" BorderBrush="#3E4651" BorderThickness="1,0,0,0"/>
+                                        <Border Grid.Column="3" BorderBrush="#3E4651" BorderThickness="1,0,0,0"/>
+                                        <Border Grid.Column="4" BorderBrush="#3E4651" BorderThickness="1,0,0,0"/>
+                                        <Border Grid.Column="5" BorderBrush="#3E4651" BorderThickness="1,0,0,0"/>
+
+                                        <CheckBox Grid.Column="0"
+                                                  IsChecked="{Binding IsLoaded}"
+                                                  Command="{Binding $parent[ListBox].((vm:ExtensionsViewModel)DataContext).ToggleExtensionLoadedCommand}"
+                                                  CommandParameter="{Binding}"
+                                                  HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding Name}"
+                                                 Foreground="#E2E8F0" FontSize="12"
+                                                 Padding="12,0" VerticalAlignment="Center"/>
+                                        <TextBlock Grid.Column="2" Text="{Binding Version}"
+                                                 Foreground="#E2E8F0" FontSize="12"
+                                                 Padding="12,0" VerticalAlignment="Center"/>
+                                        <TextBlock Grid.Column="3" Text="{Binding Type}"
+                                                 Foreground="#E2E8F0" FontSize="12"
+                                                 Padding="12,0" VerticalAlignment="Center"/>
+                                        <TextBlock Grid.Column="4" Text="{Binding Status}"
+                                                 Foreground="{Binding IsLoaded, Converter={StaticResource BoolToStatusColorConverter}}"
+                                                 FontSize="12" FontWeight="SemiBold"
+                                                 Padding="12,0" VerticalAlignment="Center"/>
+                                        <TextBlock Grid.Column="5" Text="{Binding FilePath}"
+                                                 Foreground="#A0A0A0" FontSize="11" FontFamily="Consolas,Monaco,monospace"
+                                                 Padding="12,0" VerticalAlignment="Center"
+                                                 TextTrimming="CharacterEllipsis"/>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+
+                        <!-- ListBox styling -->
+                        <ListBox.Styles>
+                            <Style Selector="ListBoxItem">
+                                <Setter Property="Padding" Value="0"/>
+                                <Setter Property="Margin" Value="0"/>
+                                <Setter Property="Background" Value="Transparent"/>
+                                <Setter Property="BorderThickness" Value="0"/>
+                            </Style>
+                            <Style Selector="ListBoxItem:selected">
+                                <Setter Property="Background" Value="#364B5A"/>
+                            </Style>
+                            <Style Selector="ListBoxItem:pointerover">
+                                <Setter Property="Background" Value="#2A3441"/>
+                            </Style>
+                        </ListBox.Styles>
+
+                        <ListBox.ContextMenu>
+                            <ContextMenu Background="#252A3D" BorderBrush="#404656">
+                                <MenuItem Header="Remove Selected"
+                                          Command="{Binding RemoveSelectedExtensionCommand}"
+                                          Foreground="White"/>
+                            </ContextMenu>
+                        </ListBox.ContextMenu>
+                    </ListBox>
+                </Grid>
+            </Border>
+
+            <!-- Splitter -->
+            <GridSplitter Grid.Row="1"
+                         Background="#404656"
+                         ResizeDirection="Rows"
+                         HorizontalAlignment="Stretch"
+                         Height="3"/>
+
+            <!-- Output console -->
+            <Border Grid.Row="2"
+                    Background="#252A3D"
+                    BorderBrush="#404656"
+                    BorderThickness="1"
+                    CornerRadius="3"
+                    Margin="0,3,0,0">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Output header -->
+                    <Border Grid.Row="0"
+                            Background="#2A2D3A"
+                            BorderBrush="#3E4651"
+                            BorderThickness="0,0,0,1">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Grid.Column="0"
+                                      Text="Extension Output"
+                                      Foreground="#B0B7C3"
+                                      FontWeight="SemiBold"
+                                      FontSize="13"
+                                      Padding="15,8"
+                                      VerticalAlignment="Center"/>
+
+                            <Button Grid.Column="1"
+                                    Content="Clear"
+                                    Background="Transparent"
+                                    Foreground="#A0A0A0"
+                                    BorderThickness="0"
+                                    Padding="10,5"
+                                    Margin="0,3,10,3"
+                                    Click="ClearOutput_Click"/>
+                        </Grid>
+                    </Border>
+
+                    <!-- Output content -->
+                    <ScrollViewer Grid.Row="1"
+                                  Background="Transparent"
+                                  VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Auto">
+                        <TextBox Text="{Binding ExtensionOutput}"
+                                 IsReadOnly="True"
+                                 Background="Transparent"
+                                 Foreground="#E2E8F0"
+                                 FontFamily="Consolas,Monaco,monospace"
+                                 FontSize="12"
+                                 TextWrapping="Wrap"
+                                 BorderThickness="0"
+                                 Padding="15"/>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+                </Grid>
+            </Grid>
+        </TabItem>
+
+        <!-- Settings Tab -->
+        <TabItem Header="Settings">
+            <views:PythonSettingsView />
+        </TabItem>
+    </TabControl>
+
+</UserControl>

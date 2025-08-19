@@ -12,7 +12,7 @@
 
 #ifdef _WIN32
 #include <openssl/applink.c>
-#include "../include/tls_proxy_dll.h"
+#include "tls/proxy/tls_proxy_dll.h"
 
 // Export the applink function to make it available to OpenSSL
 INTERCEPT_API void **OPENSSL_Applink(void);

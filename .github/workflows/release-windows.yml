@@ -3,12 +3,6 @@ name: Windows Release Build
 on:
   release:
     types: [published, created]
-  push:
-    tags:
-      - 'v*'  # Run when tag is pushed matching pattern v*, like v1.0.0
-    branches:
-      - master
-      - Cross-Platform
   workflow_dispatch:  # Allow manual triggering
 
 permissions:
@@ -19,170 +13,106 @@ env:
 
 jobs:
   build-windows-release:
-    runs-on: windows-2022
+    runs-on: self-hosted
 
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
 
     # =====================================================================
-    # STEP 1: Build C Library (.dll) using vcpkg and cmake
+    # STEP 1: Build C Library (.dll)
     # =====================================================================
-    - name: Cache vcpkg
-      uses: actions/cache@v4
-      with:
-        path: |
-          ${{ github.workspace }}/vcpkg
-          !${{ github.workspace }}/vcpkg/buildtrees
-          !${{ github.workspace }}/vcpkg/packages
-          !${{ github.workspace }}/vcpkg/downloads
-        key: vcpkg-windows-${{ hashFiles('vcpkg.json') }}-v2
 
-    - name: Setup vcpkg
-      uses: actions/checkout@v4
-      with:
-        repository: microsoft/vcpkg
-        path: vcpkg
-        fetch-depth: 0
-
-    - name: Bootstrap vcpkg
-      shell: pwsh
-      run: |
-        cd vcpkg
-        .\bootstrap-vcpkg.bat -disableMetrics
-        # Update vcpkg to latest
-        git pull origin master
-
-
-    - name: Setup MSVC
-      uses: microsoft/setup-msbuild@v2
     - name: Build C Library (.dll)
       shell: pwsh
       run: |
-        Write-Host "=== Building InterceptSuite C Library for Windows with Static OpenSSL ===" -ForegroundColor Green
+        Write-Host "=== Building InterceptSuite C Library for Windows ===" -ForegroundColor Green
 
-        # Set environment variables for static linking
-        $env:VCPKG_DEFAULT_TRIPLET = "x64-windows-static"
+        # Build the library using existing vcpkg installation
+        .\build_windows.ps1 -VcpkgRoot "D:\vcpkg"
 
-        # Install dependencies with static triplet
-        .\vcpkg\vcpkg.exe install --triplet x64-windows-static
-
-        # Build the library
-        .\build_windows.ps1 -VcpkgRoot "${{ github.workspace }}\vcpkg"
-
-        Write-Host "=== Verifying DLL build (static linking) ===" -ForegroundColor Green
-        Get-ChildItem -Path "build\" -Recurse -Filter "*.dll"
-        Get-ChildItem -Path "build\" -Recurse -Filter "*.lib"
-
-        # Verify the built DLL size and dependencies
+        Write-Host "=== Verifying DLL build ===" -ForegroundColor Green
         $dllPath = "build\Release\Intercept.dll"
         if (Test-Path $dllPath) {
           $dllSize = (Get-Item $dllPath).Length
           Write-Host "✅ Intercept.dll built successfully - Size: $dllSize bytes" -ForegroundColor Green
-
-          # Check dependencies using dumpbin if available
-          try {
-            $dumpbinOutput = & "dumpbin.exe" /dependents $dllPath 2>$null
-            Write-Host "=== DLL Dependencies ===" -ForegroundColor Cyan
-            Write-Host $dumpbinOutput
-          } catch {
-            Write-Host "⚠️ dumpbin not available, skipping dependency check" -ForegroundColor Yellow
-          }
         } else {
           Write-Error "❌ Intercept.dll not found in build directory"
           exit 1
         }
 
     # =====================================================================
-    # STEP 2: Setup Rust and Node.js for Tauri App
+    # STEP 2: Sign C Library DLL
     # =====================================================================
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '18'
-        cache: 'npm'
-        cache-dependency-path: 'GUI/InterceptSuite/package-lock.json'
-
-    - name: Setup Rust
-      uses: dtolnay/rust-toolchain@stable
-      with:
-        targets: x86_64-pc-windows-msvc
-
-    - name: Install Rust dependencies
-      working-directory: GUI/InterceptSuite/src-tauri
-      run: |
-        cargo fetch --locked
-
-    - name: Cache Rust dependencies
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.cargo/bin/
-          ~/.cargo/registry/index/
-          ~/.cargo/registry/cache/
-          ~/.cargo/git/db/
-          GUI/InterceptSuite/src-tauri/target/
-        key: windows-rust-${{ hashFiles('GUI/InterceptSuite/src-tauri/Cargo.lock') }}
-
-    # =====================================================================
-    # STEP 3: Build Tauri Application
-    # =====================================================================
-    - name: Install Node.js dependencies
-      working-directory: GUI/InterceptSuite
-      run: npm ci
-    - name: Prepare native libraries for Tauri
-      working-directory: GUI/InterceptSuite/src-tauri
+    - name: Sign C Library DLL
       shell: pwsh
       run: |
-        Write-Host "=== Preparing native libraries (static linking) ===" -ForegroundColor Green
-        .\prepare-resources.ps1
+        Write-Host "=== Signing C Library DLL ===" -ForegroundColor Green
 
-        # Ensure resources directory exists and has proper structure
-        if (-not (Test-Path "resources")) {
-          New-Item -ItemType Directory -Path "resources" -Force
-        }
+        $dllPath = "build\Release\Intercept.dll"
+        Write-Host "Signing $dllPath..." -ForegroundColor Yellow
+        & signtool.exe sign /tr http://timestamp.sectigo.com /td sha256 /fd sha256 /sha1 6ffca813ad52ab0142cc2c4b48d1ae2a45c279b8 $dllPath
 
-        # Copy the DLL to resources if it's not there
-        if ((Test-Path "Intercept.dll") -and (-not (Test-Path "resources\Intercept.dll"))) {
-          Copy-Item "Intercept.dll" "resources\" -Force
-          Write-Host "✅ Copied Intercept.dll to resources directory" -ForegroundColor Green
-        }
-
-        # With static linking, no OpenSSL DLLs are needed
-        Write-Host "ℹ️ Using static OpenSSL linking - no separate DLLs required" -ForegroundColor Cyan
-
-        Write-Host "=== Verifying resources directory ===" -ForegroundColor Green
-        if (Test-Path "resources") {
-          Get-ChildItem -Path "resources" -Recurse
+        if ($LASTEXITCODE -eq 0) {
+          Write-Host "✅ DLL signed successfully" -ForegroundColor Green
         } else {
-          Write-Host "❌ Resources directory still doesn't exist!" -ForegroundColor Red
+          Write-Error "❌ DLL signing failed"
           exit 1
         }
 
-    - name: Build frontend
-      working-directory: GUI/InterceptSuite
-      run: |
-        Write-Host "=== Building React frontend ===" -ForegroundColor Green
-        npm run build
+    # =====================================================================
+    # STEP 3: Build .NET Application and Create Installer
+    # =====================================================================
 
-    - name: Build Tauri App
-      working-directory: GUI/InterceptSuite
+    - name: Build .NET Application and Create Installer
       shell: pwsh
       run: |
-        Write-Host "=== Building Tauri app for Windows x64 ===" -ForegroundColor Green
-        npm run tauri build
-        Write-Host "=== Verifying Tauri build output ===" -ForegroundColor Green
-        Get-ChildItem -Path "src-tauri\target\release\bundle\" -Recurse
-        # Check if MSI installer was created
-        if (Test-Path "src-tauri\target\release\bundle\msi") {
-          Write-Host "MSI files:" -ForegroundColor Yellow
-          Get-ChildItem -Path "src-tauri\target\release\bundle\msi\" -Recurse
+        Write-Host "=== Building .NET InterceptSuite Application ===" -ForegroundColor Green
+
+        # Navigate to the installer directory and run the build script
+        Set-Location "GUI\InterceptSuite\Installer\Windows"
+        .\build-application.ps1
+
+        Write-Host "=== Signing Published Application EXE ===" -ForegroundColor Green
+
+        # Find the published EXE file
+        $publishedExe = Get-ChildItem -Path "..\..\bin\Release\net9.0\win-x64\publish" -Filter "*.exe" -Recurse | Where-Object { $_.Name -like "*InterceptSuite*" } | Select-Object -First 1
+
+        if ($publishedExe) {
+          Write-Host "Signing $($publishedExe.FullName)..." -ForegroundColor Yellow
+          & signtool.exe sign /tr http://timestamp.sectigo.com /td sha256 /fd sha256 /sha1 6ffca813ad52ab0142cc2c4b48d1ae2a45c279b8 $publishedExe.FullName
+
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "✅ Application EXE signed successfully" -ForegroundColor Green
+          } else {
+            Write-Error "❌ Application EXE signing failed"
+            exit 1
+          }
+        } else {
+          Write-Host "⚠️ No application EXE found to sign in publish directory" -ForegroundColor Yellow
         }
-        # Check if NSIS installer was created
-        if (Test-Path "src-tauri\target\release\bundle\nsis") {
-          Write-Host "NSIS files:" -ForegroundColor Yellow
-          Get-ChildItem -Path "src-tauri\target\release\bundle\nsis\" -Recurse
+
+        .\build-installers.ps1
+
+        Write-Host "=== Signing Installer EXE ===" -ForegroundColor Green
+
+        # Find the installer EXE file in dist directory
+        $installerExe = Get-ChildItem -Path "..\dist" -Filter "*.exe" -Recurse | Select-Object -First 1
+
+        if ($installerExe) {
+          Write-Host "Signing $($installerExe.FullName)..." -ForegroundColor Yellow
+          & signtool.exe sign /tr http://timestamp.sectigo.com /td sha256 /fd sha256 /sha1 6ffca813ad52ab0142cc2c4b48d1ae2a45c279b8 $installerExe.FullName
+
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "✅ Installer EXE signed successfully" -ForegroundColor Green
+          } else {
+            Write-Error "❌ Installer EXE signing failed"
+            exit 1
+          }
+        } else {
+          Write-Error "❌ No installer EXE found to sign in dist directory"
+          exit 1
         }
 
     # =====================================================================
@@ -195,77 +125,16 @@ jobs:
         Write-Host "=== Preparing release artifacts ===" -ForegroundColor Green
         New-Item -ItemType Directory -Path "release-artifacts" -Force
 
-        # Extract version from tag or use default
-        if ("${{ github.ref }}" -like "refs/tags/*") {
-          $VERSION = "${{ github.ref_name }}"
-          $VERSION = $VERSION -replace "^v", ""  # Remove 'v' prefix if present
-        } else {
-          $VERSION = "dev-build"
-        }
-        Write-Host "Building for version: $VERSION" -ForegroundColor Yellow
-
-        # Copy MSI installer (if exists)
-        if (Test-Path "GUI\InterceptSuite\src-tauri\target\release\bundle\msi") {
-          $msiFiles = Get-ChildItem -Path "GUI\InterceptSuite\src-tauri\target\release\bundle\msi" -Filter "*.msi" -Recurse
-          foreach ($msi in $msiFiles) {
-            Copy-Item $msi.FullName "release-artifacts\InterceptSuite-v$VERSION-windows-x64.msi"
-            Write-Host "✅ MSI installer copied" -ForegroundColor Green
-          }
-        }
-
-        # Copy NSIS installer (if exists)
-        if (Test-Path "GUI\InterceptSuite\src-tauri\target\release\bundle\nsis") {
-          $exeFiles = Get-ChildItem -Path "GUI\InterceptSuite\src-tauri\target\release\bundle\nsis" -Filter "*.exe" -Recurse
+        # Copy EXE installer from dist directory
+        if (Test-Path "GUI\InterceptSuite\Installer\dist") {
+          $exeFiles = Get-ChildItem -Path "GUI\InterceptSuite\Installer\dist" -Filter "*.exe" -Recurse
           foreach ($exe in $exeFiles) {
-            Copy-Item $exe.FullName "release-artifacts\InterceptSuite-v$VERSION-windows-x64-installer.exe"
-            Write-Host "✅ NSIS installer copied" -ForegroundColor Green
+            Copy-Item $exe.FullName "release-artifacts\$($exe.Name)"
+            Write-Host "✅ EXE installer copied: $($exe.Name)" -ForegroundColor Green
           }
-        }
-
-        # Copy standalone DLL and LIB for developers
-        $dllFiles = Get-ChildItem -Path "build" -Filter "*.dll" -Recurse | Where-Object { $_.Name -like "*Intercept*" }
-        $libFiles = Get-ChildItem -Path "build" -Filter "*.lib" -Recurse | Where-Object { $_.Name -like "*Intercept*" }
-
-        foreach ($dll in $dllFiles) {
-          Copy-Item $dll.FullName "release-artifacts\libIntercept-v$VERSION-windows-x64.dll"
-        }
-        foreach ($lib in $libFiles) {
-          Copy-Item $lib.FullName "release-artifacts\libIntercept-v$VERSION-windows-x64.lib"
-        }
-
-        # Create a library-only package for developers
-        $libraryFiles = @()
-        $libraryFiles += Get-ChildItem -Path "build" -Filter "*.dll" -Recurse | Where-Object { $_.Name -like "*Intercept*" }
-        $libraryFiles += Get-ChildItem -Path "build" -Filter "*.lib" -Recurse | Where-Object { $_.Name -like "*Intercept*" }
-        $libraryFiles += Get-ChildItem -Path "include" -Filter "tls_proxy_dll.h"
-        $libraryFiles += Get-ChildItem -Path "include" -Filter "tls_proxy.h"
-        $libraryFiles += Get-ChildItem -Path "." -Filter "Library_INTEGRATION.md"
-
-        if ($libraryFiles.Count -gt 0) {
-          Compress-Archive -Path $libraryFiles.FullName -DestinationPath "release-artifacts\InterceptSuite-Library-v$VERSION-windows-x64.zip" -Force
-        }
-
-        Write-Host "=== Release artifacts prepared ===" -ForegroundColor Green
-        Get-ChildItem -Path "release-artifacts" -Recurse
-
-    - name: Generate checksums
-      shell: pwsh
-      run: |
-        Set-Location "release-artifacts"
-        $files = Get-ChildItem -Filter "*.*" | Where-Object { -not $_.PSIsContainer }
-        $checksums = @()
-
-        foreach ($file in $files) {
-          $hash = Get-FileHash -Path $file.Name -Algorithm SHA256
-          $checksums += "$($hash.Hash.ToLower())  $($file.Name)"
-        }
-
-        if ($checksums.Count -gt 0) {
-          $checksums | Out-File -FilePath "checksums-windows.txt" -Encoding utf8
-          Write-Host "=== Checksums generated ===" -ForegroundColor Green
-          Get-Content "checksums-windows.txt"
         } else {
-          Write-Host "No files found to generate checksums for" -ForegroundColor Yellow
+          Write-Host "❌ Installer dist directory not found!" -ForegroundColor Red
+          exit 1
         }
 
     # =====================================================================
@@ -276,13 +145,7 @@ jobs:
       if: github.event_name == 'release' || startsWith(github.ref, 'refs/tags/')
       uses: softprops/action-gh-release@v2
       with:
-        files: |
-            release-artifacts/InterceptSuite-v*-windows-x64.msi
-            release-artifacts/InterceptSuite-v*-windows-x64-installer.exe
-            release-artifacts/libIntercept-v*-windows-x64.dll
-            release-artifacts/libIntercept-v*-windows-x64.lib
-            release-artifacts/InterceptSuite-Library-v*-windows-x64.zip
-            release-artifacts/checksums-windows.txt
+        files: release-artifacts/*.exe
 
     # =====================================================================
     # STEP 6: Upload Build Artifacts (for all builds)
@@ -299,23 +162,5 @@ jobs:
     - name: Build Summary
       shell: pwsh
       run: |
-        "## 🪟 Windows Build Completed Successfully! 🎉" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8
-        "" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
-        "### 📦 Artifacts Created:" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
-        "- ✅ Native C Library (DLL + LIB)" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
-        "- ✅ Tauri GUI Application" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
-        "- ✅ Windows MSI Installer" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
-        "- ✅ NSIS Installer (EXE)" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
-        "- ✅ Developer Library Package" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
-        "" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
-        "### 🔍 Build Details:" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
-        "- **Platform**: Windows x64" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
-        "- **Build Type**: Release" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
-        "- **Toolchain**: MSVC 2022" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
-        "" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
-        if (Test-Path "release-artifacts\checksums-windows.txt") {
-          "### 🔐 Checksums:" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
-          '```' | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
-          Get-Content "release-artifacts\checksums-windows.txt" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
-          '```' | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
-        }
+        Write-Host "✅ Windows build completed successfully!" -ForegroundColor Green
+        Write-Host "📦 EXE installer created and uploaded to release" -ForegroundColor Cyan

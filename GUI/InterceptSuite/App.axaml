@@ -1,0 +1,65 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="using:InterceptSuite"
+             x:Class="InterceptSuite.App"
+             RequestedThemeVariant="Dark"
+             Name="InterceptSuite Standard Edition">
+
+
+<NativeMenu.Menu>
+		<NativeMenu>
+			<NativeMenuItem Header="About InterceptSuite Standard Edition" Click="AboutMenuItem_OnClick" />
+		</NativeMenu>
+	</NativeMenu.Menu>
+
+    <Application.DataTemplates>
+        <local:ViewLocator/>
+    </Application.DataTemplates>
+
+    <Application.Styles>
+        <FluentTheme />
+        <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml"/>
+        
+        <!-- Custom DataGrid Header Styling -->
+        <Style Selector="DataGridColumnHeader">
+            <Setter Property="Background" Value="#2A2D3A"/>
+            <Setter Property="Foreground" Value="#B0B7C3"/>
+            <Setter Property="BorderBrush" Value="#3E4651"/>
+            <Setter Property="BorderThickness" Value="0,0,1,1"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Padding" Value="8,6"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+        
+        <Style Selector="DataGridColumnHeader:pointerover">
+            <Setter Property="Background" Value="#3A3D4A"/>
+        </Style>
+        
+        <Style Selector="DataGridColumnHeader:pressed">
+            <Setter Property="Background" Value="#4A4D5A"/>
+        </Style>
+        
+        <!-- More specific DataGrid styling to override theme -->
+        <Style Selector="DataGrid DataGridColumnHeader">
+            <Setter Property="Background" Value="#2A2D3A"/>
+            <Setter Property="Foreground" Value="#B0B7C3"/>
+        </Style>
+        
+        <Style Selector="DataGrid DataGridColumnHeader:pointerover">
+            <Setter Property="Background" Value="#3A3D4A"/>
+        </Style>
+        
+        <!-- DataGrid Row Header Styling -->
+        <Style Selector="DataGridRowHeader">
+            <Setter Property="Background" Value="#2A2D3A"/>
+            <Setter Property="BorderBrush" Value="#3E4651"/>
+        </Style>
+        
+        <!-- DataGrid Cell Styling -->
+        <Style Selector="DataGridCell">
+            <Setter Property="BorderBrush" Value="#3E4651"/>
+        </Style>
+    </Application.Styles>
+</Application>

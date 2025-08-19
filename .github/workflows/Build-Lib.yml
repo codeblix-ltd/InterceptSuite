@@ -2,9 +2,9 @@ name: C InterceptSuite Build
 
 on:
   push:
-    branches: [ Cross-Platform, master ]
+    branches: [ Cross-Platform, master, main ]
   pull_request:
-    branches: [ Cross-Platform, master ]
+    branches: [ Cross-Platform, master, main ]
   workflow_dispatch:
 
 jobs:

@@ -3,12 +3,6 @@ name: Linux Release Build
 on:
   release:
     types: [published, created]
-  push:
-    tags:
-      - 'v*'  # Run when tag is pushed matching pattern v*, like v1.0.0
-    branches:
-      - master
-      - Cross-Platform
   workflow_dispatch:  # Allow manual triggering
 
 permissions:
@@ -81,82 +75,28 @@ jobs:
         ldd build/libIntercept.so
 
     # =====================================================================
-    # STEP 2: Setup Rust and Node.js for Tauri App
+    # STEP 2: Setup .NET for InterceptSuite GUI
     # =====================================================================
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
       with:
-        node-version: '18'
-        cache: 'npm'
-        cache-dependency-path: 'GUI/InterceptSuite/package-lock.json'
-
-    - name: Setup Rust
-      uses: dtolnay/rust-toolchain@stable
-      with:
-        targets: x86_64-unknown-linux-gnu
-
-    - name: Install Rust dependencies
-      working-directory: GUI/InterceptSuite/src-tauri
-      run: |
-        cargo fetch --locked
-
-    - name: Cache Rust dependencies
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.cargo/bin/
-          ~/.cargo/registry/index/
-          ~/.cargo/registry/cache/
-          ~/.cargo/git/db/
-          GUI/InterceptSuite/src-tauri/target/
-        key: linux-rust-${{ hashFiles('GUI/InterceptSuite/src-tauri/Cargo.lock') }}
+        dotnet-version: '9.0.x'
 
     # =====================================================================
-    # STEP 3: Build Tauri Application
+    # STEP 3: Build .NET Application and Create Packages
     # =====================================================================
 
-    - name: Install Node.js dependencies
-      working-directory: GUI/InterceptSuite
-      run: npm ci
-
-    - name: Prepare native libraries for Tauri
-      working-directory: GUI/InterceptSuite/src-tauri
+    - name: Build .NET Application and Create Packages
+      working-directory: GUI/InterceptSuite/Installer/Linux
       run: |
-        echo "=== Preparing native libraries ==="
-        chmod +x prepare-resources.sh
-        ./prepare-resources.sh
-        echo "=== Verifying resources ==="
-        ls -la resources/
-
-    - name: Build frontend
-      working-directory: GUI/InterceptSuite
-      run: |
-        echo "=== Building React frontend ==="
-        npm run build
-
-    - name: Build Tauri App
-      working-directory: GUI/InterceptSuite
-      run: |
-        echo "=== Building Tauri app for Linux x64 ==="
-        npm run tauri build
-        echo "=== Verifying Tauri build output ==="
-        ls -la src-tauri/target/release/bundle/
-        # Check if AppImage was created
-        if [ -d "src-tauri/target/release/bundle/appimage" ]; then
-          echo "AppImage files:"
-          ls -la src-tauri/target/release/bundle/appimage/
-        fi
-        # Check if deb package was created
-        if [ -d "src-tauri/target/release/bundle/deb" ]; then
-          echo "DEB files:"
-          ls -la src-tauri/target/release/bundle/deb/
-        fi
-        # Check if rpm package was created
-        if [ -d "src-tauri/target/release/bundle/rpm" ]; then
-          echo "RPM files:"
-          ls -la src-tauri/target/release/bundle/rpm/
-        fi
+        echo "=== Building .NET InterceptSuite Application and Creating Packages ==="
+        chmod +x ./installer.sh
+        sudo ./installer.sh
+        chmod +x ./build-packages.sh
+        ./build-packages.sh
+        echo "=== Verifying package build output ==="
+        ls -la ../dist/
 
     # =====================================================================
     # STEP 4: Create Release Artifacts
@@ -167,51 +107,25 @@ jobs:
         echo "=== Preparing release artifacts ==="
         mkdir -p release-artifacts
 
-        # Extract version from tag or use default
-        if [[ "${{ github.ref }}" == refs/tags/* ]]; then
-          VERSION="${{ github.ref_name }}"
-          VERSION=${VERSION#v}  # Remove 'v' prefix if present
+        # Copy packages from dist directory
+        if [ -d "GUI/InterceptSuite/Installer/dist" ]; then
+          # Copy AppImage file (if exists)
+          find GUI/InterceptSuite/Installer/dist/ -name "*.AppImage" -exec cp {} release-artifacts/ \;
+
+          # Copy DEB package (if exists)
+          find GUI/InterceptSuite/Installer/dist/ -name "*.deb" -exec cp {} release-artifacts/ \;
+
+          # Copy RPM package (if exists)
+          find GUI/InterceptSuite/Installer/dist/ -name "*.rpm" -exec cp {} release-artifacts/ \;
+
+          echo "✅ Package files copied"
         else
-          VERSION="dev-build"
+          echo "❌ Installer dist directory not found!"
+          exit 1
         fi
-        echo "Building for version: $VERSION"
-
-        # Copy AppImage file (if exists)
-        if [ -d "GUI/InterceptSuite/src-tauri/target/release/bundle/appimage" ]; then
-          find GUI/InterceptSuite/src-tauri/target/release/bundle/appimage/ -name "*.AppImage" -exec cp {} "release-artifacts/InterceptSuite-v${VERSION}-linux-x64.AppImage" \;
-          echo "✅ AppImage file copied"
-        fi
-
-        # Copy DEB package (if exists)
-        if [ -d "GUI/InterceptSuite/src-tauri/target/release/bundle/deb" ]; then
-          find GUI/InterceptSuite/src-tauri/target/release/bundle/deb/ -name "*.deb" -exec cp {} "release-artifacts/InterceptSuite-v${VERSION}-linux-x64.deb" \;
-          echo "✅ DEB package copied"
-        fi
-
-        # Copy RPM package (if exists)
-        if [ -d "GUI/InterceptSuite/src-tauri/target/release/bundle/rpm" ]; then
-          find GUI/InterceptSuite/src-tauri/target/release/bundle/rpm/ -name "*.rpm" -exec cp {} "release-artifacts/InterceptSuite-v${VERSION}-linux-x64.rpm" \;
-          echo "✅ RPM package copied"
-        fi
-
-        # Copy standalone shared library for developers
-        cp build/libIntercept.so "release-artifacts/libIntercept-v${VERSION}-linux-x64.so"
-
-        # Create a library-only package for developers
-        tar -czf "release-artifacts/InterceptSuite-Library-v${VERSION}-linux-x64.tar.gz" \
-          build/libIntercept.so \
-          include/tls_proxy_dll.h \
-          include/tls_proxy.h \
-          Library_INTEGRATION.md
 
         echo "=== Release artifacts prepared ==="
         ls -la release-artifacts/
-    - name: Generate checksums
-      run: |
-        cd release-artifacts
-        sha256sum *.AppImage *.deb *.rpm *.so *.tar.gz > checksums-linux.txt 2>/dev/null || true
-        echo "=== Checksums generated ==="
-        cat checksums-linux.txt || echo "No checksums to display"
 
     # =====================================================================
     # STEP 5: Upload to GitHub Release (if this is a release)
@@ -222,13 +136,9 @@ jobs:
       uses: softprops/action-gh-release@v2
       with:
         files: |
-            release-artifacts/InterceptSuite-v*-linux-x64.AppImage
-            release-artifacts/InterceptSuite-v*-linux-x64.deb
-            release-artifacts/InterceptSuite-v*-linux-x64.rpm
-            release-artifacts/libIntercept-v*-linux-x64.so
-            release-artifacts/InterceptSuite-Library-v*-linux-x64.tar.gz
-            release-artifacts/checksums-linux.txt
-
+            release-artifacts/*.AppImage
+            release-artifacts/*.deb
+            release-artifacts/*.rpm
 
     # =====================================================================
     # STEP 6: Upload Build Artifacts (for all builds)
@@ -241,27 +151,3 @@ jobs:
         path: release-artifacts/
         retention-days: 30
         if-no-files-found: error
-
-    - name: Build Summary
-      run: |
-        echo "## 🐧 Linux Build Completed Successfully! 🎉" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### 📦 Artifacts Created:" >> $GITHUB_STEP_SUMMARY
-        echo "- ✅ Native C Library (libIntercept.so)" >> $GITHUB_STEP_SUMMARY
-        echo "- ✅ Tauri GUI Application" >> $GITHUB_STEP_SUMMARY
-        echo "- ✅ Linux AppImage (Universal)" >> $GITHUB_STEP_SUMMARY
-        echo "- ✅ Debian Package (.deb)" >> $GITHUB_STEP_SUMMARY
-        echo "- ✅ RPM Package (.rpm)" >> $GITHUB_STEP_SUMMARY
-        echo "- ✅ Developer Library Package" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### 🔍 Build Details:" >> $GITHUB_STEP_SUMMARY
-        echo "- **Platform**: Linux x86_64" >> $GITHUB_STEP_SUMMARY
-        echo "- **Build Type**: Release" >> $GITHUB_STEP_SUMMARY
-        echo "- **C Library**: $(file build/libIntercept.so)" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        if [ -f "release-artifacts/checksums-linux.txt" ]; then
-          echo "### 🔐 Checksums:" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          cat release-artifacts/checksums-linux.txt >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-        fi

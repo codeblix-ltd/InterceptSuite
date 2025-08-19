@@ -1,0 +1,98 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+
+    <!-- Application Information -->
+    <AssemblyTitle>InterceptSuite Standard - Standard Edition</AssemblyTitle>
+    <AssemblyDescription>TLS Intercept and Analysis Tool - Standard Edition</AssemblyDescription>
+    <AssemblyCompany>InterceptSuite</AssemblyCompany>
+    <AssemblyProduct>InterceptSuite Standard - Standard Edition</AssemblyProduct>
+    <AssemblyCopyright>© 2025 InterceptSuite/AnoF-Cyber/Sourav Kalal</AssemblyCopyright>
+    <AssemblyVersion>1.1.0.0</AssemblyVersion>
+    <FileVersion>1.1.0.0</FileVersion>
+    <ProductVersion>1.1.0</ProductVersion>
+
+    <!-- Installer Support -->
+    <ApplicationIcon>logo.ico</ApplicationIcon>
+
+    <!-- Self-contained deployment -->
+    <!-- AOT disabled for Python.NET compatibility -->
+    <PublishAot>false</PublishAot>
+    <BuiltInComInteropSupport>false</BuiltInComInteropSupport>
+    <SelfContained>true</SelfContained>
+    <!-- Enable single file for cleaner deployment -->
+    <PublishSingleFile>true</PublishSingleFile>
+
+    <!-- Avalonia-recommended settings for self-contained (with Python.NET preservation) -->
+    <!-- Use partial trimming to preserve Python.NET while reducing size -->
+    <TrimMode>partial</TrimMode>
+    <PublishTrimmed>true</PublishTrimmed>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>false</EnableCompressionInSingleFile>
+
+    <!-- Avalonia self-contained optimizations -->
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <DebuggerSupport>false</DebuggerSupport>
+    <EnableUnsafeBinaryFormatterSerialization>false</EnableUnsafeBinaryFormatterSerialization>
+    <EnableUnsafeUTF7Encoding>false</EnableUnsafeUTF7Encoding>
+    <HttpActivityPropagationSupport>false</HttpActivityPropagationSupport>
+    <MetadataUpdaterSupport>false</MetadataUpdaterSupport>
+    <UseSystemResourceKeys>true</UseSystemResourceKeys>
+
+    <!-- Suppress trim warnings for known Avalonia issues -->
+    <NoWarn>$(NoWarn);IL2026;IL2057;IL2104;IL30553</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <AvaloniaResource Include="Assets\**" />
+    <AvaloniaResource Include="logo.ico" />
+    <AvaloniaResource Include="icons\**" />
+  </ItemGroup>
+
+  <!-- Copy native libraries to output -->
+
+  <!-- Self-contained Trimming Configuration for Avalonia and Python.NET -->
+  <ItemGroup>
+    <!-- Preserve Avalonia types for reflection and trimming -->
+    <TrimmerRootAssembly Include="Avalonia.Themes.Fluent" />
+    <TrimmerRootAssembly Include="Avalonia.Controls" />
+    <TrimmerRootAssembly Include="Avalonia.Controls.DataGrid" />
+    <TrimmerRootAssembly Include="Avalonia" />
+    <TrimmerRootAssembly Include="Avalonia.Desktop" />
+
+    <!-- Preserve Python.NET assemblies and dependencies -->
+    <TrimmerRootAssembly Include="Python.Runtime" />
+    <TrimmerRootAssembly Include="InterceptSuite" />
+
+    <!-- Preserve reflection assemblies that Python.NET might need -->
+    <TrimmerRootAssembly Include="System.Reflection" />
+    <TrimmerRootAssembly Include="System.Reflection.Emit" />
+    <TrimmerRootAssembly Include="System.Reflection.Emit.ILGeneration" />
+    <TrimmerRootAssembly Include="System.Runtime.Loader" />
+  </ItemGroup>
+
+  <!-- Runtime configuration for Python.NET compatibility -->
+  <ItemGroup Condition="'$(RuntimeIdentifier)' == 'osx-arm64'">
+    <!-- Preserve all Python.NET related types -->
+    <RuntimeHostConfigurationOption Include="System.Runtime.Serialization.EnableUnsafeBinaryFormatterSerialization" Value="false" />
+    <RuntimeHostConfigurationOption Include="System.Reflection.NullabilityInfoContext.IsSupported" Value="true" />
+
+    <!-- Keep all assemblies for Python.NET -->
+    <TrimmerRootDescriptor Include="ILLink.Descriptors.xml" Condition="Exists('ILLink.Descriptors.xml')" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.3.0" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.3.0" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.0" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.0" />
+    <PackageReference Include="Avalonia.Controls.DataGrid" Version="11.3.0" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.1" />
+    <PackageReference Include="pythonnet" Version="3.0.5" />
+  </ItemGroup>
+</Project>

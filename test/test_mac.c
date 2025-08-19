@@ -10,7 +10,6 @@
 typedef struct {
     char bind_addr[64];       /* Binding IP address */
     int port;                 /* Proxy port */
-    char log_file[256];       /* Log file path */
     int verbose_mode;         /* Verbose logging enabled (1) or disabled (0) */
     int is_running;           /* Proxy status: running (1) or stopped (0) */
 } proxy_config_t;
@@ -18,7 +17,7 @@ typedef struct {
 typedef proxy_config_t (*get_proxy_config_func)(void);
 typedef int (*get_proxy_stats_func)(int* connections, int* bytes_transferred);
 typedef int (*get_system_ips_func)(char* ip_buffer, int buffer_size);
-typedef int (*set_config_func)(const char* bind_addr, int port, const char* log_file, int verbose_mode);
+typedef int (*set_config_func)(const char* bind_addr, int port, int verbose_mode);
 typedef int (*start_proxy_func)(void);
 typedef int (*stop_proxy_func)(void);
 

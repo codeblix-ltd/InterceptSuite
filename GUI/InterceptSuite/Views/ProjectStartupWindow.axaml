@@ -1,0 +1,172 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:InterceptSuite.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="550"
+        x:Class="InterceptSuite.Views.ProjectStartupWindow"
+        x:DataType="vm:ProjectStartupViewModel"
+        Title="InterceptSuite Standard Edition - Project Setup"
+        Width="800"
+        Height="550"
+        WindowStartupLocation="CenterScreen"
+        CanResize="False"
+        Icon="/Assets/logo.ico">
+
+    <Window.Styles>
+        <Style Selector="Button">
+            <Setter Property="Margin" Value="5"/>
+            <Setter Property="Padding" Value="15,10"/>
+            <Setter Property="FontSize" Value="14"/>
+        </Style>
+
+        <Style Selector="Button.primary">
+            <Setter Property="Background" Value="#2563eb"/>
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
+
+        <Style Selector="Button.primary:pointerover">
+            <Setter Property="Background" Value="#1d4ed8"/>
+        </Style>
+
+        <Style Selector="Button:disabled">
+            <Setter Property="Opacity" Value="0.5"/>
+        </Style>
+
+        <Style Selector="TextBlock.title">
+            <Setter Property="FontSize" Value="24"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Margin" Value="0,0,0,20"/>
+        </Style>
+
+        <Style Selector="TextBlock.description">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Margin" Value="0,5"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+
+        <Style Selector="TextBlock.pro-label">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="#dc2626"/>
+            <Setter Property="FontStyle" Value="Italic"/>
+        </Style>
+    </Window.Styles>
+
+    <Grid Margin="30">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <StackPanel Grid.Row="0">
+            <TextBlock Classes="title" Text="Welcome to InterceptSuite Standard Edition"/>
+            <TextBlock Classes="description" Text="Choose how you would like to start your session:"/>
+        </StackPanel>
+
+        <!-- Options -->
+        <StackPanel Grid.Row="1" Spacing="20" VerticalAlignment="Center">
+
+            <!-- Open Existing Project -->
+            <Border BorderBrush="#404656" BorderThickness="1" CornerRadius="8" Padding="20">
+                <StackPanel>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0">
+                            <TextBlock FontSize="16" FontWeight="SemiBold" Text="Open Existing Project"/>
+                            <TextBlock Classes="description"
+                                       Text="Load a previously saved project file with all your session data, settings, and history."/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <Button Classes="primary"
+                                    Command="{Binding OpenProjectCommand}"
+                                    IsEnabled="{Binding IsProjectSelectionEnabled}"
+                                    Content="Open Project"/>
+                            <TextBlock Classes="pro-label"
+                                       IsVisible="{Binding !IsProVersion}"
+                                       Text="Pro Edition Feature"/>
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- Create New Project -->
+            <Border BorderBrush="#404656" BorderThickness="1" CornerRadius="8" Padding="20">
+                <StackPanel>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0">
+                            <TextBlock FontSize="16" FontWeight="SemiBold" Text="Create New Project"/>
+                            <TextBlock Classes="description"
+                                       Text="Start a new project and choose where to save your session data for future use."/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <Button Classes="primary"
+                                    Command="{Binding NewProjectCommand}"
+                                    IsEnabled="{Binding IsProjectSelectionEnabled}"
+                                    Content="New Project"/>
+                            <TextBlock Classes="pro-label"
+                                       IsVisible="{Binding !IsProVersion}"
+                                       Text="Pro Edition Feature"/>
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- Continue Without Project -->
+            <Border BorderBrush="#404656" BorderThickness="1" CornerRadius="8" Padding="20" Background="#252A3D">
+                <StackPanel>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0">
+                            <TextBlock FontSize="16" FontWeight="SemiBold" Text="Continue Without Project"/>
+                            <TextBlock Classes="description"
+                                       Text="Start a temporary session. All data will be stored in memory only and will be lost when the application is closed."/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <Button Classes="primary"
+                                    Command="{Binding ContinueWithoutProjectCommand}"
+                                    Content="Start Session"/>
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+
+        <!-- Footer -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,20,0,0">
+            <TextBlock FontSize="12" Foreground="#6b7280"
+                       Text="InterceptSuite Standard Edition - Free Version | "/>
+            <Button FontSize="12"
+                    Foreground="#2563eb"
+                    Content="Upgrade to Pro for project file support"
+                    Command="{Binding OpenProUpgradeUrlCommand}"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    Padding="0"
+                    Cursor="Hand">
+                <Button.Styles>
+                    <Style Selector="Button:pointerover">
+                        <Setter Property="Foreground" Value="#1d4ed8"/>
+                    </Style>
+                </Button.Styles>
+            </Button>
+        </StackPanel>
+    </Grid>
+</Window>

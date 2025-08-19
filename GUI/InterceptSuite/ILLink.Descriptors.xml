@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<linker>
+  <!-- Preserve all Python.NET assemblies -->
+  <assembly fullname="Python.Runtime" preserve="all" />
+
+  <!-- Preserve InterceptSuite assemblies for Python integration -->
+  <assembly fullname="InterceptSuite" preserve="all" />
+
+  <!-- Preserve reflection and runtime loading assemblies -->
+  <assembly fullname="System.Reflection" preserve="all" />
+  <assembly fullname="System.Reflection.Emit" preserve="all" />
+  <assembly fullname="System.Reflection.Emit.ILGeneration" preserve="all" />
+  <assembly fullname="System.Runtime.Loader" preserve="all" />
+
+  <!-- Preserve specific types that Python.NET uses via reflection -->
+  <type fullname="Python.Runtime.*" preserve="all" />
+  <type fullname="InterceptSuite.Extensions.*" preserve="all" />
+</linker>

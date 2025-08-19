@@ -50,6 +50,25 @@ if(WIN32)
     set(INSTALL_RUNTIME_DIR "bin")
     set(PLATFORM_COMPILE_DEFS "HAVE_OPENSSL;_UNICODE;UNICODE;INTERCEPT_WINDOWS")
     set(PLATFORM_LIBS ws2_32 iphlpapi psapi)
+
+    # Enable Control Flow Guard for enhanced security
+    if(MSVC)
+        # CFG compile flags
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /guard:cf")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /guard:cf")
+
+        # CFG link flags
+        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /guard:cf")
+        set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /guard:cf")
+        set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} /guard:cf")
+
+        # Additional security hardening flags
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /GS")          # Buffer Security Check
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /GS")      # Buffer Security Check
+        set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /DYNAMICBASE /NXCOMPAT") # ASLR and DEP
+
+        message(STATUS "Control Flow Guard (CFG) and security hardening enabled")
+    endif()
 elseif(APPLE)
     # macOS settings
     set(PLATFORM_SUFFIX "dylib")
@@ -79,6 +98,7 @@ set_target_properties(PROPERTIES
 # Add include directories
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
 # Find required dependencies
@@ -90,15 +110,25 @@ endif()
 # Add library
 add_library(Intercept SHARED
     src/main.c
-    src/cert_utils.c
-    src/socks5.c
-    src/tls_utils.c
-    src/utils.c
-    src/user_data.c
+    src/tls/cert/cert_utils.c
+    src/tls/proxy/tls_utils.c
+    src/config/user_data.c
+    src/protocol/protocol_detector.c
+    src/proxy/proxy_manager.c
+    src/proxy/socks5.c
+    src/proxy/udp_relay.c
+    src/proxy/interceptor/interceptor.c
+    src/tls/cert/cert_export.c
+    src/utils/utils.c
 )
 
 # Define BUILDING_INTERCEPT_LIB for proper export symbol visibility
-target_compile_definitions(Intercept PRIVATE BUILDING_INTERCEPT_LIB ${PLATFORM_COMPILE_DEFS})
+target_compile_definitions(Intercept PRIVATE
+    BUILDING_INTERCEPT_LIB
+    ${PLATFORM_COMPILE_DEFS}
+    INTERCEPT_EDITION="Standard"
+    INTERCEPT_VERSION="${CPACK_PACKAGE_VERSION}"
+)
 
 # Set the module definition file for Windows
 if(WIN32)
@@ -151,15 +181,15 @@ install(FILES
 
 # CPack configuration
 include(InstallRequiredSystemLibraries)
-set(CPACK_PACKAGE_NAME "InterceptSuite")
-set(CPACK_PACKAGE_VENDOR "Sourav Kalal")
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Intercept Suite - TLS MITM Proxy")
-set(CPACK_PACKAGE_VERSION "1.0.1")
+set(CPACK_PACKAGE_NAME "InterceptSuite Standard")
+set(CPACK_PACKAGE_VENDOR "InterceptSuite")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "InterceptSuite Standard Edition - TLS MITM Proxy")
+set(CPACK_PACKAGE_VERSION "1.1.0")
 set(CPACK_PACKAGE_CONTACT "Sourav Kalal <kalalsourav20@gmail.com>")
-set(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/anof-cyber/InterceptSuite")
+set(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/InterceptSuite/InterceptSuite")
 set(CPACK_PACKAGE_VERSION_MAJOR "1")
-set(CPACK_PACKAGE_VERSION_MINOR "0")
-set(CPACK_PACKAGE_VERSION_PATCH "1")
+set(CPACK_PACKAGE_VERSION_MINOR "1")
+set(CPACK_PACKAGE_VERSION_PATCH "0")
 
 # Platform-specific package name
 if(WIN32)

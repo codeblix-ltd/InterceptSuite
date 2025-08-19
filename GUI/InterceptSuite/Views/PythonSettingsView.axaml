@@ -1,0 +1,109 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:InterceptSuite.ViewModels"
+             xmlns:converters="using:InterceptSuite.Converters"
+             x:Class="InterceptSuite.Views.PythonSettingsView"
+             x:DataType="vm:PythonSettingsViewModel">
+
+  <UserControl.Resources>
+    <converters:BoolToStatusColorConverter x:Key="BoolToStatusColorConverter"/>
+  </UserControl.Resources>
+
+  <ScrollViewer>
+    <StackPanel Margin="20" Spacing="20">
+      
+      <!-- Header -->
+      <TextBlock Text="Python Configuration" 
+                 FontSize="18" 
+                 FontWeight="Bold" 
+                 Margin="0,0,0,10"/>
+      
+      <!-- Python Directory Selection -->
+      <Border Background="{DynamicResource CardBackgroundBrush}"
+              BorderBrush="{DynamicResource CardBorderBrush}"
+              BorderThickness="1"
+              CornerRadius="8"
+              Padding="16">
+        <StackPanel Spacing="12">
+          <TextBlock Text="Python Directory" FontWeight="SemiBold" FontSize="14"/>
+          <TextBlock Text="Select the directory where Python is installed. Extensions will use this Python installation." 
+                     FontSize="12" 
+                     Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+          
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBox Grid.Column="0" 
+                     Text="{Binding PythonDirectory}" 
+                     Watermark="e.g., /usr/local/python3.11, /opt/homebrew/bin, or C:\Python311"
+                     Margin="0,0,8,0"
+                     IsReadOnly="True"/>
+            <Button Grid.Column="1" 
+                    Content="Browse..." 
+                    Command="{Binding BrowsePythonDirectoryCommand}"/>
+          </Grid>
+        </StackPanel>
+      </Border>
+
+      <!-- Status -->
+      <Border Background="{DynamicResource CardBackgroundBrush}"
+              BorderBrush="{DynamicResource CardBorderBrush}"
+              BorderThickness="1"
+              CornerRadius="8"
+              Padding="16">
+        <StackPanel Spacing="12">
+          <TextBlock Text="Status" FontWeight="SemiBold" FontSize="14"/>
+          
+          <Grid ColumnDefinitions="Auto,*">
+            <Ellipse Grid.Column="0" 
+                     Width="8" Height="8" 
+                     Fill="{Binding IsValid, Converter={StaticResource BoolToStatusColorConverter}}"
+                     VerticalAlignment="Center"
+                     Margin="0,0,8,0"/>
+            <TextBlock Grid.Column="1" 
+                       Text="{Binding StatusMessage}" 
+                       VerticalAlignment="Center"/>
+          </Grid>
+
+          <!-- Validation Messages -->
+          <ItemsControl ItemsSource="{Binding ValidationMessages}" IsVisible="{Binding ValidationMessages.Count}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <TextBlock Text="{Binding}" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,2"/>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </Border>
+
+      <!-- Help Text -->
+      <Border Background="{DynamicResource CardBackgroundBrush}"
+              BorderBrush="{DynamicResource CardBorderBrush}"
+              BorderThickness="1"
+              CornerRadius="8"
+              Padding="16">
+        <StackPanel Spacing="8">
+          <TextBlock Text="Help" FontWeight="SemiBold" FontSize="14"/>
+          
+          <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}">
+            <Run Text="• "/> 
+            <Run Text="Select the root directory where Python is installed."/>
+          </TextBlock>
+
+          <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}">
+            <Run Text="• Example:"/>
+            <LineBreak />
+            <Run Text="     ◦ Windows: C:\Python3.10\"/>
+            <LineBreak />
+            <Run Text="     ◦ Mac: /Library/Frameworks/Python.framework/Versions/3.10/bin/"/>
+            <LineBreak />
+            <Run Text="     ◦ Linux: /usr/bin/"/>
+          </TextBlock>
+
+          
+         
+        </StackPanel>
+      </Border>
+      
+    </StackPanel>
+  </ScrollViewer>
+
+</UserControl>

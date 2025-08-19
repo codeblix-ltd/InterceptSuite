@@ -6,11 +6,11 @@ We actively support and provide security updates for the following versions of I
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 1.0.1   | :white_check_mark: |
+| 1.1.x   | :white_check_mark: |
 | 1.0.0   | :x:                |
 | < 1.0   | :x:                |
 
-> **Note**: We recommend always using the latest version available in our [releases page](https://github.com/Anof-cyber/InterceptSuite/releases) to ensure you have the most recent security updates and bug fixes.
+> **Note**: We recommend always using the latest version available in our [releases page](https://github.com/InterceptSuite/InterceptSuite/releases) to ensure you have the most recent security updates and bug fixes.
 
 ## Reporting a Vulnerability
 
@@ -21,7 +21,7 @@ We take security seriously and appreciate your help in keeping InterceptSuite se
 You can report security vulnerabilities through either of the following methods:
 
 1. **GitHub Security Advisories (Preferred)**
-   - Go to: https://github.com/Anof-cyber/InterceptSuite/security/advisories/new
+   - Go to: https://github.com/InterceptSuite/InterceptSuite/security/advisories/new
    - Fill out the security advisory form with detailed information
    - This method allows for private disclosure and coordinated fixes
 
@@ -119,6 +119,6 @@ For any questions about this security policy, please contact:
 
 ---
 
-**Last Updated**: June 2025
+**Last Updated**: July 2025
 
 This security policy may be updated from time to time. Please check back periodically for the most current version.

@@ -3,12 +3,6 @@ name: macOS Release Build
 on:
   release:
     types: [published, created]
-  push:
-    tags:
-      - 'v*'  # Run when tag is pushed matching pattern v*, like v1.0.0
-    branches:
-      - master
-      - Cross-Platform
   workflow_dispatch:  # Allow manual triggering
 
 permissions:
@@ -20,7 +14,7 @@ env:
 
 jobs:
   build-macos-release:
-    runs-on: macos-14
+    runs-on: macos-latest
 
     steps:
     - name: Checkout repository
@@ -72,68 +66,182 @@ jobs:
           exit 1
         fi
     # =====================================================================
-    # STEP 2: Setup Rust and Node.js for Tauri App
+    # STEP 2: Setup .NET for InterceptSuite GUI
     # =====================================================================
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
       with:
-        node-version: '18'
-        cache: 'npm'
-        cache-dependency-path: 'GUI/InterceptSuite/package-lock.json'
-
-    - name: Setup Rust
-      uses: dtolnay/rust-toolchain@stable
-      with:
-        targets: aarch64-apple-darwin
-
-    - name: Install Rust dependencies
-      working-directory: GUI/InterceptSuite/src-tauri
-      run: |
-        cargo fetch --locked
-    - name: Cache Rust dependencies
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.cargo/bin/
-          ~/.cargo/registry/index/
-          ~/.cargo/registry/cache/
-          ~/.cargo/git/db/
-          GUI/InterceptSuite/src-tauri/target/
-        key: macos-rust-${{ hashFiles('GUI/InterceptSuite/src-tauri/Cargo.lock') }}
+        dotnet-version: '9.0.x'
 
     # =====================================================================
-    # STEP 3: Build Tauri Application
+    # STEP 2.5: Import Code Signing Certificates & Setup Notarization
     # =====================================================================
 
-    - name: Install Node.js dependencies
-      working-directory: GUI/InterceptSuite
-      run: npm ci
+    - name: Import Code Signing Certificates
+      env:
+        KEYCHAIN_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+        MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE_APP }}
+        MACOS_CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+        INSTALLER_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE_INSTALLER }}
+        TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        MY_KEYCHAIN: "build.keychain"
+      run: |
+        # Reset to default login keychain first
+        security list-keychains -d user -s login.keychain
 
-    - name: Prepare native libraries for Tauri
-      working-directory: GUI/InterceptSuite/src-tauri
+        # Create temporary keychain
+        security create-keychain -p "$KEYCHAIN_PASSWORD" "$MY_KEYCHAIN"
+
+        # Append temp keychain to the user domain
+        security list-keychains -d user -s "$MY_KEYCHAIN" $(security list-keychains -d user | sed s/\"//g)
+
+        # Remove relock timeout
+        security set-keychain-settings "$MY_KEYCHAIN"
+
+        # Unlock keychain
+        security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$MY_KEYCHAIN"
+
+        # Import app signing certificate
+        echo "$MACOS_CERTIFICATE" | base64 --decode > certificate.p12
+        security import certificate.p12 -k "$MY_KEYCHAIN" -P "$MACOS_CERTIFICATE_PWD" -A -T "/usr/bin/codesign" -T "/usr/bin/productsign"
+
+        # Import installer signing certificate
+        echo "$INSTALLER_CERTIFICATE" | base64 --decode > installer_certificate.p12
+        security import installer_certificate.p12 -k "$MY_KEYCHAIN" -P "$MACOS_CERTIFICATE_PWD" -A -T "/usr/bin/codesign" -T "/usr/bin/productsign"
+
+        # Enable codesigning from a non user interactive shell for both certificates
+        security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" -D "$TEAM_ID" -t private "$MY_KEYCHAIN"
+
+        # Clean up certificate files
+        rm certificate.p12 installer_certificate.p12
+
+    - name: Setup Notarization Profile
+      env:
+        APPLE_ID: ${{ secrets.APPLE_ID }}
+        APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+        APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
       run: |
-        echo "=== Preparing native libraries ==="
-        chmod +x prepare-resources.sh
-        ./prepare-resources.sh
-        echo "=== Verifying resources ==="
-        ls -la resources/
-    - name: Build frontend
-      working-directory: GUI/InterceptSuite
+        # Store the notarization credentials so that we can prevent a UI password dialog
+        # from blocking the CI
+        echo "Creating keychain profile for notarization"
+        xcrun notarytool store-credentials "notarytool-profile" --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_SPECIFIC_PASSWORD"
+
+    - name: Sign C Library (dylib)
+      env:
+        SIGNING_IDENTITY: ${{ secrets.APPLE_TEAM_ID }}
       run: |
-        echo "=== Building React frontend ==="
-        npm run build
-    - name: Build Tauri App
-      working-directory: GUI/InterceptSuite
+        echo "=== Signing C Library dylib ==="
+        codesign --force --options runtime --timestamp --sign "$SIGNING_IDENTITY" build/libIntercept.dylib
+
+        echo "=== Verifying dylib signature ==="
+        codesign -dv build/libIntercept.dylib
+
+        echo "✅ C Library dylib signed successfully"
+
+    # =====================================================================
+    # STEP 3: Build .NET Application and Create Package
+    # =====================================================================
+
+    - name: Build and Create .NET Application
+      working-directory: GUI/InterceptSuite/Installer/MacOS
       run: |
-        echo "=== Building Tauri app for macOS (Apple Silicon) ==="
-        npm run tauri build
-        echo "=== Verifying Tauri build output ==="
-        ls -la src-tauri/target/release/bundle/
-        # Check if DMG was created
-        if [ -d "src-tauri/target/release/bundle/dmg" ]; then
-          ls -la src-tauri/target/release/bundle/dmg/
+        echo "=== Building .NET InterceptSuite Application ==="
+        chmod +x ./build-installer.sh
+        ./build-installer.sh
+
+        echo "=== Verifying .app creation ==="
+        if [ -d "../dist" ]; then
+          APP_PATH=$(find ../dist -name "*.app" -type d | head -1)
+          if [ -n "$APP_PATH" ]; then
+            echo "✅ Found .app at: $APP_PATH"
+            ls -la "$APP_PATH/Contents/MacOS/"
+          else
+            echo "❌ No .app bundle found in dist directory"
+            exit 1
+          fi
+        else
+          echo "❌ Dist directory not found"
+          exit 1
         fi
+
+    - name: Sign .NET Application
+      working-directory: GUI/InterceptSuite/Installer/MacOS
+      env:
+        SIGNING_IDENTITY: ${{ secrets.APPLE_TEAM_ID }}
+      run: |
+        echo "=== Signing .app bundle ==="
+        APP_PATH=$(find ../dist -name "*.app" -type d | head -1)
+
+        # Sign all frameworks and dylibs first
+        echo "=== Signing all dylibs and frameworks ==="
+        find "$APP_PATH" -name "*.dylib" -exec codesign --force --options runtime --timestamp --sign "$SIGNING_IDENTITY" {} \;
+
+        # Sign the main executable with entitlements
+        echo "=== Signing main executable with entitlements ==="
+        codesign --force --options runtime --timestamp --entitlements entitlements.plist --sign "$SIGNING_IDENTITY" "$APP_PATH/Contents/MacOS/InterceptSuite"
+
+        # Sign the entire app bundle with entitlements
+        echo "=== Signing entire app bundle with entitlements ==="
+        codesign --force --options runtime --timestamp --entitlements entitlements.plist --sign "$SIGNING_IDENTITY" "$APP_PATH"
+
+        echo "=== Verifying .app signature ==="
+        codesign --verify --deep --strict "$APP_PATH"
+
+        echo "✅ .app bundle signed successfully with entitlements"
+
+    - name: Create and Sign PKG Installer
+      working-directory: GUI/InterceptSuite/Installer/MacOS
+      env:
+        SIGNING_IDENTITY: ${{ secrets.APPLE_TEAM_ID }}
+      run: |
+        echo "=== Creating PKG installer ==="
+        chmod +x ./create-pkg-installer.sh
+        ./create-pkg-installer.sh
+
+        echo "=== Signing PKG installer ==="
+        PKG_PATH=$(find ../dist -name "*.pkg" | head -1)
+        if [ -n "$PKG_PATH" ]; then
+          # Create a temporary unsigned copy
+          UNSIGNED_PKG="${PKG_PATH%.pkg}_unsigned.pkg"
+          SIGNED_PKG="$PKG_PATH"
+          mv "$PKG_PATH" "$UNSIGNED_PKG"
+
+          # Sign the PKG with installer certificate
+          productsign --keychain build.keychain --sign "$SIGNING_IDENTITY" --timestamp "$UNSIGNED_PKG" "$SIGNED_PKG"
+
+          # Verify the signature
+          pkgutil --check-signature "$SIGNED_PKG"
+          rm "$UNSIGNED_PKG"
+
+          echo "✅ PKG signed successfully"
+        else
+          echo "❌ No PKG file found in dist directory"
+          exit 1
+        fi
+
+    - name: Notarize and Staple PKG
+      working-directory: GUI/InterceptSuite/Installer/MacOS
+      run: |
+        PKG_PATH=$(find ../dist -name "*.pkg" | head -1)
+        if [ -n "$PKG_PATH" ]; then
+          echo "=== Notarizing PKG installer ==="
+          xcrun notarytool submit "$PKG_PATH" --keychain-profile "notarytool-profile" --wait
+
+          echo "=== Stapling PKG installer ==="
+          xcrun stapler staple "$PKG_PATH"
+
+          echo "=== Verifying PKG staple ==="
+          xcrun stapler validate "$PKG_PATH"
+
+          echo "✅ PKG notarized and stapled successfully"
+        else
+          echo "❌ No PKG file found in dist directory"
+          exit 1
+        fi
+
+        echo "=== Verifying package build output ==="
+        ls -la ../dist/
     # =====================================================================
     # STEP 4: Create Release Artifacts
     # =====================================================================
@@ -143,42 +251,19 @@ jobs:
         echo "=== Preparing release artifacts ==="
         mkdir -p release-artifacts
 
-        # Extract version from tag or use default
-        if [[ "${{ github.ref }}" == refs/tags/* ]]; then
-          VERSION="${{ github.ref_name }}"
-          VERSION=${VERSION#v}  # Remove 'v' prefix if present
+        # Copy PKG file from dist directory
+        if [ -d "GUI/InterceptSuite/Installer/dist" ]; then
+          # Copy PKG file (if exists)
+          find GUI/InterceptSuite/Installer/dist/ -name "*.pkg" -exec cp {} release-artifacts/ \;
+          echo "✅ PKG file copied"
         else
-          VERSION="dev-build"
+          echo "❌ Installer dist directory not found!"
+          exit 1
         fi
-        echo "Building for version: $VERSION"
-
-        # Copy DMG file (Apple Silicon) - corrected path
-        if [ -f "GUI/InterceptSuite/src-tauri/target/release/bundle/dmg/interceptsuite_${VERSION}_aarch64.dmg" ]; then
-          cp "GUI/InterceptSuite/src-tauri/target/release/bundle/dmg/interceptsuite_${VERSION}_aarch64.dmg" "release-artifacts/InterceptSuite-v${VERSION}-macos-arm64.dmg"
-          echo "✅ DMG file copied"
-        else
-          echo "❌ DMG file not found with expected name, checking for any DMG files..."
-          find GUI/InterceptSuite/src-tauri/target/release/bundle/dmg/ -name "*.dmg" -exec cp {} "release-artifacts/InterceptSuite-v${VERSION}-macos-arm64.dmg" \;
-        fi
-
-        # Copy standalone dylib for developers
-        cp build/libIntercept.dylib "release-artifacts/libIntercept-v${VERSION}-macos-arm64.dylib"
-
-        # Create a library-only package for developers
-        tar -czf "release-artifacts/InterceptSuite-Library-v${VERSION}-macos-arm64.tar.gz" \
-          build/libIntercept.dylib \
-          include/tls_proxy_dll.h \
-          include/tls_proxy.h \
-          Library_INTEGRATION.md
 
         echo "=== Release artifacts prepared ==="
         ls -la release-artifacts/
-    - name: Generate checksums
-      run: |
-        cd release-artifacts
-        shasum -a 256 *.dmg *.dylib *.tar.gz > checksums-macos.txt
-        echo "=== Checksums generated ==="
-        cat checksums-macos.txt
+
     # =====================================================================
     # STEP 5: Upload to GitHub Release (if this is a release)
     # =====================================================================
@@ -187,11 +272,7 @@ jobs:
       if: github.event_name == 'release' || startsWith(github.ref, 'refs/tags/')
       uses: softprops/action-gh-release@v2
       with:
-        files: |
-          release-artifacts/InterceptSuite-v*-macos-arm64.dmg
-          release-artifacts/libIntercept-v*-macos-arm64.dylib
-          release-artifacts/InterceptSuite-Library-v*-macos-arm64.tar.gz
-          release-artifacts/checksums-macos.txt
+        files: release-artifacts/*.pkg
 
     # =====================================================================
     # STEP 6: Upload Build Artifacts (for all builds)
@@ -205,23 +286,19 @@ jobs:
         retention-days: 30
         if-no-files-found: error
 
-    - name: Build Summary
+    # =====================================================================
+    # STEP 7: Cleanup Code Signing
+    # =====================================================================
+
+    - name: Cleanup Code Signing
+      if: always()
+      env:
+        MY_KEYCHAIN: "build.keychain"
       run: |
-        echo "## 🍎 macOS Build Completed Successfully! 🎉" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### 📦 Artifacts Created:" >> $GITHUB_STEP_SUMMARY
-        echo "- ✅ Native C Library (libIntercept.dylib)" >> $GITHUB_STEP_SUMMARY
-        echo "- ✅ Tauri GUI Application" >> $GITHUB_STEP_SUMMARY
-        echo "- ✅ macOS DMG Installer" >> $GITHUB_STEP_SUMMARY
-        echo "- ✅ Developer Library Package" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY        echo "### 🔍 Build Details:" >> $GITHUB_STEP_SUMMARY
-        echo "- **Platform**: macOS ARM64 (Apple Silicon only)" >> $GITHUB_STEP_SUMMARY
-        echo "- **Build Type**: Release" >> $GITHUB_STEP_SUMMARY
-        echo "- **C Library**: $(file build/libIntercept.dylib)" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        if [ -f "release-artifacts/checksums-macos.txt" ]; then
-          echo "### 🔐 Checksums:" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          cat release-artifacts/checksums-macos.txt >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
+        # Delete temporary keychain
+        if security list-keychains | grep -q "$MY_KEYCHAIN"; then
+          security delete-keychain "$MY_KEYCHAIN"
         fi
+
+        # Reset to default login keychain
+        security list-keychains -d user -s login.keychain

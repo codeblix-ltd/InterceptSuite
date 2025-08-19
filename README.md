@@ -1,30 +1,38 @@
 <div align="center">
 
-<img src="logo.png" alt="InterceptSuite Logo" width="120"/>
+<img src="logo.png" alt="InterceptSuite Logo" width="120">
 
-# 🛡️ InterceptSuite
 
-### *TLS/SSL Traffic Interception & Analysis*
-*Protocol-agnostic network traffic inspection that goes beyond traditional HTTP-only tools*
+
+### TCP/UDP *TLS/SSL Traffic Interception & Analysis*
+*Protocol network traffic inspection that goes beyond traditional HTTP-only tools*
+
+> **🚀 InterceptSuite PRO**: Looking for advanced features? Check out [**InterceptSuite PRO**](https://interceptsuite.com) with enhanced protocol support and priority features.
+
 </div>
 
 
 
-![Tauri](https://img.shields.io/badge/Tauri-FFC131?style=for-the-badge&logo=tauri&logoColor=black)
-![Rust](https://img.shields.io/badge/Rust-000000?style=for-the-badge&logo=rust&logoColor=white)
+![.NET](https://img.shields.io/badge/.NET-512BD4?style=for-the-badge&logo=dotnet&logoColor=white)
 ![C](https://img.shields.io/badge/C-00599C?style=for-the-badge&logo=c&logoColor=white)
-[![Build Status](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/rust-tauri.yml/badge.svg)](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/rust-tauri.yml)
-[![C InterceptSuite Build](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/Build-Lib.yml/badge.svg)](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/Build-Lib.yml)
-[![Linux Release Build](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/release-linux.yml/badge.svg)](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/release-linux.yml)
-[![macOS Release Build](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/release-macos.yml/badge.svg)](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/release-macos.yml)
-[![Windows Release Build](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/release-windows.yml/badge.svg)](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/release-windows.yml)
-[![Downloads](https://img.shields.io/github/downloads/anof-cyber/InterceptSuite/total)](https://github.com/anof-cyber/InterceptSuite/releases)
-[![License](https://img.shields.io/github/license/anof-cyber/InterceptSuite)](LICENSE)
-[![Stars](https://img.shields.io/github/stars/anof-cyber/InterceptSuite)](https://github.com/anof-cyber/InterceptSuite)
+![Avalonia](https://img.shields.io/badge/Avalonia-9146FF?style=for-the-badge&logo=avalonia&logoColor=white)
+[![⭐ Star on GitHub](https://img.shields.io/badge/⭐%20Star%20on%20GitHub-333?style=for-the-badge&logo=github)](https://github.com/InterceptSuite/InterceptSuite)
+[![🐛 Report Issues](https://img.shields.io/badge/🐛%20Report%20Issues-red?style=for-the-badge&logo=github)](https://github.com/anof-cyber/InterceptSuite/issues)
+[![🚀 Get PRO Version](https://img.shields.io/badge/🚀%20Get%20PRO%20Version-FF6B35?style=for-the-badge)](https://interceptsuite.com)
+[![📖 Documentation](https://img.shields.io/badge/📖%20Documentation-28a745?style=for-the-badge)](https://doc.interceptsuite.com)
+[![🦀 Rust Tauri Build](https://img.shields.io/badge/🦀%20Rust%20Tauri%20Build-passing-brightgreen?style=for-the-badge&logo=github)](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/rust-tauri.yml)
+[![⚙️ C InterceptSuite Build](https://img.shields.io/badge/⚙️%20C%20InterceptSuite%20Build-passing-brightgreen?style=for-the-badge&logo=github)](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/Build-Lib.yml)
+[![🐧 Linux Release Build](https://img.shields.io/badge/🐧%20Linux%20Release%20Build-passing-brightgreen?style=for-the-badge&logo=github)](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/release-linux.yml)
+[![🍎 macOS Release Build](https://img.shields.io/badge/🍎%20macOS%20Release%20Build-passing-brightgreen?style=for-the-badge&logo=github)](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/release-macos.yml)
+[![🪟 Windows Release Build](https://img.shields.io/badge/🪟%20Windows%20Release%20Build-passing-brightgreen?style=for-the-badge&logo=github)](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/release-windows.yml)
+[![📥 Downloads](https://img.shields.io/github/downloads/anof-cyber/InterceptSuite/total?style=for-the-badge&logo=github&logoColor=white)](https://github.com/anof-cyber/InterceptSuite/releases)
+[![📄 License](https://img.shields.io/github/license/anof-cyber/InterceptSuite?style=for-the-badge&logo=gnu&logoColor=white)](LICENSE)
+[![⭐ Stars](https://img.shields.io/github/stars/anof-cyber/InterceptSuite?style=for-the-badge&logo=github&logoColor=white)](https://github.com/anof-cyber/InterceptSuite)
 
-![Platform Support](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-purple)
-![Tauri](https://img.shields.io/badge/GUI-Tauri%20%2B%20Rust-orange)
-![Protocol](https://img.shields.io/badge/Protocol-SOCKS5-blue)
+![Platform Support](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-purple?style=for-the-badge&logo=windows&logoColor=white)
+![GUI](https://img.shields.io/badge/GUI-Avalonia%20.NET-9146FF?style=for-the-badge&logo=avalonia&logoColor=white)
+![Protocol](https://img.shields.io/badge/Protocol-SOCKS5-blue?style=for-the-badge&logo=socket.io&logoColor=white)
+![Documentation](https://img.shields.io/badge/📖%20Documentation-doc.interceptsuite.com-28a745?style=for-the-badge&logo=gitbook&logoColor=white)
 
 
 
@@ -32,7 +40,9 @@
 
 ## 🌟 Overview
 
-**InterceptSuite** is a cross-platform network traffic interception tool engineered for comprehensive TLS/SSL inspection, analysis, and manipulation at the network level. Unlike traditional tools such as Burp Suite or OWASP ZAP that focus specifically on HTTP/HTTPS traffic, InterceptSuite provides **unprecedented visibility** into any TLS-encrypted protocol, operating seamlessly at the TCP/TLS layer.
+**InterceptSuite** is a cross-platform network traffic interception tool engineered for comprehensive TLS/SSL inspection, analysis, and manipulation at the network level. Unlike traditional tools such as Burp Suite or ZAP that focus specifically on HTTP/HTTPS traffic, InterceptSuite provides **unprecedented visibility** into any TLS-encrypted protocol, operating seamlessly at the TCP/TLS layer.
+
+> **🚀 InterceptSuite PRO**: Looking for advanced features? Check out [**InterceptSuite PRO**](https://interceptsuite.com) with universal TLS upgrade detection that can perform MITM on any TCP-to-TLS transition, PCAP file export capabilities, and priority support. This repository contains the **free open-source version**.
 
 ### 🎯 The Challenge We Solve
 
@@ -40,7 +50,7 @@ The original inspiration behind InterceptSuite was to address a critical gap in 
 
 ### 💡 Our Solution
 
-InterceptSuite bridges this gap by providing a **universal TLS interception engine** that works with any protocol, giving security researchers the tools they need to analyze, understand, and test encrypted communications effectively.
+InterceptSuite bridges this gap by providing a **universal TLS interception engine** that works with any protocol, giving security researchers the tools they need to analyze, understand, and test encrypted communications effectively. With **Python extension support**, users can add custom protocol dissection capabilities tailored to their specific needs.
 
 ### Platform Support
 
@@ -51,17 +61,43 @@ InterceptSuite bridges this gap by providing a **universal TLS interception engi
 
 ## Table of Contents
 
+- [📚 InterceptSuite PRO](#-interceptsuite-pro)
 - [🌟 Overview](#-overview)
 - [✨ Features](#-features)
 - [🚀 Getting Started](#-getting-started)
 - [📖 Usage](#-usage)
 - [🔧 Proxy Configuration](#-proxy-configuration)
-- [⚠️ Current Limitations](#️-current-limitations)
+- [🐍 Protocol Dissection & Python Extensions](#-protocol-dissection--python-extensions)
 - [🤔 When to Use InterceptSuite vs. HTTP-Specific Tools](#-when-to-use-interceptsuite-vs-http-specific-tools)
 - [🖼️ Screenshots](#️-screenshots--interface)
-- [🛠️ Development](#️-development)
 - [📄 License](#-license)
 - [🙏 Acknowledgments](#-acknowledgments)
+
+## 📚 InterceptSuite PRO
+
+[![🚀 Get InterceptSuite PRO](https://img.shields.io/badge/🚀%20Get%20InterceptSuite%20PRO-FF6B35?style=for-the-badge&logoColor=white)](https://interceptsuite.com)
+[![📖 Documentation](https://img.shields.io/badge/📖%20Documentation-28a745?style=for-the-badge&logoColor=white)](https://doc.interceptsuite.com)
+
+**Unlock the full potential of TLS traffic analysis with InterceptSuite PRO**
+
+### 🌟 PRO Features
+
+| Feature | Free Version | PRO Version |
+|---------|:------------:|:-----------:|
+| **🔐 Standard TLS Handshakes** | ✅ | ✅ |
+| **🛠️ Traffic Manipulation** | ✅ | ✅ |
+| **🛠️ Python Extension Support** | ✅ | ✅ |
+| **📁 Project File Management** | ❌ | ✅ |
+| **⚡ PCAP File Export** | ❌ | ✅ |
+| **🔒 Universal TLS Upgrade Detection** | ❌ | ✅ |
+| **🛡️ Any TCP-to-TLS MITM Capability** | ❌ | ✅ |
+| **📧 STARTTLS Protocols** (SMTPS, IMAP, etc.) | ❌ | ✅ |
+| **📁 FTPS with AUTH TLS Support** | ❌ | ✅ |
+| **🐘 Database TLS Support** (PostgreSQL, MySQL, etc.) | ❌ | ✅ |
+
+[![Purchase InterceptSuite PRO](https://img.shields.io/badge/💳%20Purchase%20PRO%20Version-interceptsuite.com-FF6B35?style=for-the-badge)](https://interceptsuite.com)
+
+---
 
 ## ✨ Features
 
@@ -73,61 +109,30 @@ InterceptSuite bridges this gap by providing a **universal TLS interception engi
 - **🔧 Traffic Manipulation**: Modify intercepted traffic before forwarding
 - **⚡ High-Performance C Core**: Optimized C engine for maximum speed and minimal memory footprint
 - **📚 Custom Integration**: Embed TLS interception capabilities into your own applications with our DyLib, So and DLL
-- **🎨 Modern GUI**: Built with Tauri + Rust frontend and high-performance C core
+- **🎨 Modern GUI**: Built with Avalonia .NET for cross-platform native performance
 - **📝 Detailed Logging**: Comprehensive logging with automatic rotation and cleanup
+- **🐍 Python Extension Support**: Add custom protocol dissection with Python plugins
 
 ## 🚀 Getting Started
 
 ### Prerequisites
 
-- **Windows 10/11 (64-bit)**, **Linux (x64)**, or **macOS (Apple Silicon)**
+- **Windows 10/11 (64-bit)**, **Linux (x64)**, or **macOS 13+ (Apple Silicon)**
 
 ### Installation
 
 1. **Download** the platform-specific installer from the [Releases page](https://github.com/anof-cyber/InterceptSuite/releases)
-   - **Windows**: `.exe` installer or `.msi` package
+   - **Windows**: `.exe` installer
    - **Linux**: `.deb` (Ubuntu/Debian) or `.rpm` (RedHat/Fedora) package
-   - **macOS**: `.dmg` disk image
+   - **macOS**: `.pkg` installer package
 2. **Run** the installer and follow the setup wizard
 3. **Launch** InterceptSuite from your applications menu or desktop shortcut
 
 > **Note:** Platform-specific native installers are available for seamless installation on all supported operating systems.
 
-### ⚠️ Security Warning - Unsigned Binaries
-
-> [!WARNING]
-> **Code Signing Status**: Current releases contain unsigned binaries and installers. This may trigger security warnings during installation and execution.
-
-#### Platform-Specific Behavior:
-
-- **🐧 Linux**: No security issues expected. Unsigned binaries run normally.
-
-- **🪟 Windows**:
-  - Windows Defender SmartScreen may display warnings about "unknown application"
-  - You may see prompts like "Windows protected your PC"
-  - Click "More info" → "Run anyway" to proceed with installation
-  - Some antivirus software may flag unsigned executables as potentially unwanted
-
-- **🍎 macOS**:
-  - Gatekeeper will prevent execution of unsigned applications
-  - You may see "cannot be opened because it is from an unidentified developer" or "Interceptsuite is damaged and can't be opened."
-  - **Recommended Solution**: Remove quarantine attributes: `xattr -dr com.apple.quarantine /Applications/interceptsuite.app`
-  - **Alternative Method 1**: Right-click the application → "Open" → Confirm in dialog
-  - **Alternative Method 2**: Temporarily disable Gatekeeper: `sudo spctl --master-disable`
-  - **Note**: After removing quarantine attributes, the app will launch normally from both command line and GUI
-
-> [!NOTE]
-> **Code Signing Costs & Open Source Reality**: Code signing certificates are paid services across all platforms - there are no free platforms available that support open source projects for binary signing. Apple, Microsoft, and other certificate authorities require paid certificates for code signing. Since InterceptSuite is an open source project, binaries remain unsigned without paid options.
->
-
->
-**💖 Support Code Signing**: If you'd like to help us obtain code signing certificates, you can support the project through:
-- **₿ Bitcoin**: `bc1qusxngf2w5gl2g8hw82ggct59227k4963f9fwhm`
-- **💎 GitHub Sponsor**: [https://github.com/sponsors/Anof-cyber](https://github.com/sponsors/Anof-cyber)
-- **☕ Buy Me a Coffee**: [https://www.buymeacoffee.com/AnoF](https://www.buymeacoffee.com/AnoF)
 ## 📖 Usage
 
-For comprehensive setup and usage instructions, see our detailed **[Usage Guide](Usage.md)**.
+For comprehensive setup and usage instructions, see our detailed **[Documentation](https://doc.interceptsuite.com)**.
 
 ### Quick Start
 
@@ -149,7 +154,7 @@ For comprehensive setup and usage instructions, see our detailed **[Usage Guide]
 
 Configure your client application to use the SOCKS5 proxy at `127.0.0.1:4444`.
 
-For detailed platform-specific configuration instructions, see the **[Usage Guide](Usage.md)**.
+For detailed platform-specific configuration instructions, see the **[Usage Guide](Usage.md)** and **[Documentation](https://doc.interceptsuite.com)**.
 
 ### Platform Notes
 
@@ -157,45 +162,13 @@ For detailed platform-specific configuration instructions, see the **[Usage Guid
 - **Linux**: Multiple options including ProxyCap, tsocks, Proxychains, or iptables
 - **macOS**: Proxifier for Mac or Proxychains-ng for terminal applications
 
-## ⚠️ Current Limitations
-
-Understanding InterceptSuite's current limitations helps you choose the right tool for your specific use case.
-
-### 🚫 Non-Standard TLS Handshakes
-
-**Current Limitation:** InterceptSuite cannot bypass TLS for protocols that do not use standard TLS handshake as the initial packet after TCP handshake.
-
-#### 📋 Affected Protocols:
-
-- **🐘 PostgreSQL** - TLS sessions
-- **🐬 MySQL** - TLS sessions
-- **🔧 SmartTLS** - Similar technologies
-- **🔌 Custom Protocols** - Non-standard handshakes
-
-> **🔜 Future Release:** This functionality is planned for future releases.
-
-### 📊 Protocol Dissection
-
-**Current Limitation:** The tool does not support protocol dissection, meaning it cannot decode protocol-specific binary formats or encodings regardless of whether TLS is used.
-
-#### 🔍 Examples of Non-Supported Formats:
-
-| Format Type | Examples | Description |
-|-------------|----------|-------------|
-| Binary Protocols | Protocol Buffers, MessagePack | Structured binary encodings |
-| Custom Encodings | Application-specific formats | Proprietary data structures |
-| Compressed Data | Obfuscated data streams | Compressed or encoded payloads |
-
-> **💡 Important Note:** If a protocol doesn't transmit data in plain text (even after TLS decryption), InterceptSuite will show the raw bytes but not interpret them.
-
-> **🔜 Future Release:** Protocol dissection functionality is planned for future releases.
 
 ## 🤔 When to Use InterceptSuite vs. HTTP-Specific Tools
 
 Choose the right tool for your security testing needs with our comprehensive comparison guide.
 
 > [!NOTE]
-> **🎯 Key Recommendation:** While InterceptSuite can handle HTTP/HTTPS traffic, it is **strongly recommended** to use HTTP-specific tools like Burp Suite or OWASP ZAP for web traffic inspection. These tools provide specialized features optimized for HTTP-based protocols.
+> **🎯 Key Recommendation:** While InterceptSuite can handle HTTP/HTTPS traffic, it is **strongly recommended** to use HTTP-specific tools like Burp Suite or ZAP for web traffic inspection. These tools provide specialized features optimized for HTTP-based protocols.
 
 ### ✅ Use InterceptSuite when:
 
@@ -206,7 +179,7 @@ Choose the right tool for your security testing needs with our comprehensive com
 - 🎮 Analyzing **game or IoT protocols**
 - 🔧 Developing **protocol-specific security tools**
 
-### 🌐 Use Burp Suite or OWASP ZAP when:
+### 🌐 Use Burp Suite or ZAP when:
 
 - 🌍 Working specifically with **HTTP/HTTPS traffic**
 - 🖥️ Testing **web applications**
@@ -221,11 +194,11 @@ Choose the right tool for your security testing needs with our comprehensive com
 
 | Scenario | InterceptSuite | Burp/ZAP | Reason |
 |:---------|:--------------:|:---------:|:--------|
-| 🌐 Web App Testing | ❌ | ✅ | HTTP-specific features needed |
-| 📱 Mobile App API | 🤔 | ✅ | Depends on protocol (HTTP vs custom) |s
+| 🌐 Web App Testing | ⚠️ | ✅ | HTTP-specific features needed |
+| 📱 Mobile App API | 🤔 | ✅ | Depends on protocol (HTTP vs custom) |
 | 🔌 IoT Device Comms | ✅ | ❌ | Custom TLS protocols |
 | 🖥️ Desktop App Traffic | ✅ | 🤔 | Protocol-dependent |
-| 🔒 Database TLS | ⚠️ | ❌ | Limited support (future feature) |
+| 🔒 Database TLS | ✅ (PRO) | ❌ | Free: Limited support, PRO: Full support |
 
 **Legend:** ✅ Recommended • 🤔 Depends • ⚠️ Limited • ❌ Not suitable
 
@@ -254,28 +227,34 @@ Explore InterceptSuite's intuitive interface through our comprehensive screensho
 
 *The Connections tab displays TCP connection details and allows for exporting connection data with real-time monitoring of active sessions.*
 
+## 🐍 Protocol Dissection & Python Extensions
 
-## 🛠️ Development
+**InterceptSuite Philosophy:** InterceptSuite does not come with built-in protocol dissection capabilities by design. Instead, it provides a powerful **Python Extension API** that allows users to write and add custom protocol dissection according to their specific needs.
 
-Join the InterceptSuite development community and contribute to the future of TLS traffic analysis tools.
+### 🎯 Why This Approach?
 
-[![📖 Build Guide](https://img.shields.io/badge/📖%20Build%20Guide-28a745?style=for-the-badge&logoColor=white)](Build.md)
+- **🔧 Flexibility:** Write dissectors for any protocol you encounter
+- **🚀 Performance:** Load only the dissectors you need
+- **🛠️ Customization:** Tailor protocol parsing to your specific use cases
+- **🌐 Community-Driven:** Share and collaborate on protocol dissectors
+- **📈 Extensibility:** Add new protocols without waiting for official updates
 
-### 🌍 Cross-Platform Building
+### 🔍 Raw Traffic Analysis
 
-InterceptSuite now supports building on **Windows**, **Linux**, and **macOS** with native library generation for each platform.
+Both **Free** and **PRO** versions provide:
 
-#### 📦 Platform-Specific Library Outputs
+- **📊 Raw Decrypted Traffic:** View the actual bytes transmitted
+- **🔗 Connection Details:** TCP-level connection information
+- **⏰ Timestamp Analysis:** Precise timing of traffic flows
 
-| Platform | Library Format | Build Tool | Status |
-|----------|----------------|------------|--------|
-| 🪟 Windows | `.dll` | Visual Studio / CMake | ✅ **Ready** |
-| 🐧 Linux | `.so` | GCC / CMake | ✅ **Ready** |
-| 🍎 macOS | `.dylib` | Clang / CMake | ✅ **Ready** |
 
-> **🚀 Getting Started with Development:**
->
-> For detailed instructions on building InterceptSuite for each platform, see the [**Build Guide**](Build.md). This guide includes platform-specific prerequisites, build commands, and troubleshooting tips.
+
+> **🚀 Getting Started:** Check our **[Python Extension Documentation](https://doc.interceptsuite.com)** for tutorials, examples, and API reference.
+
+> **💡 Community Extensions:** Browse and contribute protocol dissectors at **[InterceptSuite Extensions Hub](https://doc.interceptsuite.com)**
+
+
+
 
 ### 🤝 Contributing
 
@@ -307,12 +286,12 @@ Special thanks to the amazing open source communities and technologies that make
 
 Providing robust TLS/SSL functionality and cryptographic operations
 
-### 🚀 Tauri + Rust + C
-![Tauri](https://img.shields.io/badge/Tauri-FFC131?style=for-the-badge&logo=tauri&logoColor=black)
-![Rust](https://img.shields.io/badge/Rust-000000?style=for-the-badge&logo=rust&logoColor=white)
+### 🎨 Avalonia .NET + C Lang
+![.NET](https://img.shields.io/badge/.NET-512BD4?style=for-the-badge&logo=dotnet&logoColor=white)
+![Avalonia](https://img.shields.io/badge/Avalonia-9146FF?style=for-the-badge&logo=avalonia&logoColor=white)
 ![C](https://img.shields.io/badge/C-00599C?style=for-the-badge&logo=c&logoColor=white)
 
-High-performance C core engine with modern Tauri + Rust GUI for optimal performance and user experience
+Modern cross-platform native GUI framework providing excellent performance and user experience
 
 ### 🔨 CMake
 ![CMake](https://img.shields.io/badge/CMake-064F8C?style=for-the-badge&logo=cmake&logoColor=white)
@@ -329,5 +308,4 @@ InterceptSuite is built with love by the cybersecurity community, for the cybers
 
 **🛡️ Secure by Design • 🌍 Cross-Platform • 🔓 Open Source**
 
-[![⭐ Star on GitHub](https://img.shields.io/badge/⭐%20Star%20on%20GitHub-333?style=for-the-badge&logo=github)](https://github.com/anof-cyber/InterceptSuite)
-[![🐛 Report Issues](https://img.shields.io/badge/🐛%20Report%20Issues-red?style=for-the-badge&logo=github)](https://github.com/anof-cyber/InterceptSuite/issues)
+

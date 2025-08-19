@@ -1,0 +1,1068 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:InterceptSuite.ViewModels"
+        xmlns:m="using:InterceptSuite.Models"
+        xmlns:converters="using:InterceptSuite.Converters"
+        xmlns:components="using:InterceptSuite.Views.Components"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="1000" d:DesignHeight="600"
+        x:Class="InterceptSuite.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Icon="/Assets/logo.ico"
+        Title="InterceptSuite Standard - Standard Edition (Temporary Session)"
+        Background="#1A1E2D"
+        TransparencyLevelHint="AcrylicBlur">
+
+    <Design.DataContext>
+        <!-- This only sets the DataContext for the previewer in an IDE,
+             to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs) -->        <vm:MainWindowViewModel/>
+    </Design.DataContext>    <Window.Resources>
+        <converters:EventColorConverter x:Key="EventColorConverter"/>
+        <converters:BoolToStatusColorConverter x:Key="BoolToStatusColorConverter"/>
+        <converters:BoolToToggleTextConverter x:Key="BoolToToggleTextConverter"/>
+        <converters:StatusMessageColorConverter x:Key="StatusMessageColorConverter"/>
+    </Window.Resources>
+
+    <Window.Styles>        <Style Selector="TabControl">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="TabStripPlacement" Value="Top"/>
+        </Style>        <Style Selector="TabItem">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Padding" Value="15,8"/>
+            <Setter Property="Foreground" Value="#A0A0A0"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0,0,0,2"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+        </Style>        <Style Selector="TabItem:selected">
+            <Setter Property="Foreground" Value="#00BFFF"/>
+            <Setter Property="BorderBrush" Value="#00BFFF"/>
+        </Style>
+
+        <Style Selector="TabItem:pointerover">
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
+
+        <!-- Radio button styles for export dialog -->
+        <Style Selector="RadioButton">
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Grid ColumnDefinitions="Auto,*">
+                        <Ellipse Name="OuterEllipse"
+                                Width="16"
+                                Height="16"
+                                Stroke="#8A9BA8"
+                                StrokeThickness="1"
+                                Fill="Transparent"
+                                Grid.Column="0"/>
+                        <Ellipse Name="InnerEllipse"
+                                Width="8"
+                                Height="8"
+                                Fill="#007ACC"
+                                IsVisible="False"
+                                Grid.Column="0"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"/>
+                        <ContentPresenter Name="PART_ContentPresenter"
+                                        Grid.Column="1"
+                                        Margin="8,0,0,0"
+                                        VerticalAlignment="Center"
+                                        Content="{TemplateBinding Content}"
+                                        ContentTemplate="{TemplateBinding ContentTemplate}"/>
+                    </Grid>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+
+        <Style Selector="RadioButton:checked /template/ Ellipse#InnerEllipse">
+            <Setter Property="IsVisible" Value="True"/>
+        </Style>
+
+        <Style Selector="RadioButton:checked /template/ Ellipse#OuterEllipse">
+            <Setter Property="Stroke" Value="#007ACC"/>
+        </Style>
+
+        <Style Selector="RadioButton:pointerover /template/ Ellipse#OuterEllipse">
+            <Setter Property="Stroke" Value="#FFFFFF"/>
+        </Style>
+
+        <!-- Button styles for export dialog -->
+        <Style Selector="Button:pointerover">
+            <Setter Property="Opacity" Value="0.8"/>
+        </Style>
+    </Window.Styles>
+
+    <Grid>
+        <TabControl SelectedIndex="{Binding SelectedTabIndex}">
+            <TabItem Header="Proxy">
+                <TabControl SelectedIndex="0" Background="Transparent">
+                    <TabItem Header="Intercept">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+
+                            <!-- Top section: Controls -->
+                            <Grid Grid.Row="0" Margin="10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Forward button -->
+                                <Button Grid.Column="0"
+                                        Content="Forward"
+                                        Command="{Binding ForwardPacketCommand}"
+                                        CommandParameter="{Binding SelectedInterceptEntry}"
+                                        Background="#4CAF50"
+                                        Foreground="White"
+                                        BorderThickness="0"
+                                        Padding="15,8"
+                                        Margin="0 0 15 0"
+                                        CornerRadius="3"
+                                        FontWeight="SemiBold"
+                                        IsEnabled="{Binding SelectedInterceptEntry, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+
+                                <!-- Drop button -->
+                                <Button Grid.Column="1"
+                                        Content="Drop"
+                                        Command="{Binding DropPacketCommand}"
+                                        CommandParameter="{Binding SelectedInterceptEntry}"
+                                        Background="#F44336"
+                                        Foreground="White"
+                                        BorderThickness="0"
+                                        Padding="15,8"
+                                        Margin="0 0 15 0"
+                                        CornerRadius="3"
+                                        FontWeight="SemiBold"
+                                        IsEnabled="{Binding SelectedInterceptEntry, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+
+                                <!-- Enable/Disable Toggle -->
+                                <Button Grid.Column="2"
+                                        Content="{Binding InterceptButtonText}"
+                                        Command="{Binding ToggleInterceptCommand}"
+                                        Background="{Binding InterceptButtonColor}"
+                                        Foreground="White"
+                                        BorderThickness="0"
+                                        Padding="15,8"
+                                        Margin="0 0 15 0"
+                                        CornerRadius="3"
+                                        FontWeight="SemiBold"/>
+
+                                <!-- Direction Controls -->
+                                <StackPanel Grid.Column="3" Orientation="Horizontal" Margin="0 0 15 0">
+                                    <TextBlock Text="Direction:" Foreground="White" VerticalAlignment="Center" Margin="0 0 8 0"/>
+                                    <ComboBox SelectedIndex="{Binding InterceptDirection}"
+                                              Background="#252A3D"
+                                              Foreground="White"
+                                              BorderBrush="#404656"
+                                              BorderThickness="1"
+                                              MinWidth="120">
+                                        <ComboBoxItem Content="None"/>
+                                        <ComboBoxItem Content="Client→Server"/>
+                                        <ComboBoxItem Content="Server→Client"/>
+                                        <ComboBoxItem Content="Both"/>
+                                    </ComboBox>
+                                </StackPanel>
+
+                                <!-- Status text -->
+                                <TextBlock Grid.Column="4"
+                                          Text="{Binding InterceptStatusText}"
+                                          Foreground="#A0A0A0"
+                                          VerticalAlignment="Center"
+                                          FontStyle="Italic"/>
+
+                                <!-- Queue counter -->
+                                <TextBlock Grid.Column="5"
+                                          Text="{Binding InterceptEntries.Count, StringFormat='Queue: {0} packet(s) waiting'}"
+                                          Foreground="White"
+                                          VerticalAlignment="Center"/>
+                            </Grid>
+
+                            <!-- Current packet info section -->
+                            <Grid Grid.Row="1" Margin="10,0,10,10">
+                                <Border Background="#252A3D"
+                                        BorderBrush="#404656"
+                                        BorderThickness="1"
+                                        CornerRadius="3"
+                                        Padding="15">
+                                    <StackPanel Spacing="8">
+                                        <!-- Current packet info display with protocol -->
+                                        <TextBlock Text="{Binding SelectedInterceptEntry.HeaderInfo}"
+                                                   IsVisible="{Binding SelectedInterceptEntry, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                                   Foreground="White"
+                                                   FontSize="13"
+                                                   FontWeight="SemiBold"/>
+
+                                        <!-- Source -> Destination -->
+                                        <TextBlock IsVisible="{Binding SelectedInterceptEntry, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                                   Foreground="#A0A0A0"
+                                                   FontSize="11">
+                                            <Run Text="{Binding SelectedInterceptEntry.SourceIp}"/>
+                                            <Run Text=":"/>
+                                            <Run Text="{Binding SelectedInterceptEntry.SourcePort}"/>
+                                            <Run Text=" → "/>
+                                            <Run Text="{Binding SelectedInterceptEntry.DestinationIp}"/>
+                                            <Run Text=":"/>
+                                            <Run Text="{Binding SelectedInterceptEntry.DestinationPort}"/>
+                                            <Run Text=" | "/>
+                                            <Run Text="{Binding SelectedInterceptEntry.FormattedTimestamp}"/>
+                                        </TextBlock>
+
+                                        <!-- Status -->
+                                        <TextBlock Text="{Binding SelectedInterceptEntry.Status}"
+                                                   Foreground="#FFD700"
+                                                   FontSize="11"
+                                                   FontStyle="Italic"
+                                                   IsVisible="{Binding SelectedInterceptEntry, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+
+                                        <!-- No packet message -->
+                                        <TextBlock Text="Enable intercept and wait for packets..."
+                                                   Foreground="#666666"
+                                                   FontStyle="Italic"
+                                                   HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center"
+                                                   IsVisible="{Binding SelectedInterceptEntry, Converter={x:Static ObjectConverters.IsNull}}"/>
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+
+                            <!-- Packet Data Viewer -->
+                            <Grid Grid.Row="2" Margin="10">
+                                <Border Background="#252A3D"
+                                        BorderBrush="#404656"
+                                        BorderThickness="1"
+                                        CornerRadius="3">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="*"/>
+                                        </Grid.RowDefinitions>
+
+                                        <!-- Header -->
+                                        <Border Grid.Row="0"
+                                                Background="#2A2D3A"
+                                                BorderBrush="#3E4651"
+                                                BorderThickness="0,0,0,1">
+                                            <TextBlock Text="Packet Data Viewer"
+                                                      Foreground="#B0B7C3"
+                                                      FontWeight="SemiBold"
+                                                      FontSize="13"
+                                                      Padding="15,8"
+                                                      VerticalAlignment="Center"/>
+                                        </Border>
+
+                                        <!-- Data viewer -->
+                                        <TabControl Grid.Row="1" Background="Transparent" ItemsSource="{Binding InterceptDataViewerTabs}">
+                                            <TabControl.ItemTemplate>
+                                                <DataTemplate x:DataType="vm:DataViewerTabViewModel">
+                                                    <TextBlock Text="{Binding Name}"/>
+                                                </DataTemplate>
+                                            </TabControl.ItemTemplate>
+                                            <TabControl.ContentTemplate>
+                                                <DataTemplate x:DataType="vm:DataViewerTabViewModel">
+                                                    <Grid>
+                                                        <!-- For Raw Data tab (non-extension), bind directly to SelectedInterceptEntry.EditableData -->
+                                                        <TextBox IsVisible="{Binding !IsExtension}"
+                                                                 Text="{Binding $parent[Window].DataContext.SelectedInterceptEntry.EditableData, Mode=TwoWay}"
+                                                                 IsReadOnly="False"
+                                                                 Background="Transparent"
+                                                                 Foreground="#E2E8F0"
+                                                                 FontFamily="Consolas,Monaco,monospace"
+                                                                 FontSize="12"
+                                                                 TextWrapping="Wrap"
+                                                                 AcceptsReturn="True"
+                                                                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                                                 ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                                                 BorderThickness="0"
+                                                                 Padding="10"
+                                                                 SelectionBrush="#364B5A"
+                                                                 CaretBrush="#00BFFF"
+                                                                 Watermark="{Binding Watermark}"/>
+
+                                                        <!-- For Extension tabs, use the Content property -->
+                                                        <TextBox IsVisible="{Binding IsExtension}"
+                                                                 Text="{Binding Content, Mode=TwoWay}"
+                                                                 IsReadOnly="{Binding !IsEditable}"
+                                                                 Background="Transparent"
+                                                                 Foreground="#E2E8F0"
+                                                                 FontFamily="Consolas,Monaco,monospace"
+                                                                 FontSize="12"
+                                                                 TextWrapping="Wrap"
+                                                                 AcceptsReturn="True"
+                                                                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                                                 ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                                                 BorderThickness="0"
+                                                                 Padding="10"
+                                                                 SelectionBrush="#364B5A"
+                                                                 CaretBrush="#00BFFF"
+                                                                 Watermark="{Binding Watermark}"/>
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </TabControl.ContentTemplate>
+                                        </TabControl>
+                                    </Grid>
+                                </Border>
+                            </Grid>
+                        </Grid>
+                    </TabItem>
+
+                    <TabItem Header="Proxy History">
+                        <Grid>
+                            <!-- Split container with top table and bottom raw data viewer -->
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="2*"/>
+                                <RowDefinition Height="5"/>
+                                <RowDefinition Height="1*"/>
+                            </Grid.RowDefinitions>
+
+                            <!-- Top section: Proxy History Table -->
+                            <Grid Grid.Row="0">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+
+                                <!-- Search and Controls Row -->
+                                <Grid Grid.Row="0"
+                                      ColumnDefinitions="*,Auto,Auto"
+                                      Margin="10"
+                                      HorizontalAlignment="Stretch">
+
+                                    <!-- Search Box -->
+                                    <TextBox Grid.Column="0"
+                                            Text="{Binding ProxySearchQuery}"
+                                            Watermark="Search proxy history... (Enter to apply, empty to clear)"
+                                            Margin="0 0 10 0"
+                                            Background="#252A3D"
+                                            Foreground="White"
+                                            BorderThickness="1"
+                                            BorderBrush="#404656">
+                                        <TextBox.KeyBindings>
+                                            <KeyBinding Gesture="Return" Command="{Binding ApplyProxySearchCommand}" />
+                                        </TextBox.KeyBindings>
+                                    </TextBox>
+
+                                    <!-- Status Message -->
+                                    <TextBlock Grid.Column="1"
+                                              Text="{Binding ProxyHistoryStatusMessage}"
+                                              Foreground="#FFD700"
+                                              VerticalAlignment="Center"
+                                              Margin="0 0 10 0"
+                                              FontStyle="Italic"/>
+
+                                    <!-- Entry Count -->
+                                    <TextBlock Grid.Column="2"
+                                              Text="{Binding ProxyEntries.Count, StringFormat='Entries: {0}'}"
+                                              Foreground="White"
+                                              VerticalAlignment="Center"/>
+                                </Grid>
+
+                                <!-- Proxy History Table -->
+                                <Grid Grid.Row="1">
+                                    <Border Background="#252A3D"
+                                            BorderBrush="#404656"
+                                            BorderThickness="1"
+                                            CornerRadius="3"
+                                            Margin="10">
+
+                                        <DataGrid ItemsSource="{Binding ProxyEntries}"
+                                                  SelectedItem="{Binding SelectedProxyEntry}"
+                                                  Background="#1A1E2D"
+                                                  BorderBrush="#3E4651"
+                                                  BorderThickness="1"
+                                                  GridLinesVisibility="All"
+                                                  HeadersVisibility="Column"
+                                                  CanUserReorderColumns="True"
+                                                  CanUserResizeColumns="True"
+                                                  CanUserSortColumns="True"
+                                                  SelectionMode="Extended"
+                                                  IsReadOnly="True"
+                                                  RowHeight="32"
+                                                  FontSize="12"
+                                                  FontFamily="Consolas,Monaco,monospace"
+                                                  Name="ProxyHistoryDataGrid"
+                                                  KeyDown="OnProxyHistoryKeyDown"
+                                                  SelectionChanged="OnProxyHistorySelectionChanged">
+
+                                            <DataGrid.Columns>
+                                                <DataGridTextColumn Header="#"
+                                                                   Binding="{Binding Index}"
+                                                                   Width="80"
+                                                                   CanUserSort="True"/>
+
+                                                <DataGridTextColumn Header="Timestamp"
+                                                                   Binding="{Binding FormattedTimestamp}"
+                                                                   Width="200"
+                                                                   CanUserSort="True"/>
+
+                                                <DataGridTextColumn Header="Conn ID"
+                                                                   Binding="{Binding ConnectionId}"
+                                                                   Width="120"
+                                                                   CanUserSort="True"/>
+
+                                                <DataGridTextColumn Header="Direction"
+                                                                   Binding="{Binding Direction}"
+                                                                   Width="140"
+                                                                   CanUserSort="True"/>
+
+                                                <DataGridTextColumn Header="Source IP"
+                                                                   Binding="{Binding SourceIp}"
+                                                                   Width="160"
+                                                                   CanUserSort="True"/>
+
+                                                <DataGridTextColumn Header="Destination IP"
+                                                                   Binding="{Binding DestinationIp}"
+                                                                   Width="160"
+                                                                   CanUserSort="True"/>
+
+                                                <DataGridTextColumn Header="Port"
+                                                                   Binding="{Binding DestinationPort}"
+                                                                   Width="100"
+                                                                   CanUserSort="True"/>
+
+                                                <DataGridTextColumn Header="Protocol"
+                                                                   Binding="{Binding Protocol}"
+                                                                   Width="120"
+                                                                   CanUserSort="True"/>
+
+                                                <DataGridTextColumn Header="Size"
+                                                                   Binding="{Binding Size}"
+                                                                   Width="100"
+                                                                   CanUserSort="True"/>
+
+                                                <DataGridTextColumn Header="Type"
+                                                                   Binding="{Binding MessageType}"
+                                                                   Width="140"
+                                                                   CanUserSort="True"/>
+
+                                                <DataGridTextColumn Header="Modified"
+                                                                   Binding="{Binding Modified}"
+                                                                   Width="120"
+                                                                   CanUserSort="True"/>
+                                            </DataGrid.Columns>
+
+                                            <DataGrid.ContextMenu>
+                                                <ContextMenu>
+                                                    <MenuItem Header="Copy Selected"
+                                                              Command="{Binding CopySelectedProxyEntriesCommand}">
+                                                        <MenuItem.Icon>
+                                                            <TextBlock Text="📋" FontSize="14"/>
+                                                        </MenuItem.Icon>
+                                                    </MenuItem>
+                                                    <Separator/>
+                                                    <MenuItem Header="Remove Selected"
+                                                              Command="{Binding RemoveSelectedProxyEntriesCommand}">
+                                                        <MenuItem.Icon>
+                                                            <TextBlock Text="🗑️" FontSize="14"/>
+                                                        </MenuItem.Icon>
+                                                    </MenuItem>
+                                                    <MenuItem Header="Remove All"
+                                                              Command="{Binding ClearProxyHistoryCommand}">
+                                                        <MenuItem.Icon>
+                                                            <TextBlock Text="🧹" FontSize="14"/>
+                                                        </MenuItem.Icon>
+                                                    </MenuItem>
+                                                </ContextMenu>
+                                            </DataGrid.ContextMenu>
+                                        </DataGrid>
+                                    </Border>
+                                </Grid>
+                            </Grid>
+
+                            <!-- Splitter -->
+                            <GridSplitter Grid.Row="1"
+                                         Background="#404656"
+                                         ResizeDirection="Rows"
+                                         HorizontalAlignment="Stretch"/>
+
+                            <!-- Bottom section: Raw Data Viewer -->
+                            <Grid Grid.Row="2">
+                                <Border Background="#252A3D"
+                                        BorderBrush="#404656"
+                                        BorderThickness="1"
+                                        CornerRadius="3"
+                                        Margin="10">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="*"/>
+                                        </Grid.RowDefinitions>
+
+                                        <!-- Header with conditional dropdown -->
+                                        <Border Grid.Row="0"
+                                                Background="#2A2D3A"
+                                                BorderBrush="#3E4651"
+                                                BorderThickness="0,0,0,1">                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+
+                                                <!-- Data View Dropdown (only shown for modified packets) -->
+                                                <ComboBox Grid.Column="0"
+                                                          SelectedIndex="{Binding ProxyDataViewSelection}"
+                                                          Background="#252A3D"
+                                                          Foreground="White"
+                                                          BorderBrush="#404656"
+                                                          BorderThickness="1"
+                                                          MinWidth="100"
+                                                          Margin="15,8,15,8"
+                                                          IsVisible="{Binding SelectedProxyEntry.HasEditedData}">
+                                                    <ComboBoxItem Content="Original"/>
+                                                    <ComboBoxItem Content="Edited"/>
+                                                </ComboBox>
+
+                                                <!-- Title -->
+                                                <TextBlock Grid.Column="1"
+                                                          Text="Raw Data Viewer"
+                                                          Foreground="#B0B7C3"
+                                                          FontWeight="SemiBold"
+                                                          FontSize="13"
+                                                          Padding="15,8"
+                                                          VerticalAlignment="Center"/>
+                                            </Grid>
+                                        </Border>
+
+                                        <!-- Data viewer -->
+                                        <TabControl Grid.Row="1" Background="Transparent" ItemsSource="{Binding DataViewerTabs}">
+                                            <TabControl.ItemTemplate>
+                                                <DataTemplate x:DataType="vm:DataViewerTabViewModel">
+                                                    <TextBlock Text="{Binding Name}"/>
+                                                </DataTemplate>
+                                            </TabControl.ItemTemplate>
+                                            <TabControl.ContentTemplate>
+                                                <DataTemplate x:DataType="vm:DataViewerTabViewModel">
+                                                    <Grid>
+                                                        <TextBox Text="{Binding Content}"
+                                                                 IsReadOnly="True"
+                                                                 Background="Transparent"
+                                                                 Foreground="#E2E8F0"
+                                                                 FontFamily="Consolas,Monaco,monospace"
+                                                                 FontSize="12"
+                                                                 TextWrapping="Wrap"
+                                                                 AcceptsReturn="True"
+                                                                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                                                 ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                                                 BorderThickness="0"
+                                                                 Padding="10"
+                                                                 SelectionBrush="#364B5A"
+                                                                 CaretBrush="#00BFFF"
+                                                                 Watermark="{Binding Watermark}"/>
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </TabControl.ContentTemplate>
+                                        </TabControl>
+                                    </Grid>
+                                </Border>
+                            </Grid>
+                        </Grid>
+                    </TabItem><TabItem Header="Connections">
+                        <Grid RowDefinitions="Auto,*">
+                            <!-- Search and Controls Row -->
+                            <Grid Grid.Row="0"
+                                  ColumnDefinitions="*,Auto"
+                                  Margin="10"
+                                  HorizontalAlignment="Stretch">
+
+                                <!-- Search Box -->
+                                <TextBox Grid.Column="0"
+                                        Text="{Binding ConnectionSearchQuery}"
+                                        Watermark="Search connections... (Enter to apply, empty to clear)"
+                                        Margin="0 0 10 0"
+                                        Background="#252A3D"
+                                        Foreground="White"
+                                        BorderThickness="1"
+                                        BorderBrush="#404656">
+                                    <TextBox.KeyBindings>
+                                        <KeyBinding Gesture="Return" Command="{Binding ApplyConnectionSearchCommand}" />
+                                    </TextBox.KeyBindings>
+                                </TextBox>
+
+                                <!-- Connection Count -->
+                                <TextBlock Grid.Column="1"
+                                          Text="{Binding FilteredConnectionEntries.Count, StringFormat='Connections: {0}'}"
+                                          Foreground="White"
+                                          VerticalAlignment="Center"/>
+                            </Grid>
+
+                            <!-- Connections Table -->
+                            <Grid Grid.Row="1">
+                                <Border Background="#252A3D"
+                                        BorderBrush="#404656"
+                                        BorderThickness="1"
+                                        CornerRadius="3"
+                                        Margin="10">
+
+                                    <DataGrid ItemsSource="{Binding FilteredConnectionEntries}"
+                                              Background="#1A1E2D"
+                                              BorderBrush="#3E4651"
+                                              BorderThickness="1"
+                                              GridLinesVisibility="All"
+                                              HeadersVisibility="Column"
+                                              CanUserReorderColumns="True"
+                                              CanUserResizeColumns="True"
+                                              CanUserSortColumns="True"
+                                              SelectionMode="Extended"
+                                              IsReadOnly="True"
+                                              RowHeight="32"
+                                              FontSize="12"
+                                              FontFamily="Consolas,Monaco,monospace"
+                                              Name="ConnectionsDataGrid"
+                                              KeyDown="OnConnectionsKeyDown"
+                                              SelectionChanged="OnConnectionsSelectionChanged">
+
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="Timestamp"
+                                                               Binding="{Binding FormattedTimestamp}"
+                                                               Width="200"
+                                                               CanUserSort="True"/>
+
+                                            <DataGridTemplateColumn Header="Event"
+                                                                   Width="140">
+                                                <DataGridTemplateColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <TextBlock Text="{Binding Event}"
+                                                                 Foreground="{Binding Event, Converter={StaticResource EventColorConverter}}"
+                                                                 FontWeight="SemiBold"/>
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellTemplate>
+                                            </DataGridTemplateColumn>
+
+                                            <DataGridTextColumn Header="Connection ID"
+                                                               Binding="{Binding ConnectionId}"
+                                                               Width="140"
+                                                               CanUserSort="True"/>
+
+                                            <DataGridTextColumn Header="Source IP"
+                                                               Binding="{Binding SourceIp}"
+                                                               Width="160"
+                                                               CanUserSort="True"/>
+
+                                            <DataGridTextColumn Header="Source Port"
+                                                               Binding="{Binding SourcePort}"
+                                                               Width="120"
+                                                               CanUserSort="True"/>
+
+                                            <DataGridTextColumn Header="Destination IP"
+                                                               Binding="{Binding DestinationIp}"
+                                                               Width="160"
+                                                               CanUserSort="True"/>
+
+                                            <DataGridTextColumn Header="Destination Port"
+                                                               Binding="{Binding DestinationPort}"
+                                                               Width="160"
+                                                               CanUserSort="True"/>
+                                        </DataGrid.Columns>
+
+                                        <DataGrid.ContextMenu>
+                                            <ContextMenu>
+                                                <MenuItem Header="Copy Selected"
+                                                          Command="{Binding CopySelectedConnectionEntriesCommand}">
+                                                    <MenuItem.Icon>
+                                                        <TextBlock Text="📋" FontSize="14"/>
+                                                    </MenuItem.Icon>
+                                                </MenuItem>
+                                                <Separator/>
+                                                <MenuItem Header="Remove Selected"
+                                                          Command="{Binding RemoveSelectedConnectionEntriesCommand}">
+                                                    <MenuItem.Icon>
+                                                        <TextBlock Text="🗑️" FontSize="14"/>
+                                                    </MenuItem.Icon>
+                                                </MenuItem>
+                                                <MenuItem Header="Remove All"
+                                                          Command="{Binding ClearConnectionsCommand}">
+                                                    <MenuItem.Icon>
+                                                        <TextBlock Text="🧹" FontSize="14"/>
+                                                    </MenuItem.Icon>
+                                                </MenuItem>
+                                            </ContextMenu>
+                                        </DataGrid.ContextMenu>
+                                    </DataGrid>
+                                </Border>
+                            </Grid>
+                        </Grid>
+                    </TabItem>
+
+                    <TabItem Header="Settings">
+                        <!-- Proxy Settings Content -->
+                        <ScrollViewer>
+                            <StackPanel Margin="20" Spacing="20">                                <!-- Header -->
+                                <TextBlock Text="Proxy Settings"
+                                           FontSize="24"
+                                           FontWeight="Bold"
+                                           Foreground="White"/>
+                                  <!-- Proxy Control Section -->
+                                <Border Background="#252A3D"
+                                        BorderBrush="#404040"
+                                        BorderThickness="1"
+                                        CornerRadius="5"
+                                        Padding="15">
+                                    <StackPanel Spacing="15">
+                                        <TextBlock Text="Proxy Control"
+                                                   FontSize="16"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="White"/>                                        <StackPanel Orientation="Horizontal" Spacing="15">
+                                            <Button Content="{Binding ProxyButtonText}"
+                                                    Command="{Binding ToggleProxyCommand}"
+                                                    Background="{Binding ProxyButtonColor}"
+                                                    Foreground="White"
+                                                    Padding="15,8"
+                                                    VerticalAlignment="Center"/>
+
+                                            <!-- Status Message Display -->
+                                            <TextBlock Text="{Binding ProxyStatusMessage}"
+                                                       Foreground="{Binding ProxyStatusMessage, Converter={StaticResource StatusMessageColorConverter}}"
+                                                       FontWeight="SemiBold"
+                                                       VerticalAlignment="Center"
+                                                       FontSize="14"
+                                                       TextWrapping="Wrap"
+                                                       MaxWidth="400"
+                                                       IsVisible="{Binding ProxyStatusMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+                                  <!-- Configuration Section -->
+                                <Border Background="#252A3D"
+                                        BorderBrush="#404040"
+                                        BorderThickness="1"
+                                        CornerRadius="5"
+                                        Padding="15">
+                                    <StackPanel Spacing="15">
+                                        <TextBlock Text="Configuration"
+                                                   FontSize="16"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="White"/>                                        <!-- Target Host -->
+                                        <StackPanel Spacing="5">
+                                            <TextBlock Text="Target Host"
+                                                       Foreground="White"/>
+                                            <Grid ColumnDefinitions="*,Auto">
+                                                <ComboBox Grid.Column="0"
+                                                          ItemsSource="{Binding HostIpAddresses}"
+                                                          SelectedIndex="{Binding SelectedHostIpIndex}"
+                                                          Background="#1A1A1A"
+                                                          Foreground="White"
+                                                          BorderBrush="#404040"
+                                                          Margin="0,0,10,0"/>
+                                                <Button Grid.Column="1"
+                                                        Content="Refresh Interfaces"
+                                                        Command="{Binding RefreshInterfacesCommand}"
+                                                        Background="#4A90E2"
+                                                        Foreground="White"
+                                                        Padding="12,6"/>
+                                            </Grid>
+                                        </StackPanel>                                        <!-- Listen Port -->
+                                        <StackPanel Spacing="5">
+                                            <TextBlock Text="Listen Port"
+                                                       Foreground="White"/>
+                                            <TextBox Text="{Binding ListenPort}"
+                                                     Background="#1A1A1A"
+                                                     Foreground="White"
+                                                     BorderBrush="#404040"
+                                                     Width="100"
+                                                     HorizontalAlignment="Left"/>
+                                        </StackPanel>
+
+                                        <!-- Verbose Mode -->
+                                        <CheckBox Content="Verbose Mode"
+                                                  Foreground="White"
+                                                  IsChecked="{Binding VerboseMode}"/>
+
+                                        <!-- Save Settings Button -->
+                                        <Button Content="Save Settings"
+                                                Command="{Binding SaveConfigCommand}"
+                                                Background="#28A745"
+                                                Foreground="White"
+                                                Padding="15,8"
+                                                HorizontalAlignment="Left"
+                                                Margin="0,10,0,0"/>
+                                    </StackPanel>
+                                </Border>
+                                  <!-- Certificate Management Section -->
+                                <Border Background="#252A3D"
+                                        BorderBrush="#404040"
+                                        BorderThickness="1"
+                                        CornerRadius="5"
+                                        Padding="15">
+                                    <StackPanel Spacing="15">
+                                        <TextBlock Text="Certificate Management"
+                                                   FontSize="16"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="White"/>
+
+                                        <StackPanel Orientation="Horizontal" Spacing="10">
+                                            <!-- Existing Export Certificate Button -->
+                                            <Button Content="Export Certificate"
+                                                    Command="{Binding ExportCertificateCommand}"
+                                                    Background="#007ACC"
+                                                    Foreground="White"
+                                                    Padding="12,8"
+                                                    CornerRadius="4"
+                                                    FontWeight="Medium"
+                                                    ToolTip.Tip="Export the current CA certificate for client installation"/>
+
+                                            <!-- Regenerate Certificate Button -->
+                                            <Button Content="Regenerate Certificate"
+                                                    Command="{Binding RegenerateCertificateCommand}"
+                                                    Background="#FF6B35"
+                                                    Foreground="White"
+                                                    Padding="12,8"
+                                                    CornerRadius="4"
+                                                    FontWeight="Medium"
+                                                    ToolTip.Tip="Generate a new CA certificate (requires client reinstallation)"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </TabItem>
+                </TabControl>
+            </TabItem>
+
+            <TabItem Header="Extensions">
+                <components:ExtensionsView DataContext="{Binding Extensions}"/>
+            </TabItem>
+
+            <TabItem Header="Logs">
+                <Grid RowDefinitions="Auto,*">
+                    <!-- Search and Controls Row -->
+                    <Grid Grid.Row="0"
+                          ColumnDefinitions="*,Auto,Auto"
+                          Margin="10"
+                          HorizontalAlignment="Stretch">
+
+                        <!-- Search Box -->
+                        <TextBox Grid.Column="0"
+                                Text="{Binding SearchQuery}"
+                                Watermark="Search logs... (Enter to apply, empty to clear)"
+                                Margin="0 0 10 0"
+                                Background="#252A3D"
+                                Foreground="White"
+                                BorderThickness="1"
+                                BorderBrush="#404656">
+                            <TextBox.KeyBindings>
+                                <KeyBinding Gesture="Return" Command="{Binding ApplyLogSearchCommand}" />
+                            </TextBox.KeyBindings>
+                        </TextBox>
+
+                        <!-- Clear Button -->
+                        <Button Grid.Column="1"
+                                Command="{Binding ClearLogsCommand}"
+                                Content="Clear"
+                                Padding="12 6"
+                                Margin="0 0 10 0"
+                                Background="#404656"
+                                Foreground="White"/>
+
+                        <!-- Auto-Scroll Toggle -->
+                        <CheckBox Grid.Column="2"
+                                 Content="Auto-scroll to bottom"
+                                 IsChecked="{Binding AutoScrollToBottom}"
+                                 Foreground="White"/>
+                    </Grid>
+
+                    <!-- Log Content -->
+                    <Grid Grid.Row="1">
+                        <Border Background="#252A3D"
+                                BorderBrush="#404656"
+                                BorderThickness="1"
+                                CornerRadius="3"
+                                Margin="10">
+                            <TextBox Text="{Binding LogText}"
+                                     Background="Transparent"
+                                     Foreground="White"
+                                     BorderThickness="0"
+                                     IsReadOnly="True"
+                                     TextWrapping="Wrap"
+                                     ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                     FontFamily="Consolas,Monaco,monospace"
+                                     FontSize="12"
+                                     Padding="10"
+                                     AcceptsReturn="False"
+                                     AcceptsTab="False"/>
+                        </Border>
+                    </Grid>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="Logs"
+                     IsVisible="{Binding ShowLogsTab}">
+                <Grid RowDefinitions="Auto,*">
+                    <!-- Search and Controls Row -->
+                    <Grid Grid.Row="0"
+                          ColumnDefinitions="*,Auto,Auto"
+                          Margin="10"
+                          HorizontalAlignment="Stretch">
+
+                        <!-- Search Box -->
+                        <TextBox Grid.Column="0"
+                                Text="{Binding SearchQuery}"
+                                Watermark="Search logs... (Enter to apply, empty to clear)"
+                                Margin="0 0 10 0"
+                                Background="#252A3D"
+                                Foreground="White"
+                                BorderThickness="1"
+                                BorderBrush="#404656">
+                            <TextBox.KeyBindings>
+                                <KeyBinding Gesture="Return" Command="{Binding ApplyLogSearchCommand}" />
+                            </TextBox.KeyBindings>
+                        </TextBox>
+
+                        <!-- Auto-scroll toggle -->
+                        <CheckBox Grid.Column="1"
+                                  IsChecked="{Binding AutoScrollToBottom}"
+                                  Content="Auto-scroll"
+                                  Foreground="White"
+                                  Margin="0 0 10 0"
+                                  VerticalAlignment="Center"/>
+
+                        <!-- Log count -->
+                        <TextBlock Grid.Column="2"
+                                  Text="{Binding LogEntries.Count, StringFormat='Logs: {0}'}"
+                                  Foreground="White"
+                                  VerticalAlignment="Center"/>
+                    </Grid>
+
+                    <!-- Logs Table -->
+                    <Grid Grid.Row="1">
+                        <Border Background="#252A3D"
+                                BorderBrush="#404656"
+                                BorderThickness="1"
+                                CornerRadius="3"
+                                Margin="10">
+                            <TextBox Text="{Binding LogText}"
+                                     Background="Transparent"
+                                     Foreground="White"
+                                     BorderThickness="0"
+                                     IsReadOnly="True"
+                                     TextWrapping="Wrap"
+                                     ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                     FontFamily="Consolas,Monaco,monospace"
+                                     FontSize="12"
+                                     Padding="10"
+                                     AcceptsReturn="False"
+                                     AcceptsTab="False"
+                                     x:Name="LogsTextBox"/>
+                        </Border>
+                    </Grid>
+                </Grid>
+            </TabItem>
+        </TabControl>        <!-- Export Certificate Dialog Overlay -->
+        <Border IsVisible="{Binding IsExportDialogVisible}"
+                Background="#80000000"
+                ZIndex="1000">
+            <Grid>
+                <Border Background="#2B2F3E"
+                        BorderBrush="#4A4F5C"
+                        BorderThickness="1"
+                        CornerRadius="4"
+                        Width="420"
+                        Height="280"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        BoxShadow="0 8 25 #33000000">
+                    <StackPanel Margin="24">
+                        <!-- Header -->
+                        <TextBlock Text="Export Certificate"
+                                   FontSize="16"
+                                   FontWeight="SemiBold"
+                                   Foreground="White"
+                                   Margin="0,0,0,24"/>
+
+                        <!-- Export Type Selection -->
+                        <StackPanel Spacing="20">                            <!-- Certificate Option -->
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <RadioButton Name="CertificateRadio"
+                                             GroupName="ExportType"
+                                             IsChecked="True"
+                                             Checked="CertificateRadio_Checked"
+                                             Grid.Column="0"
+                                             VerticalAlignment="Top"
+                                             Margin="0,2,16,0"/>
+                                <StackPanel Grid.Column="1">
+                                    <TextBlock Text="Certificate (.der format)"
+                                               FontSize="14"
+                                               FontWeight="Medium"
+                                               Foreground="White"
+                                               Margin="0,0,0,6"/>
+                                    <TextBlock Text="Export the certificate in DER format"
+                                               FontSize="12"
+                                               Foreground="#8A9BA8"
+                                               TextWrapping="Wrap"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <!-- Private Key Option -->
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <RadioButton Name="PrivateKeyRadio"
+                                             GroupName="ExportType"
+                                             Checked="PrivateKeyRadio_Checked"
+                                             Grid.Column="0"
+                                             VerticalAlignment="Top"
+                                             Margin="0,2,16,0"/>
+                                <StackPanel Grid.Column="1">
+                                    <TextBlock Text="Private Key (.key format)"
+                                               FontSize="14"
+                                               FontWeight="Medium"
+                                               Foreground="White"
+                                               Margin="0,0,0,6"/>
+                                    <TextBlock Text="Export the private key in PEM format"
+                                               FontSize="12"
+                                               Foreground="#8A9BA8"
+                                               TextWrapping="Wrap"/>
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+
+                        <!-- Buttons -->
+                        <Grid Margin="0,36,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Button Content="Cancel"
+                                    Command="{Binding CancelExportCommand}"
+                                    Background="#3A3F4B"
+                                    Foreground="White"
+                                    BorderBrush="#4A4F5C"
+                                    BorderThickness="1"
+                                    Padding="24,10"
+                                    MinWidth="85"
+                                    Grid.Column="1"
+                                    Margin="0,0,12,0"
+                                    CornerRadius="3"
+                                    FontSize="13"/>
+                            <Button Content="Export"
+                                    Command="{Binding ConfirmExportCommand}"
+                                    Background="#007ACC"
+                                    Foreground="White"
+                                    BorderThickness="0"
+                                    Padding="24,10"
+                                    MinWidth="85"
+                                    Grid.Column="2"
+                                    CornerRadius="3"
+                                    FontSize="13"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

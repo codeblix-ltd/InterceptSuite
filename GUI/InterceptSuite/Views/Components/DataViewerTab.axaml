@@ -1,0 +1,52 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:InterceptSuite.Views.Components"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="InterceptSuite.Views.Components.DataViewerTab"
+             x:DataType="vm:DataViewerTabViewModel">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <Border Grid.Row="0"
+                Background="#2A2D3A"
+                BorderBrush="#3E4651"
+                BorderThickness="0,0,0,1">
+            <TextBlock Text="{Binding Title}"
+                      Foreground="#B0B7C3"
+                      FontWeight="SemiBold"
+                      FontSize="13"
+                      Padding="15,8"
+                      VerticalAlignment="Center"/>
+        </Border>
+
+        <!-- Data viewer tabs -->
+        <TabControl Grid.Row="1" Background="Transparent">
+            <TabItem Header="Raw Data">
+                <Grid>
+                    <TextBox Text="{Binding RawData, Mode=TwoWay}"
+                             IsReadOnly="{Binding !IsEditable}"
+                             Background="Transparent"
+                             Foreground="#E2E8F0"
+                             FontFamily="Consolas,Monaco,monospace"
+                             FontSize="12"
+                             TextWrapping="Wrap"
+                             AcceptsReturn="True"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto"
+                             ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                             BorderThickness="0"
+                             Padding="10"
+                             SelectionBrush="#364B5A"
+                             CaretBrush="#00BFFF"
+                             Watermark="{Binding EmptyMessage}"/>
+                </Grid>
+            </TabItem>
+        </TabControl>
+    </Grid>
+</UserControl>
