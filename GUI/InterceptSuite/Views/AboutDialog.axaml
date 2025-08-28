@@ -22,12 +22,12 @@
         <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,20">
             <Image Source="/Assets/logo.ico" Width="64" Height="64" Margin="0,0,15,0"/>
             <StackPanel VerticalAlignment="Center">
-                <TextBlock Text="InterceptSuite Standard Edition" 
-                          FontSize="24" 
-                          FontWeight="Bold" 
+                <TextBlock Text="InterceptSuite Standard Edition"
+                          FontSize="24"
+                          FontWeight="Bold"
                           Foreground="White"/>
-                <TextBlock Text="TLS Intercept and Analysis Tool - Standard Edition" 
-                          FontSize="12" 
+                <TextBlock Text="TLS Intercept and Analysis Tool - Standard Edition"
+                          FontSize="12"
                           Foreground="#B0B7C3"
                           Margin="0,5,0,0"/>
             </StackPanel>
@@ -35,22 +35,22 @@
 
         <!-- Version Information -->
         <StackPanel Grid.Row="1" Margin="0,0,0,20">
-            <TextBlock Text="Version Information" 
-                      FontSize="14" 
-                      FontWeight="SemiBold" 
-                      Foreground="White" 
+            <TextBlock Text="Version Information"
+                      FontSize="14"
+                      FontWeight="SemiBold"
+                      Foreground="White"
                       Margin="0,0,0,8"/>
-            <Border Background="#2A2D3A" 
-                    CornerRadius="5" 
+            <Border Background="#2A2D3A"
+                    CornerRadius="5"
                     Padding="15">
                 <StackPanel>
-                    <TextBlock Text="Version: 1.1.0" 
-                              Foreground="#B0B7C3" 
+                    <TextBlock Text="Version: 1.1.1"
+                              Foreground="#B0B7C3"
                               Margin="0,0,0,5"/>
-                    <TextBlock Text="Build: 1.1.0.0" 
-                              Foreground="#B0B7C3" 
+                    <TextBlock Text="Build: 1.1.1.0"
+                              Foreground="#B0B7C3"
                               Margin="0,0,0,5"/>
-                    <TextBlock Text="Platform: macOS ARM64" 
+                    <TextBlock Text="Platform: macOS ARM64"
                               Foreground="#B0B7C3"/>
                 </StackPanel>
             </Border>
@@ -58,22 +58,22 @@
 
         <!-- Company Information -->
         <StackPanel Grid.Row="2" Margin="0,0,0,20">
-            <TextBlock Text="Company Information" 
-                      FontSize="14" 
-                      FontWeight="SemiBold" 
-                      Foreground="White" 
+            <TextBlock Text="Company Information"
+                      FontSize="14"
+                      FontWeight="SemiBold"
+                      Foreground="White"
                       Margin="0,0,0,8"/>
-            <Border Background="#2A2D3A" 
-                    CornerRadius="5" 
+            <Border Background="#2A2D3A"
+                    CornerRadius="5"
                     Padding="15">
                 <StackPanel>
-                    <TextBlock Text="Developer: InterceptSuite" 
-                              Foreground="#B0B7C3" 
+                    <TextBlock Text="Developer: InterceptSuite"
+                              Foreground="#B0B7C3"
                               Margin="0,0,0,5"/>
-                    <TextBlock Text="Copyright © 2025 InterceptSuite/AnoF-Cyber/Sourav Kalal" 
-                              Foreground="#B0B7C3" 
+                    <TextBlock Text="Copyright © 2025 InterceptSuite/AnoF-Cyber/Sourav Kalal"
+                              Foreground="#B0B7C3"
                               Margin="0,0,0,5"/>
-                    <TextBlock Text="All rights reserved." 
+                    <TextBlock Text="All rights reserved."
                               Foreground="#B0B7C3"/>
                 </StackPanel>
             </Border>
@@ -82,36 +82,36 @@
         <!-- Description -->
         <ScrollViewer Grid.Row="3" Margin="0,0,0,20">
             <StackPanel>
-                <TextBlock Text="About" 
-                          FontSize="14" 
-                          FontWeight="SemiBold" 
-                          Foreground="White" 
+                <TextBlock Text="About"
+                          FontSize="14"
+                          FontWeight="SemiBold"
+                          Foreground="White"
                           Margin="0,0,0,8"/>
-                <Border Background="#2A2D3A" 
-                        CornerRadius="5" 
+                <Border Background="#2A2D3A"
+                        CornerRadius="5"
                         Padding="15">
-                    <TextBlock TextWrapping="Wrap" 
-                              Foreground="#B0B7C3" 
+                    <TextBlock TextWrapping="Wrap"
+                              Foreground="#B0B7C3"
                               LineHeight="20">
-                        InterceptSuite Standard Edition is a TLS interception and analysis tool designed for security professionals, developers, and network administrators. 
-                        
+                        InterceptSuite Standard Edition is a TLS interception and analysis tool designed for security professionals, developers, and network administrators.
+
                         Features include:
                         • TLS/SSL traffic interception
                         • Real-time traffic analysis
                         • Extensible Python-based plugin system
                         • Professional proxy management
                         • Comprehensive logging and reporting
-                       
+
                     </TextBlock>
                 </Border>
             </StackPanel>
         </ScrollViewer>
 
         <!-- Close Button -->
-        <Button Grid.Row="4" 
-                Content="Close" 
-                HorizontalAlignment="Center" 
-                Width="100" 
+        <Button Grid.Row="4"
+                Content="Close"
+                HorizontalAlignment="Center"
+                Width="100"
                 Height="35"
                 Background="#00BFFF"
                 Foreground="White"

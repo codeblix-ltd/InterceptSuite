@@ -35,13 +35,29 @@ extern int g_packet_id_counter;
 int detect_protocol(socket_t sock) {
     unsigned char peek_buffer[8] = {0};
     int bytes_peeked;
+    
+    // Set a short timeout for protocol detection to avoid blocking
+    fd_set readfds;
+    struct timeval timeout;
+    
+    FD_ZERO(&readfds);
+    FD_SET(sock, &readfds);
+    timeout.tv_sec = 2;  // 2 second timeout
+    timeout.tv_usec = 0;
+    
+    // Check if data is available for reading
+    int ready = select((int)(sock + 1), &readfds, NULL, NULL, &timeout);
+    if (ready <= 0) {
+        // No data available within timeout period - default to plain TCP
+        return PROTOCOL_PLAIN_TCP;
+    }
 
     // Peek at the first few bytes without removing them from the buffer
     bytes_peeked = recv(sock, (char *)peek_buffer, sizeof(peek_buffer), MSG_PEEK);
 
     if (bytes_peeked <= 0) {
-        // Error or connection closed
-        return PROTOCOL_PLAIN_TCP; // Default to plain TCP
+        // Error or connection closed - default to plain TCP
+        return PROTOCOL_PLAIN_TCP;
     }
 
     // Check for TLS handshake

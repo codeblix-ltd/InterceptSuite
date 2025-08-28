@@ -129,9 +129,11 @@ jobs:
 
     - name: Sign C Library (dylib)
       env:
-        SIGNING_IDENTITY: ${{ secrets.APPLE_TEAM_ID }}
+        TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
       run: |
         echo "=== Signing C Library dylib ==="
+        # Use specific Developer ID Application certificate to avoid ambiguity
+        SIGNING_IDENTITY="Developer ID Application: Sourav Kalal ($TEAM_ID)"
         codesign --force --options runtime --timestamp --sign "$SIGNING_IDENTITY" build/libIntercept.dylib
 
         echo "=== Verifying dylib signature ==="
@@ -168,10 +170,13 @@ jobs:
     - name: Sign .NET Application
       working-directory: GUI/InterceptSuite/Installer/MacOS
       env:
-        SIGNING_IDENTITY: ${{ secrets.APPLE_TEAM_ID }}
+        TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
       run: |
         echo "=== Signing .app bundle ==="
         APP_PATH=$(find ../dist -name "*.app" -type d | head -1)
+        
+        # Use specific Developer ID Application certificate to avoid ambiguity
+        SIGNING_IDENTITY="Developer ID Application: Sourav Kalal ($TEAM_ID)"
 
         # Sign all frameworks and dylibs first
         echo "=== Signing all dylibs and frameworks ==="
@@ -193,7 +198,7 @@ jobs:
     - name: Create and Sign PKG Installer
       working-directory: GUI/InterceptSuite/Installer/MacOS
       env:
-        SIGNING_IDENTITY: ${{ secrets.APPLE_TEAM_ID }}
+        TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
       run: |
         echo "=== Creating PKG installer ==="
         chmod +x ./create-pkg-installer.sh
@@ -207,8 +212,11 @@ jobs:
           SIGNED_PKG="$PKG_PATH"
           mv "$PKG_PATH" "$UNSIGNED_PKG"
 
+          # Use specific Developer ID Installer certificate for PKG signing
+          INSTALLER_SIGNING_IDENTITY="Developer ID Installer: Sourav Kalal ($TEAM_ID)"
+          
           # Sign the PKG with installer certificate
-          productsign --keychain build.keychain --sign "$SIGNING_IDENTITY" --timestamp "$UNSIGNED_PKG" "$SIGNED_PKG"
+          productsign --keychain build.keychain --sign "$INSTALLER_SIGNING_IDENTITY" --timestamp "$UNSIGNED_PKG" "$SIGNED_PKG"
 
           # Verify the signature
           pkgutil --check-signature "$SIGNED_PKG"

@@ -55,7 +55,7 @@ namespace InterceptSuite.Extensions.APIs.Core
             {
             }
 
-            return "1.1.0";
+            return "1.1.1";
         }
 
         public void AddDataViewerTab(string tabName, PyObject pythonHandler)

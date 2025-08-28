@@ -13,9 +13,9 @@
     <AssemblyCompany>InterceptSuite</AssemblyCompany>
     <AssemblyProduct>InterceptSuite Standard - Standard Edition</AssemblyProduct>
     <AssemblyCopyright>© 2025 InterceptSuite/AnoF-Cyber/Sourav Kalal</AssemblyCopyright>
-    <AssemblyVersion>1.1.0.0</AssemblyVersion>
-    <FileVersion>1.1.0.0</FileVersion>
-    <ProductVersion>1.1.0</ProductVersion>
+    <AssemblyVersion>1.1.1.0</AssemblyVersion>
+    <FileVersion>1.1.1.0</FileVersion>
+    <ProductVersion>1.1.1</ProductVersion>
 
     <!-- Installer Support -->
     <ApplicationIcon>logo.ico</ApplicationIcon>

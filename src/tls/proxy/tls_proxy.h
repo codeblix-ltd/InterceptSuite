@@ -201,6 +201,9 @@ void cleanup_winsock(void);
 intercept_bool_t start_proxy_server(void);
 int validate_ip_address(const char *ip_addr);
 
+/* Helper function for socket error reporting */
+const char* get_socket_error_description(int error_code);
+
 /* Server thread function prototypes */
 THREAD_RETURN_TYPE THREAD_CALL run_server_thread(void* arg);
 

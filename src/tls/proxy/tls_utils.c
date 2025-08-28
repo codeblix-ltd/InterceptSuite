@@ -495,15 +495,52 @@ void forward_data(SSL * src, SSL * dst,
                 log_message(status_msg);
               }
             } else { // Error
-              if (config.verbose) {
+              #ifdef INTERCEPT_WINDOWS
+              int error = GET_SOCKET_ERROR();
+              // Handle common Windows socket errors more gracefully
+              if (error == WSAECONNRESET) {
+                // Connection reset by peer - this is common and not always an error
                 char status_msg[256];
-                #ifdef INTERCEPT_WINDOWS
-                snprintf(status_msg, sizeof(status_msg), "TCP recv error (%s): %d", direction, GET_SOCKET_ERROR());
-                #else
+                snprintf(status_msg, sizeof(status_msg), "TCP recv error (%s): %d", direction, error);
+                log_message(status_msg);
+                if (config.verbose) {
+                  log_message("Connection was reset by remote peer - this can happen during normal operation");
+                  log_message("Error details: %s", get_socket_error_description(error));
+                }
+              } else if (error == WSAECONNABORTED) {
+                char status_msg[256];
+                snprintf(status_msg, sizeof(status_msg), "TCP connection aborted (%s): %d", direction, error);
+                log_message(status_msg);
+                if (config.verbose) {
+                  log_message("Error details: %s", get_socket_error_description(error));
+                }
+              } else if (error == WSAENETDOWN || error == WSAENETUNREACH) {
+                char status_msg[256];
+                snprintf(status_msg, sizeof(status_msg), "TCP network error (%s): %d", direction, error);
+                log_message(status_msg);
+                if (config.verbose) {
+                  log_message("Error details: %s", get_socket_error_description(error));
+                }
+              } else {
+                // Other errors
+                char status_msg[256];
+                snprintf(status_msg, sizeof(status_msg), "TCP recv error (%s): %d", direction, error);
+                log_message(status_msg);
+                if (config.verbose) {
+                  log_message("Error details: %s", get_socket_error_description(error));
+                }
+              }
+              #else
+              if (errno == ECONNRESET) {
+                char status_msg[256];
+                snprintf(status_msg, sizeof(status_msg), "TCP connection reset (%s): %s", direction, strerror(errno));
+                log_message(status_msg);
+              } else {
+                char status_msg[256];
                 snprintf(status_msg, sizeof(status_msg), "TCP recv error (%s): %s", direction, strerror(errno));
-                #endif
                 log_message(status_msg);
               }
+              #endif
             }
             break;
           } // Print the intercepted data
@@ -605,15 +642,50 @@ void forward_data(SSL * src, SSL * dst,
             while (sent < len) {
               int written = send(dst, (char * ) buffer + sent, len - sent, 0);
               if (written <= 0) {
-                if (config.verbose) {
+                #ifdef INTERCEPT_WINDOWS
+                int error = GET_SOCKET_ERROR();
+                // Handle common Windows socket errors more gracefully  
+                if (error == WSAECONNRESET) {
                   char status_msg[256];
-                  #ifdef INTERCEPT_WINDOWS
-                  snprintf(status_msg, sizeof(status_msg), "TCP send error (%s): %d", direction, GET_SOCKET_ERROR());
-                  #else
+                  snprintf(status_msg, sizeof(status_msg), "TCP send error (%s): %d", direction, error);
+                  log_message(status_msg);
+                  if (config.verbose) {
+                    log_message("Connection was reset by remote peer while sending data");
+                    log_message("Error details: %s", get_socket_error_description(error));
+                  }
+                } else if (error == WSAECONNABORTED) {
+                  char status_msg[256];
+                  snprintf(status_msg, sizeof(status_msg), "TCP connection aborted while sending (%s): %d", direction, error);
+                  log_message(status_msg);
+                  if (config.verbose) {
+                    log_message("Error details: %s", get_socket_error_description(error));
+                  }
+                } else if (error == WSAENETDOWN || error == WSAENETUNREACH) {
+                  char status_msg[256];
+                  snprintf(status_msg, sizeof(status_msg), "TCP network error while sending (%s): %d", direction, error);
+                  log_message(status_msg);
+                  if (config.verbose) {
+                    log_message("Error details: %s", get_socket_error_description(error));
+                  }
+                } else {
+                  char status_msg[256];
+                  snprintf(status_msg, sizeof(status_msg), "TCP send error (%s): %d", direction, error);
+                  log_message(status_msg);
+                  if (config.verbose) {
+                    log_message("Error details: %s", get_socket_error_description(error));
+                  }
+                }
+                #else
+                if (errno == ECONNRESET) {
+                  char status_msg[256];
+                  snprintf(status_msg, sizeof(status_msg), "TCP connection reset while sending (%s): %s", direction, strerror(errno));
+                  log_message(status_msg);
+                } else {
+                  char status_msg[256];
                   snprintf(status_msg, sizeof(status_msg), "TCP send error (%s): %s", direction, strerror(errno));
-                  #endif
                   log_message(status_msg);
                 }
+                #endif
                 return;
               }
               sent += written;
@@ -929,9 +1001,22 @@ void forward_data(SSL * src, SSL * dst,
             if (cb_args && cb_args -> original_target_host && !is_ip_address(cb_args -> original_target_host)) {
               hostname_to_use = cb_args -> original_target_host;
             } else {
+              // For IP addresses or when no hostname is available, use a default certificate
               log_message("SNI: No usable hostname (SNI absent or SOCKS target is IP/unavailable).");
-              * ad = SSL_AD_UNRECOGNIZED_NAME;
-              return SSL_TLSEXT_ERR_ALERT_FATAL;
+              // Instead of failing, use a default hostname for certificate generation
+              if (cb_args && cb_args -> original_target_host) {
+                // Use the IP address as hostname - generate certificate for the IP
+                hostname_to_use = cb_args -> original_target_host;
+                if (config.verbose) {
+                  log_message("SNI: Using target IP address for certificate: %s", hostname_to_use);
+                }
+              } else {
+                // Last resort - use a generic hostname
+                hostname_to_use = "intercept.local";
+                if (config.verbose) {
+                  log_message("SNI: Using default hostname for certificate: %s", hostname_to_use);
+                }
+              }
             }
           }
 
@@ -953,8 +1038,20 @@ void forward_data(SSL * src, SSL * dst,
 
           if (!generate_cert_for_host(hostname_to_use, & new_cert, & new_key)) {
             log_message("SNI: Failed to generate certificate for %s", hostname_to_use);
-            * ad = SSL_AD_INTERNAL_ERROR;
-            return SSL_TLSEXT_ERR_ALERT_FATAL;
+            
+            // Try to fallback to using the CA certificate directly for IP addresses
+            if (is_ip_address(hostname_to_use) && ca_cert && ca_key) {
+              if (config.verbose) {
+                log_message("SNI: Falling back to CA certificate for IP address");
+              }
+              new_cert = ca_cert;
+              new_key = ca_key;
+              X509_up_ref(new_cert); // Increase reference count
+              EVP_PKEY_up_ref(new_key); // Increase reference count
+            } else {
+              * ad = SSL_AD_INTERNAL_ERROR;
+              return SSL_TLSEXT_ERR_ALERT_FATAL;
+            }
           }
 
           SSL_CTX * original_ctx = SSL_get_SSL_CTX(s); // This is the server_ctx passed to SSL_new
@@ -1155,6 +1252,11 @@ void forward_data(SSL * src, SSL * dst,
             goto cleanup;
           }
 
+          // Log successful connection establishment
+          if (config.verbose) {
+            log_message("Successfully connected to server %s:%d", target_host, target_port);
+          }
+
           // Set TCP_NODELAY for better performance
           int nodelay = 1;
           #ifdef INTERCEPT_WINDOWS
@@ -1162,8 +1264,19 @@ void forward_data(SSL * src, SSL * dst,
           #else
           // On POSIX systems, TCP_NODELAY is included from netinet/tcp.h
           setsockopt(server_sock, IPPROTO_TCP, TCP_NODELAY, & nodelay, sizeof(nodelay));
-          #endif // Detect protocol type (TLS, HTTP, or plain TCP)
+          #endif // Detect protocol type (TLS, HTTP, or plain TCP) with minimal delay
+          // This uses a short timeout to avoid blocking indefinitely
           protocol_type = detect_protocol(client_sock);
+
+          // For IP addresses with TLS, consider falling back to TCP forwarding
+          // This avoids certificate issues with IP-based TLS connections
+          if (protocol_type == PROTOCOL_TLS && is_ip_address(target_host)) {
+            if (config.verbose) {
+              log_message("Detected TLS to IP address %s:%d - considering fallback to TCP forwarding", target_host, target_port);
+            }
+            // You can uncomment the next line to force TCP forwarding for IP addresses
+            // protocol_type = PROTOCOL_PLAIN_TCP;
+          }
 
           if (protocol_type == PROTOCOL_TLS) {
             // TLS handling path
@@ -1235,8 +1348,23 @@ void forward_data(SSL * src, SSL * dst,
             if (ret != 1) {
               log_tls_error("server handshake (SSL_accept)", server_ssl, ret);
 
-              // Check if this is a certificate rejection that might be resolved
+              // Check for specific error types and provide better context
               unsigned long error_reason = ERR_peek_last_error();
+              int ssl_error = SSL_get_error(server_ssl, ret);
+              
+              // Special handling for callback failures (often related to SNI/certificate issues)
+              // Check by error string since the constant might not be available
+              char error_str[256] = {0};
+              ERR_error_string_n(error_reason, error_str, sizeof(error_str));
+              if (strstr(error_str, "callback failed") != NULL) {
+                if (is_ip_address(target_host)) {
+                  log_message("Certificate callback failed for IP address %s - this is expected for IP-based TLS", target_host);
+                } else {
+                  log_message("Certificate callback failed for hostname %s - check certificate generation", target_host);
+                }
+              }
+              
+              // Check if this is a certificate rejection that might be resolved
               if (ERR_GET_REASON(error_reason) == SSL_R_TLSV1_ALERT_BAD_CERTIFICATE ||
                   ERR_GET_REASON(error_reason) == SSL_R_CERTIFICATE_VERIFY_FAILED) {
                 log_message("SOLUTION: Import the CA certificate (myCA.pem) into your browser/client trust store");
@@ -1396,6 +1524,7 @@ void forward_data(SSL * src, SSL * dst,
               log_message("Connection to %s:%d closed\n", target_host, target_port);
             }
           } else if (protocol_type == PROTOCOL_PLAIN_TCP) {
+            tcp_forwarding: // Label for fallback from TLS failures
             // Non-TLS handling path (any protocol that doesn't start with TLS)
             // This includes HTTP, PostgreSQL, SMTP, and any protocol that might upgrade to TLS later
             if (config.verbose) {

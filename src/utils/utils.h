@@ -18,6 +18,9 @@ void log_message(const char *format, ...);
 /* Packet ID management */
 int get_next_packet_id(void);
 
+/* Socket error handling */
+const char* get_socket_error_description(int error_code);
+
 /* Proxy configuration functions */
 INTERCEPT_API intercept_bool_t set_config(const char *bind_addr, int port, int verbose_mode);
 INTERCEPT_API proxy_config_t get_proxy_config(void);

@@ -1,6 +1,6 @@
 {
   "name": "intercept-suite",
-  "version-string": "1.1.0",
+  "version-string": "1.1.1",
   "description": "Cross-platform TLS MITM proxy library for intercepting and analyzing encrypted traffic",
   "homepage": "https://github.com/InterceptSuite/InterceptSuite",
   "license": "AGPL-3.0",

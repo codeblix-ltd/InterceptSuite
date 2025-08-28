@@ -278,3 +278,44 @@ extern int g_packet_id_counter;
 int get_next_packet_id(void) {
     return ++g_packet_id_counter;
 }
+
+/* Helper function for socket error descriptions */
+const char* get_socket_error_description(int error_code) {
+#ifdef INTERCEPT_WINDOWS
+    switch (error_code) {
+        case WSAECONNRESET:
+            return "Connection reset by peer (WSAECONNRESET)";
+        case WSAECONNABORTED:
+            return "Connection aborted by software (WSAECONNABORTED)";
+        case WSAETIMEDOUT:
+            return "Connection timed out (WSAETIMEDOUT)";
+        case WSAECONNREFUSED:
+            return "Connection refused (WSAECONNREFUSED)";
+        case WSAENETDOWN:
+            return "Network is down (WSAENETDOWN)";
+        case WSAENETUNREACH:
+            return "Network unreachable (WSAENETUNREACH)";
+        case WSAEHOSTDOWN:
+            return "Host is down (WSAEHOSTDOWN)";
+        case WSAEHOSTUNREACH:
+            return "Host unreachable (WSAEHOSTUNREACH)";
+        case WSAEWOULDBLOCK:
+            return "Operation would block (WSAEWOULDBLOCK)";
+        case WSAEINPROGRESS:
+            return "Operation in progress (WSAEINPROGRESS)";
+        case WSAENOTCONN:
+            return "Socket not connected (WSAENOTCONN)";
+        case WSAESHUTDOWN:
+            return "Socket has been shut down (WSAESHUTDOWN)";
+        case WSAEADDRINUSE:
+            return "Address already in use (WSAEADDRINUSE)";
+        case WSAEADDRNOTAVAIL:
+            return "Address not available (WSAEADDRNOTAVAIL)";
+        default:
+            return "Unknown socket error";
+    }
+#else
+    // For POSIX systems, strerror() is more appropriate
+    return strerror(error_code);
+#endif
+}
