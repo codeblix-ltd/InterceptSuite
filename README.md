@@ -4,8 +4,8 @@
 
 
 
-### TCP/UDP *TLS/SSL Traffic Interception & Analysis*
-*Protocol TCP/TLS, STARTTLS, network traffic inspection that goes beyond traditional HTTP-only tools*
+### TCP/UDP *TLS/SSL Traffic MITM & Interception*
+*Protocol TCP/TLS, STARTTLS, network traffic MITM proxy that goes beyond traditional HTTP-only tools*
 
 > **🚀 InterceptSuite PRO**: Looking for advanced features? Check out [**InterceptSuite PRO**](https://interceptsuite.com) with enhanced protocol support and priority features.
 
