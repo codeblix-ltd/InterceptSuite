@@ -5,31 +5,17 @@
 
 
 ### TCP/UDP *TLS/SSL Traffic Interception & Analysis*
-*Protocol network traffic inspection that goes beyond traditional HTTP-only tools*
+*Protocol TCP/TLS, STARTTLS, network traffic inspection that goes beyond traditional HTTP-only tools*
 
 > **🚀 InterceptSuite PRO**: Looking for advanced features? Check out [**InterceptSuite PRO**](https://interceptsuite.com) with enhanced protocol support and priority features.
 
 </div>
 
 
-
-![.NET](https://img.shields.io/badge/.NET-512BD4?style=for-the-badge&logo=dotnet&logoColor=white)
-![C](https://img.shields.io/badge/C-00599C?style=for-the-badge&logo=c&logoColor=white)
-![Avalonia](https://img.shields.io/badge/Avalonia-9146FF?style=for-the-badge&logo=avalonia&logoColor=white)
-[![⭐ Star on GitHub](https://img.shields.io/badge/⭐%20Star%20on%20GitHub-333?style=for-the-badge&logo=github)](https://github.com/InterceptSuite/InterceptSuite)
-[![🐛 Report Issues](https://img.shields.io/badge/🐛%20Report%20Issues-red?style=for-the-badge&logo=github)](https://github.com/anof-cyber/InterceptSuite/issues)
 [![🚀 Get PRO Version](https://img.shields.io/badge/🚀%20Get%20PRO%20Version-FF6B35?style=for-the-badge)](https://interceptsuite.com)
-[![🦀 .NET Build](https://img.shields.io/badge/%20.NET%20Build-passing-brightgreen?style=for-the-badge&logo=github)](https://github.com/InterceptSuite/InterceptSuite/actions/workflows/Build-DotNet.yml)
-[![⚙️ C InterceptSuite Build](https://img.shields.io/badge/⚙️%20C%20InterceptSuite%20Build-passing-brightgreen?style=for-the-badge&logo=github)](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/Build-Lib.yml)
-[![🐧 Linux Release Build](https://img.shields.io/badge/🐧%20Linux%20Release%20Build-passing-brightgreen?style=for-the-badge&logo=github)](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/release-linux.yml)
-[![🍎 macOS Release Build](https://img.shields.io/badge/🍎%20macOS%20Release%20Build-passing-brightgreen?style=for-the-badge&logo=github)](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/release-macos.yml)
-[![🪟 Windows Release Build](https://img.shields.io/badge/🪟%20Windows%20Release%20Build-passing-brightgreen?style=for-the-badge&logo=github)](https://github.com/Anof-cyber/InterceptSuite/actions/workflows/release-windows.yml)
 [![📥 Downloads](https://img.shields.io/github/downloads/anof-cyber/InterceptSuite/total?style=for-the-badge&logo=github&logoColor=white)](https://github.com/anof-cyber/InterceptSuite/releases)
-[![📄 License](https://img.shields.io/github/license/anof-cyber/InterceptSuite?style=for-the-badge&logo=gnu&logoColor=white)](LICENSE)
 [![⭐ Stars](https://img.shields.io/github/stars/anof-cyber/InterceptSuite?style=for-the-badge&logo=github&logoColor=white)](https://github.com/anof-cyber/InterceptSuite)
-
 ![Platform Support](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-purple?style=for-the-badge&logo=windows&logoColor=white)
-![GUI](https://img.shields.io/badge/GUI-Avalonia%20.NET-9146FF?style=for-the-badge&logo=avalonia&logoColor=white)
 ![Documentation](https://img.shields.io/badge/📖%20Documentation-doc.interceptsuite.com-28a745?style=for-the-badge&logo=gitbook&logoColor=white)
 
 
