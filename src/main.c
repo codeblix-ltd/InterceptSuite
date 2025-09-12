@@ -83,6 +83,9 @@ static int initialize_library(void) {
 
   /* Initialize interception mutex */
   INIT_MUTEX(g_intercept_config.intercept_cs);
+  
+  /* Initialize packet ID mutex */
+  INIT_MUTEX(g_packet_id_mutex);
 
   /* Initialize network subsystem */
   #ifdef INTERCEPT_WINDOWS
@@ -113,6 +116,9 @@ static void cleanup_library(void) {
 
   /* Destroy interception mutex */
   DESTROY_MUTEX(g_intercept_config.intercept_cs);
+
+  /* Cleanup packet ID system */
+  cleanup_packet_id_system();
 
   /* Cleanup network subsystem */
   #ifdef INTERCEPT_WINDOWS

@@ -11,6 +11,7 @@
 #include "../tls/proxy/tls_utils.h"
 #include "../utils/utils.h"
 #include "../config/user_data.h"
+#include "../utils/packet_id.h"
 
 #ifdef INTERCEPT_WINDOWS
 #include <iphlpapi.h>
@@ -55,8 +56,17 @@ int is_port_available(const char* bind_addr, int port) {
   return (bind_result != SOCKET_OPTS_ERROR);
 }
 
+/* Initialize proxy components */
+static void init_proxy_components(void) {
+  /* Initialize packet ID mutex in proxy manager */
+  INIT_MUTEX(g_packet_id_mutex);
+}
+
 INTERCEPT_API proxy_start_result_t start_proxy(void) {
   proxy_start_result_t result = {0};
+  
+  /* Initialize proxy components including packet ID system */
+  init_proxy_components();
 
   if (!is_port_available(config.bind_addr, config.port)) {
     snprintf(result.message, sizeof(result.message),
@@ -204,6 +214,9 @@ INTERCEPT_API proxy_start_result_t start_proxy(void) {
 }
 
 INTERCEPT_API void stop_proxy(void) {
+  /* Cleanup packet ID system */
+  cleanup_packet_id_system();
+  
   /* Stop UDP relay server first */
   stop_udp_relay_server();
 

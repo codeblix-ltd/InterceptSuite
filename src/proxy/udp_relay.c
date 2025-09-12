@@ -10,6 +10,7 @@
 #include "../tls/proxy/tls_utils.h"
 #include "../proxy/interceptor/interceptor.h"
 #include <string.h>
+#include "../utils/packet_id.h"
 
 // Global UDP relay server instance
 static udp_relay_server_t g_udp_server = {0};
@@ -22,8 +23,7 @@ extern intercept_callback_t g_intercept_callback;
 extern intercept_data_t* g_active_intercepts[100];
 extern int g_intercept_count;
 
-// External packet ID counter
-extern int g_packet_id_counter;
+
 
 int start_udp_relay_server(const char* bind_addr, int port) {
     if (g_udp_server.thread_handle != 0) {
@@ -180,7 +180,7 @@ int handle_udp_packet(socket_t sock, struct sockaddr_in* client_addr,
 
     // Use connection_id = 0 for UDP (all UDP packets share this ID)
     int connection_id = 0;
-    int packet_id = ++g_packet_id_counter;
+    int packet_id = get_next_packet_id();
 
     // Determine message type using shared utility
     const char* message_type = detect_message_type((const unsigned char*)payload, payload_len);
@@ -362,7 +362,7 @@ int handle_udp_packet(socket_t sock, struct sockaddr_in* client_addr,
 
         if (received > 0) {
             // Get packet ID for response
-            int response_packet_id = ++g_packet_id_counter;
+            int response_packet_id = get_next_packet_id();
 
             // Determine response message type
             const char* response_message_type = detect_message_type((const unsigned char*)response_buffer, received);

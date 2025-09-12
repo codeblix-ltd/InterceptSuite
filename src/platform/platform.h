@@ -2,7 +2,7 @@
 #define PLATFORM_H
 
 /* Detect Windows if not explicitly defined */
-#if defined(_WIN32) || defined(_WIN64)
+#if !defined(INTERCEPT_WINDOWS) && (defined(_WIN32) || defined(_WIN64))
     #define INTERCEPT_WINDOWS
 #endif
 

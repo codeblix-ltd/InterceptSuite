@@ -272,13 +272,6 @@ void log_message(const char *format, ...) {
     }
 }
 
-/* Packet ID management */
-extern int g_packet_id_counter;
-
-int get_next_packet_id(void) {
-    return ++g_packet_id_counter;
-}
-
 /* Helper function for socket error descriptions */
 const char* get_socket_error_description(int error_code) {
 #ifdef INTERCEPT_WINDOWS

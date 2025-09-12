@@ -18,6 +18,7 @@
 #include "../../platform/platform.h"
 #include "tls_proxy_dll.h"
 #include "../../config/user_data.h"
+#include "../../utils/packet_id.h"
 
 
 

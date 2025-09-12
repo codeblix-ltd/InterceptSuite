@@ -120,6 +120,7 @@ add_library(Intercept SHARED
     src/proxy/interceptor/interceptor.c
     src/tls/cert/cert_export.c
     src/utils/utils.c
+    src/utils/packet_id.c
 )
 
 # Define BUILDING_INTERCEPT_LIB for proper export symbol visibility

@@ -18,6 +18,9 @@ extern "C" {
 /* Helper function to check if port is available */
 int is_port_available(const char* bind_addr, int port);
 
+/* Initialize proxy components */
+INTERCEPT_API void init_proxy_components(void);
+
 /* Start the proxy server */
 INTERCEPT_API proxy_start_result_t start_proxy(void);
 

@@ -26,4 +26,14 @@ INTERCEPT_API intercept_bool_t set_config(const char *bind_addr, int port, int v
 INTERCEPT_API proxy_config_t get_proxy_config(void);
 INTERCEPT_API int get_system_ips(char *buffer, int buffer_size);
 
+/* Safe string copy helper function */
+static void safe_strncpy(char* dest, size_t dest_size, const char* src) {
+#ifdef _MSC_VER
+    strncpy_s(dest, dest_size, src, _TRUNCATE);
+#else
+    strncpy(dest, src, dest_size - 1);
+    dest[dest_size - 1] = '\0';
+#endif
+}
+
 #endif /* UTILS_H */

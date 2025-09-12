@@ -11,6 +11,7 @@
 #include "tls_utils.h"
 
 #include "../cert/cert_utils.h"
+#include "../../utils/packet_id.h"
 
 #include "../../proxy/socks5.h"
 
@@ -44,8 +45,7 @@ extern int g_intercept_count;
 /* Global connection ID counter */
 static int g_connection_id_counter = 0;
 
-/* Each packet will have unique id*/
-static int g_packet_id_counter = 0;
+
 
 /*
  * Pretty print intercepted data in table format
@@ -176,7 +176,7 @@ void forward_data(SSL * src, SSL * dst,
     struct timeval tv;
     int ret;
     int activity_timeout = 0;
-    int packet_id = ++g_packet_id_counter;
+    int packet_id = get_next_packet_id();
 
     // Comprehensive parameter validation
     if (!src || !dst || !direction || !src_ip || !dst_ip) {
@@ -297,13 +297,13 @@ void forward_data(SSL * src, SSL * dst,
       // Check if we should intercept this data
       if (should_intercept_data(direction, connection_id)) {
         // Create intercept data structure
-        intercept_data_t intercept_data = {
-          0
-        };
+        intercept_data_t intercept_data;
+        memset(&intercept_data, 0, sizeof(intercept_data));
+        intercept_data.packet_id = get_next_packet_id();
         intercept_data.connection_id = connection_id;
-        strncpy(intercept_data.direction, direction, sizeof(intercept_data.direction) - 1);
-        strncpy(intercept_data.src_ip, src_ip, sizeof(intercept_data.src_ip) - 1);
-        strncpy(intercept_data.dst_ip, dst_ip, sizeof(intercept_data.dst_ip) - 1);
+        safe_strncpy(intercept_data.direction, sizeof(intercept_data.direction), direction);
+        safe_strncpy(intercept_data.src_ip, sizeof(intercept_data.src_ip), src_ip);
+        safe_strncpy(intercept_data.dst_ip, sizeof(intercept_data.dst_ip), dst_ip);
         intercept_data.dst_port = dst_port;
         intercept_data.data_length = len;
         intercept_data.is_waiting_for_response = 1;
@@ -438,7 +438,7 @@ void forward_data(SSL * src, SSL * dst,
         struct timeval tv;
         int ret;
         int activity_timeout = 0;
-        int packet_id = ++g_packet_id_counter;
+        int packet_id = get_next_packet_id();
 
         // Validate parameters
         if (src == INVALID_SOCKET || dst == INVALID_SOCKET || !direction || !src_ip || !dst_ip) {
@@ -495,55 +495,19 @@ void forward_data(SSL * src, SSL * dst,
                 log_message(status_msg);
               }
             } else { // Error
-              #ifdef INTERCEPT_WINDOWS
-              int error = GET_SOCKET_ERROR();
-              // Handle common Windows socket errors more gracefully
-              if (error == WSAECONNRESET) {
-                // Connection reset by peer - this is common and not always an error
+              if (config.verbose) {
                 char status_msg[256];
-                snprintf(status_msg, sizeof(status_msg), "TCP recv error (%s): %d", direction, error);
-                log_message(status_msg);
-                if (config.verbose) {
-                  log_message("Connection was reset by remote peer - this can happen during normal operation");
-                  log_message("Error details: %s", get_socket_error_description(error));
-                }
-              } else if (error == WSAECONNABORTED) {
-                char status_msg[256];
-                snprintf(status_msg, sizeof(status_msg), "TCP connection aborted (%s): %d", direction, error);
-                log_message(status_msg);
-                if (config.verbose) {
-                  log_message("Error details: %s", get_socket_error_description(error));
-                }
-              } else if (error == WSAENETDOWN || error == WSAENETUNREACH) {
-                char status_msg[256];
-                snprintf(status_msg, sizeof(status_msg), "TCP network error (%s): %d", direction, error);
-                log_message(status_msg);
-                if (config.verbose) {
-                  log_message("Error details: %s", get_socket_error_description(error));
-                }
-              } else {
-                // Other errors
-                char status_msg[256];
-                snprintf(status_msg, sizeof(status_msg), "TCP recv error (%s): %d", direction, error);
-                log_message(status_msg);
-                if (config.verbose) {
-                  log_message("Error details: %s", get_socket_error_description(error));
-                }
-              }
-              #else
-              if (errno == ECONNRESET) {
-                char status_msg[256];
-                snprintf(status_msg, sizeof(status_msg), "TCP connection reset (%s): %s", direction, strerror(errno));
-                log_message(status_msg);
-              } else {
-                char status_msg[256];
+                #ifdef INTERCEPT_WINDOWS
+                snprintf(status_msg, sizeof(status_msg), "TCP recv error (%s): %d", direction, GET_SOCKET_ERROR());
+                #else
                 snprintf(status_msg, sizeof(status_msg), "TCP recv error (%s): %s", direction, strerror(errno));
+                #endif
                 log_message(status_msg);
               }
-              #endif
             }
             break;
-          } // Print the intercepted data
+          }
+          // Print the intercepted data
           pretty_print_data(direction, buffer, len, src_ip, dst_ip, dst_port, connection_id, packet_id);
 
           // Check if we should intercept this data
@@ -642,50 +606,15 @@ void forward_data(SSL * src, SSL * dst,
             while (sent < len) {
               int written = send(dst, (char * ) buffer + sent, len - sent, 0);
               if (written <= 0) {
-                #ifdef INTERCEPT_WINDOWS
-                int error = GET_SOCKET_ERROR();
-                // Handle common Windows socket errors more gracefully  
-                if (error == WSAECONNRESET) {
+                if (config.verbose) {
                   char status_msg[256];
-                  snprintf(status_msg, sizeof(status_msg), "TCP send error (%s): %d", direction, error);
-                  log_message(status_msg);
-                  if (config.verbose) {
-                    log_message("Connection was reset by remote peer while sending data");
-                    log_message("Error details: %s", get_socket_error_description(error));
-                  }
-                } else if (error == WSAECONNABORTED) {
-                  char status_msg[256];
-                  snprintf(status_msg, sizeof(status_msg), "TCP connection aborted while sending (%s): %d", direction, error);
-                  log_message(status_msg);
-                  if (config.verbose) {
-                    log_message("Error details: %s", get_socket_error_description(error));
-                  }
-                } else if (error == WSAENETDOWN || error == WSAENETUNREACH) {
-                  char status_msg[256];
-                  snprintf(status_msg, sizeof(status_msg), "TCP network error while sending (%s): %d", direction, error);
-                  log_message(status_msg);
-                  if (config.verbose) {
-                    log_message("Error details: %s", get_socket_error_description(error));
-                  }
-                } else {
-                  char status_msg[256];
-                  snprintf(status_msg, sizeof(status_msg), "TCP send error (%s): %d", direction, error);
-                  log_message(status_msg);
-                  if (config.verbose) {
-                    log_message("Error details: %s", get_socket_error_description(error));
-                  }
-                }
-                #else
-                if (errno == ECONNRESET) {
-                  char status_msg[256];
-                  snprintf(status_msg, sizeof(status_msg), "TCP connection reset while sending (%s): %s", direction, strerror(errno));
-                  log_message(status_msg);
-                } else {
-                  char status_msg[256];
+                  #ifdef INTERCEPT_WINDOWS
+                  snprintf(status_msg, sizeof(status_msg), "TCP send error (%s): %d", direction, GET_SOCKET_ERROR());
+                  #else
                   snprintf(status_msg, sizeof(status_msg), "TCP send error (%s): %s", direction, strerror(errno));
+                  #endif
                   log_message(status_msg);
                 }
-                #endif
                 return;
               }
               sent += written;
@@ -761,7 +690,7 @@ void forward_data(SSL * src, SSL * dst,
           struct timeval tv;
           int ret;
           int activity_timeout = 0;
-          int packet_id = ++g_packet_id_counter;
+          int packet_id = get_next_packet_id();
 
           // Enhanced parameter validation
           if (!src || !dst || !src_ip || !dst_ip) {
@@ -1038,7 +967,7 @@ void forward_data(SSL * src, SSL * dst,
 
           if (!generate_cert_for_host(hostname_to_use, & new_cert, & new_key)) {
             log_message("SNI: Failed to generate certificate for %s", hostname_to_use);
-            
+
             // Try to fallback to using the CA certificate directly for IP addresses
             if (is_ip_address(hostname_to_use) && ca_cert && ca_key) {
               if (config.verbose) {
@@ -1351,7 +1280,7 @@ void forward_data(SSL * src, SSL * dst,
               // Check for specific error types and provide better context
               unsigned long error_reason = ERR_peek_last_error();
               int ssl_error = SSL_get_error(server_ssl, ret);
-              
+
               // Special handling for callback failures (often related to SNI/certificate issues)
               // Check by error string since the constant might not be available
               char error_str[256] = {0};
@@ -1363,7 +1292,7 @@ void forward_data(SSL * src, SSL * dst,
                   log_message("Certificate callback failed for hostname %s - check certificate generation", target_host);
                 }
               }
-              
+
               // Check if this is a certificate rejection that might be resolved
               if (ERR_GET_REASON(error_reason) == SSL_R_TLSV1_ALERT_BAD_CERTIFICATE ||
                   ERR_GET_REASON(error_reason) == SSL_R_CERTIFICATE_VERIFY_FAILED) {
@@ -1665,31 +1594,35 @@ void forward_data(SSL * src, SSL * dst,
           }
         }
 
+
         int wait_for_intercept_response(intercept_data_t * intercept_data) {
             if (!intercept_data || !intercept_data -> response_event) {
+              log_message("wait_for_intercept_response: Invalid data or event");
               return 0;
-            } // Wait for user response with a reasonable timeout (60 seconds)
-            #ifdef INTERCEPT_WINDOWS
-            DWORD wait_result = WAIT_EVENT(intercept_data -> response_event, 60000);
-            if (wait_result == WAIT_TIMEOUT) {
-              #else
-              int wait_result = WAIT_EVENT(intercept_data -> response_event, 60000);
-              if (wait_result != 0) { // Non-zero in POSIX typically means timeout or error
-                #endif
-                // Timeout - default to forwarding
-                intercept_data -> action = INTERCEPT_ACTION_FORWARD;
-                intercept_data -> is_waiting_for_response = 0;
-                if (g_status_callback) {
-                  log_message("Intercept timeout - data forwarded automatically");
-                }
-              }
-
-              #ifdef INTERCEPT_WINDOWS
-              return (wait_result == WAIT_OBJECT_0 || wait_result == WAIT_TIMEOUT);
-              #else
-              return (wait_result == 0 || wait_result != 0); // In POSIX, 0 is success
-              #endif
             }
+
+            log_message("wait_for_intercept_response: Starting infinite wait for packet %d", intercept_data->packet_id);
+
+            // Wait for user response indefinitely - no automatic forwarding
+            #ifdef INTERCEPT_WINDOWS
+            DWORD wait_result = WAIT_EVENT(intercept_data -> response_event, INFINITE);
+            log_message("wait_for_intercept_response: WAIT_EVENT returned %lu for packet %d", wait_result, intercept_data->packet_id);
+            // With infinite timeout, we only get WAIT_OBJECT_0 (success) or WAIT_FAILED (error)
+            #else
+            int wait_result = WAIT_EVENT(intercept_data -> response_event, -1); // -1 means infinite in POSIX
+            log_message("wait_for_intercept_response: WAIT_EVENT returned %d for packet %d", wait_result, intercept_data->packet_id);
+            #endif
+
+            #ifdef INTERCEPT_WINDOWS
+            int success = (wait_result == WAIT_OBJECT_0);
+            log_message("wait_for_intercept_response: Returning %d for packet %d (action: %d)", success, intercept_data->packet_id, intercept_data->action);
+            return success;
+            #else
+            int success = (wait_result == 0); // In POSIX, 0 is success
+            log_message("wait_for_intercept_response: Returning %d for packet %d (action: %d)", success, intercept_data->packet_id, intercept_data->action);
+            return success;
+            #endif
+        }
 
             /*
              * Helper function to log detailed TLS/SSL errors with context
@@ -1804,8 +1737,8 @@ void forward_data_with_alpn(SSL * src, SSL * dst,
         return;
     }
 
-    // Get packet ID
-    int packet_id = ++g_packet_id_counter;
+    // Get packet ID using thread-safe function
+    int packet_id = get_next_packet_id();
 
     // Process data with ALPN awareness
     process_alpn_data(src, buffer, bytes_read, direction, src_ip, dst_ip,
