@@ -57,7 +57,7 @@ int is_port_available(const char* bind_addr, int port) {
 }
 
 /* Initialize proxy components */
-static void init_proxy_components(void) {
+INTERCEPT_API void init_proxy_components(void) {
   /* Initialize packet ID mutex in proxy manager */
   INIT_MUTEX(g_packet_id_mutex);
 }
