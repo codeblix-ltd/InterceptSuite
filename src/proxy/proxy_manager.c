@@ -64,7 +64,7 @@ static void init_proxy_components(void) {
 
 INTERCEPT_API proxy_start_result_t start_proxy(void) {
   proxy_start_result_t result = {0};
-  
+
   /* Initialize proxy components including packet ID system */
   init_proxy_components();
 
@@ -216,7 +216,7 @@ INTERCEPT_API proxy_start_result_t start_proxy(void) {
 INTERCEPT_API void stop_proxy(void) {
   /* Cleanup packet ID system */
   cleanup_packet_id_system();
-  
+
   /* Stop UDP relay server first */
   stop_udp_relay_server();
 

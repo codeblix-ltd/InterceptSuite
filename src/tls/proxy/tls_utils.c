@@ -292,14 +292,15 @@ void forward_data(SSL * src, SSL * dst,
       }
 
       // Print the intercepted data
-      pretty_print_data(direction, buffer, len, src_ip, dst_ip, dst_port, connection_id, packet_id);
+      int current_packet_id = get_next_packet_id();
+      pretty_print_data(direction, buffer, len, src_ip, dst_ip, dst_port, connection_id, current_packet_id);
 
       // Check if we should intercept this data
       if (should_intercept_data(direction, connection_id)) {
         // Create intercept data structure
         intercept_data_t intercept_data;
         memset(&intercept_data, 0, sizeof(intercept_data));
-        intercept_data.packet_id = get_next_packet_id();
+        intercept_data.packet_id = current_packet_id;
         intercept_data.connection_id = connection_id;
         safe_strncpy(intercept_data.direction, sizeof(intercept_data.direction), direction);
         safe_strncpy(intercept_data.src_ip, sizeof(intercept_data.src_ip), src_ip);
@@ -341,7 +342,7 @@ void forward_data(SSL * src, SSL * dst,
           UNLOCK_MUTEX(g_intercept_config.intercept_cs);
 
           // Send data to GUI for interception
-          send_intercept_data(connection_id, direction, src_ip, dst_ip, dst_port, "TCP", buffer, len, packet_id);
+          send_intercept_data(connection_id, direction, src_ip, dst_ip, dst_port, "TCP", buffer, len, current_packet_id);
 
           // Wait for user response
           if (!wait_for_intercept_response( & intercept_data)) {
@@ -508,7 +509,8 @@ void forward_data(SSL * src, SSL * dst,
             break;
           }
           // Print the intercepted data
-          pretty_print_data(direction, buffer, len, src_ip, dst_ip, dst_port, connection_id, packet_id);
+          int current_packet_id = get_next_packet_id();
+          pretty_print_data(direction, buffer, len, src_ip, dst_ip, dst_port, connection_id, current_packet_id);
 
           // Check if we should intercept this data
           if (should_intercept_data(direction, connection_id)) {
@@ -517,6 +519,7 @@ void forward_data(SSL * src, SSL * dst,
               0
             };
             intercept_data.connection_id = connection_id;
+            intercept_data.packet_id = current_packet_id;
             strncpy(intercept_data.direction, direction, sizeof(intercept_data.direction) - 1);
             strncpy(intercept_data.src_ip, src_ip, sizeof(intercept_data.src_ip) - 1);
             strncpy(intercept_data.dst_ip, dst_ip, sizeof(intercept_data.dst_ip) - 1);
@@ -557,7 +560,7 @@ void forward_data(SSL * src, SSL * dst,
               UNLOCK_MUTEX(g_intercept_config.intercept_cs);
 
               // Send data to GUI for interception
-              send_intercept_data(connection_id, direction, src_ip, dst_ip, dst_port, "TCP", buffer, len, packet_id);
+              send_intercept_data(connection_id, direction, src_ip, dst_ip, dst_port, "TCP", buffer, len, current_packet_id);
 
               // Wait for user response
               if (!wait_for_intercept_response( & intercept_data)) {
