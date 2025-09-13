@@ -117,6 +117,7 @@ add_library(Intercept SHARED
     src/proxy/proxy_manager.c
     src/proxy/socks5.c
     src/proxy/udp_relay.c
+    src/proxy/upstream_proxy.c
     src/proxy/interceptor/interceptor.c
     src/tls/cert/cert_export.c
     src/utils/utils.c

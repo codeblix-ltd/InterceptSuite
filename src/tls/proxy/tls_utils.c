@@ -15,6 +15,8 @@
 
 #include "../../proxy/socks5.h"
 
+#include "../../proxy/upstream_proxy.h"
+
 #include "../../utils/utils.h"
 
 #include "tls_proxy_dll.h"
@@ -1126,67 +1128,86 @@ void forward_data(SSL * src, SSL * dst,
           send_connection_notification(client_ip, ntohs(client -> client_addr.sin_port), target_host, target_port, connection_id);
 
           // Connect to the real server before deciding protocol type
-          server_sock = socket(AF_INET, SOCK_STREAM, 0);
-          if (server_sock == SOCKET_ERROR_VAL) {
-            #ifdef INTERCEPT_WINDOWS
-            log_message("Failed to create socket for server connection: %d\n", GET_SOCKET_ERROR());
-            #else
-            log_message("Failed to create socket for server connection: %s\n", strerror(errno));
-            #endif
-            goto cleanup;
-          } // Set server socket options
-          #ifdef INTERCEPT_WINDOWS
-          DWORD server_timeout = 60000; // 60 seconds timeout in milliseconds for Windows
-          #else
-          struct timeval server_timeout;
-          server_timeout.tv_sec = 60; // 60 seconds for POSIX
-          server_timeout.tv_usec = 0;
-          #endif
-          if (setsockopt(server_sock, SOL_SOCKET, SO_RCVTIMEO, (const char * ) & server_timeout, sizeof(server_timeout)) != 0 ||
-            setsockopt(server_sock, SOL_SOCKET, SO_SNDTIMEO, (const char * ) & server_timeout, sizeof(server_timeout)) != 0) {
-            if (config.verbose) {
-              #ifdef INTERCEPT_WINDOWS
-              log_message("Warning: Failed to set server socket timeout: %d\n", GET_SOCKET_ERROR());
-              #else
-              log_message("Warning: Failed to set server socket timeout: %s\n", strerror(errno));
-              #endif
+          // Check if we should use upstream proxy
+          if (should_use_upstream_proxy(target_host, target_port)) {
+            server_sock = connect_through_upstream_proxy(target_host, target_port);
+            if (server_sock == INVALID_SOCKET) {
+              log_message("Failed to connect through upstream proxy to %s:%d", target_host, target_port);
+              goto cleanup;
             }
-          }
 
-          // Resolve hostname
-          struct hostent * host = gethostbyname(target_host);
-          if (!host) {
-            log_message("Failed to resolve hostname %s: %d\n", target_host, GET_SOCKET_ERROR());
-            goto cleanup;
-          }
+            // Get server IP as string for upstream proxy connection
+            snprintf(server_ip, MAX_IP_ADDR_LEN, "%s", target_host);
 
-          struct sockaddr_in server_addr;
-          memset( & server_addr, 0, sizeof(server_addr));
-          server_addr.sin_family = AF_INET;
-          memcpy( & server_addr.sin_addr.s_addr, host -> h_addr, host -> h_length);
-          server_addr.sin_port = htons(target_port);
+            if (config.verbose) {
+              log_message("Successfully connected through upstream proxy to %s:%d", target_host, target_port);
+            }
+          } else {
+            // Direct connection (existing logic)
+            server_sock = socket(AF_INET, SOCK_STREAM, 0);
+            if (server_sock == SOCKET_ERROR_VAL) {
+              #ifdef INTERCEPT_WINDOWS
+              log_message("Failed to create socket for server connection: %d\n", GET_SOCKET_ERROR());
+              #else
+              log_message("Failed to create socket for server connection: %s\n", strerror(errno));
+              #endif
+              goto cleanup;
+            }
 
-          // Get server IP as string
-          inet_ntop(AF_INET, & (server_addr.sin_addr), server_ip, MAX_IP_ADDR_LEN);
-
-          // Log connection attempt
-          log_message("Connecting to server %s (%s):%d", target_host, server_ip, target_port);
-          ret = connect(server_sock, (struct sockaddr * ) & server_addr, sizeof(server_addr));
-          if (ret == SOCKET_OPTS_ERROR) {
+            // Set server socket options for direct connection
             #ifdef INTERCEPT_WINDOWS
-            int error = GET_SOCKET_ERROR();
+            DWORD server_timeout = 60000; // 60 seconds timeout in milliseconds for Windows
             #else
-            int error = errno;
+            struct timeval server_timeout;
+            server_timeout.tv_sec = 60; // 60 seconds for POSIX
+            server_timeout.tv_usec = 0;
             #endif
-            log_message("Failed to connect to server %s:%d: %d\n",
-              target_host, target_port, error);
-            log_message("Connection to %s:%d failed with error %d", target_host, target_port, error);
-            goto cleanup;
-          }
+            if (setsockopt(server_sock, SOL_SOCKET, SO_RCVTIMEO, (const char * ) & server_timeout, sizeof(server_timeout)) != 0 ||
+              setsockopt(server_sock, SOL_SOCKET, SO_SNDTIMEO, (const char * ) & server_timeout, sizeof(server_timeout)) != 0) {
+              if (config.verbose) {
+                #ifdef INTERCEPT_WINDOWS
+                log_message("Warning: Failed to set server socket timeout: %d\n", GET_SOCKET_ERROR());
+                #else
+                log_message("Warning: Failed to set server socket timeout: %s\n", strerror(errno));
+                #endif
+              }
+            }
 
-          // Log successful connection establishment
-          if (config.verbose) {
-            log_message("Successfully connected to server %s:%d", target_host, target_port);
+            // Resolve hostname for direct connection
+            struct hostent * host = gethostbyname(target_host);
+            if (!host) {
+              log_message("Failed to resolve hostname %s: %d\n", target_host, GET_SOCKET_ERROR());
+              goto cleanup;
+            }
+
+            struct sockaddr_in server_addr;
+            memset( & server_addr, 0, sizeof(server_addr));
+            server_addr.sin_family = AF_INET;
+            memcpy( & server_addr.sin_addr.s_addr, host -> h_addr, host -> h_length);
+            server_addr.sin_port = htons(target_port);
+
+            // Get server IP as string
+            inet_ntop(AF_INET, & (server_addr.sin_addr), server_ip, MAX_IP_ADDR_LEN);
+
+            // Log connection attempt
+            log_message("Connecting to server %s (%s):%d", target_host, server_ip, target_port);
+            ret = connect(server_sock, (struct sockaddr * ) & server_addr, sizeof(server_addr));
+            if (ret == SOCKET_OPTS_ERROR) {
+              #ifdef INTERCEPT_WINDOWS
+              int error = GET_SOCKET_ERROR();
+              #else
+              int error = errno;
+              #endif
+              log_message("Failed to connect to server %s:%d: %d\n",
+                target_host, target_port, error);
+              log_message("Connection to %s:%d failed with error %d", target_host, target_port, error);
+              goto cleanup;
+            }
+
+            // Log successful connection establishment
+            if (config.verbose) {
+              log_message("Successfully connected to server %s:%d", target_host, target_port);
+            }
           }
 
           // Set TCP_NODELAY for better performance

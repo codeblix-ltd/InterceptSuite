@@ -258,6 +258,7 @@ namespace InterceptSuite.ViewModels
             RegenerateCertificateCommand = new RelayCommand(RegenerateCertificate);
             CancelExportCommand = new RelayCommand(CancelExport);
             ConfirmExportCommand = new RelayCommand(ConfirmExport);
+            ToggleUpstreamProxyCommand = new RelayCommand(ToggleUpstreamProxy);
 
             ToggleInterceptCommand = new RelayCommand(ToggleIntercept);
             ForwardPacketCommand = new RelayCommand<InterceptEntry>(ForwardPacket);
@@ -291,6 +292,7 @@ namespace InterceptSuite.ViewModels
 
                 LoadSystemIpAddresses();
                 LoadProxyConfiguration();
+                UpdateUpstreamProxyButtonState();
 
                 AutoStartProxyAsync();
                 ApplySearchFilter();
@@ -489,6 +491,360 @@ namespace InterceptSuite.ViewModels
         [ObservableProperty]
         private bool _isProxyConfigLoaded = false;
 
+        // Upstream Proxy Configuration Properties
+        private bool _useUpstreamProxy = false;
+        public bool UseUpstreamProxy
+        {
+            get => _useUpstreamProxy;
+            set
+            {
+                if (_useUpstreamProxy != value)
+                {
+                    if (value)
+                    {
+                        // Validate configuration before enabling
+                        if (!ValidateUpstreamProxyConfiguration())
+                        {
+                            // Don't change the property if validation fails
+                            return;
+                        }
+                        // Clear validation message on successful enable
+                        UpstreamProxyValidationMessage = string.Empty;
+                        IsUpstreamProxyValidationVisible = false;
+
+                        _useUpstreamProxy = value;
+                        OnPropertyChanged();
+
+                        // Enable upstream proxy in native library
+                        EnableUpstreamProxy();
+                    }
+                    else
+                    {
+                        _useUpstreamProxy = value;
+                        OnPropertyChanged();
+
+                        // Clear validation message when disabled
+                        UpstreamProxyValidationMessage = string.Empty;
+                        IsUpstreamProxyValidationVisible = false;
+
+                        // Disable upstream proxy in native library
+                        DisableUpstreamProxy();
+                    }
+                }
+            }
+        }
+
+        [ObservableProperty]
+        private string _upstreamProxyType = "HTTP"; // HTTP or SOCKS5
+
+        [ObservableProperty]
+        private string _upstreamProxyHost = "127.0.0.1";
+
+        [ObservableProperty]
+        private string _upstreamProxyPort = "8080";
+
+        [ObservableProperty]
+        private bool _upstreamProxyAuthentication = false;
+
+        [ObservableProperty]
+        private string _upstreamProxyUsername = string.Empty;
+
+        [ObservableProperty]
+        private string _upstreamProxyPassword = string.Empty;
+
+        [ObservableProperty]
+        private string _upstreamProxyValidationMessage = string.Empty;
+
+        [ObservableProperty]
+        private bool _isUpstreamProxyValidationVisible = false;
+
+        // Upstream Proxy Button Properties
+        [ObservableProperty]
+        private string _upstreamProxyButtonText = "Start Upstream Proxy";
+
+        [ObservableProperty]
+        private string _upstreamProxyButtonColor = "#28A745"; // Green for start
+
+        // Proxy type options for ComboBox
+        public ObservableCollection<string> ProxyTypes { get; } = new() { "HTTP", "SOCKS5" };
+
+        // Handle upstream proxy enable/disable with validation
+        partial void OnUpstreamProxyTypeChanged(string value)
+        {
+            if (UseUpstreamProxy)
+            {
+                ApplyUpstreamProxyConfigurationLive();
+            }
+        }
+
+        partial void OnUpstreamProxyHostChanged(string value)
+        {
+            if (UseUpstreamProxy)
+            {
+                ApplyUpstreamProxyConfigurationLive();
+            }
+        }
+
+        partial void OnUpstreamProxyPortChanged(string value)
+        {
+            if (UseUpstreamProxy)
+            {
+                ApplyUpstreamProxyConfigurationLive();
+            }
+        }
+
+        partial void OnUpstreamProxyAuthenticationChanged(bool value)
+        {
+            if (UseUpstreamProxy)
+            {
+                ApplyUpstreamProxyConfigurationLive();
+            }
+        }
+
+        partial void OnUpstreamProxyUsernameChanged(string value)
+        {
+            if (UseUpstreamProxy)
+            {
+                ApplyUpstreamProxyConfigurationLive();
+            }
+        }
+
+        partial void OnUpstreamProxyPasswordChanged(string value)
+        {
+            if (UseUpstreamProxy)
+            {
+                ApplyUpstreamProxyConfigurationLive();
+            }
+        }
+
+        private void ApplyUpstreamProxyConfigurationLive()
+        {
+            try
+            {
+                // Small delay to prevent rapid updates during typing
+                Task.Delay(500).ContinueWith(async _ =>
+                {
+                    await Dispatcher.UIThread.InvokeAsync(() =>
+                    {
+                        if (UseUpstreamProxy && ValidateUpstreamProxyConfiguration())
+                        {
+                            EnableUpstreamProxy();
+                        }
+                    });
+                });
+            }
+            catch (Exception ex)
+            {
+                AddLogMessage($"ERROR: Exception in live config update: {ex.Message}");
+            }
+        }
+
+        private bool ValidateUpstreamProxyConfiguration()
+        {
+            // Clear previous validation message
+            UpstreamProxyValidationMessage = string.Empty;
+            IsUpstreamProxyValidationVisible = false;
+
+            // Debug: Log the current proxy type value
+            AddLogMessage($"DEBUG: Validating proxy type: '{UpstreamProxyType}' (length: {UpstreamProxyType?.Length ?? -1})");
+
+            // Validate host
+            if (string.IsNullOrWhiteSpace(UpstreamProxyHost))
+            {
+                UpstreamProxyValidationMessage = "Host cannot be empty";
+                IsUpstreamProxyValidationVisible = true;
+                return false;
+            }
+
+            // Validate port
+            if (!int.TryParse(UpstreamProxyPort, out int port) || port <= 0 || port > 65535)
+            {
+                UpstreamProxyValidationMessage = "Invalid port. Must be between 1 and 65535";
+                IsUpstreamProxyValidationVisible = true;
+                return false;
+            }
+
+            // Validate proxy type
+            if (string.IsNullOrWhiteSpace(UpstreamProxyType) || (UpstreamProxyType != "HTTP" && UpstreamProxyType != "SOCKS5"))
+            {
+                UpstreamProxyValidationMessage = $"Invalid proxy type. Must be HTTP or SOCKS5";
+                IsUpstreamProxyValidationVisible = true;
+                return false;
+            }
+
+            // Validate authentication if enabled
+            if (UpstreamProxyAuthentication)
+            {
+                if (string.IsNullOrWhiteSpace(UpstreamProxyUsername))
+                {
+                    UpstreamProxyValidationMessage = "Username cannot be empty when authentication is enabled";
+                    IsUpstreamProxyValidationVisible = true;
+                    return false;
+                }
+                if (string.IsNullOrWhiteSpace(UpstreamProxyPassword))
+                {
+                    UpstreamProxyValidationMessage = "Password cannot be empty when authentication is enabled";
+                    IsUpstreamProxyValidationVisible = true;
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private void EnableUpstreamProxy()
+        {
+            try
+            {
+                if (_nativeLibrary == null)
+                {
+                    AddLogMessage("ERROR: Native library not initialized, cannot enable upstream proxy");
+                    return;
+                }
+
+                int proxyType = UpstreamProxyType == "SOCKS5" ? 2 : 1; // 1 = HTTP, 2 = SOCKS5
+                int port = int.Parse(UpstreamProxyPort);
+
+                // Configure the upstream proxy
+                bool success = _nativeLibrary.ConfigureUpstreamProxy(
+                    proxyType,
+                    UpstreamProxyHost,
+                    port,
+                    UpstreamProxyAuthentication ? UpstreamProxyUsername : string.Empty,
+                    UpstreamProxyAuthentication ? UpstreamProxyPassword : string.Empty
+                );
+
+                if (success)
+                {
+                    // Enable the upstream proxy
+                    _nativeLibrary.SetUpstreamProxyEnabled(true);
+                    _useUpstreamProxy = true;
+                    OnPropertyChanged(nameof(UseUpstreamProxy));
+                    UpdateUpstreamProxyButtonState();
+                    AddLogMessage($"✓ Upstream proxy enabled: {UpstreamProxyType} {UpstreamProxyHost}:{port}");
+                }
+                else
+                {
+                    AddLogMessage("ERROR: Failed to configure upstream proxy");
+                    _useUpstreamProxy = false;
+                    OnPropertyChanged(nameof(UseUpstreamProxy));
+                    UpdateUpstreamProxyButtonState();
+                }
+            }
+            catch (Exception ex)
+            {
+                AddLogMessage($"ERROR: Exception enabling upstream proxy: {ex.Message}");
+                _useUpstreamProxy = false;
+                OnPropertyChanged(nameof(UseUpstreamProxy));
+                UpdateUpstreamProxyButtonState();
+            }
+        }
+
+        private void DisableUpstreamProxy()
+        {
+            try
+            {
+                if (_nativeLibrary == null)
+                {
+                    AddLogMessage("WARNING: Native library not initialized");
+                    return;
+                }
+
+                _nativeLibrary.SetUpstreamProxyEnabled(false);
+                _useUpstreamProxy = false;
+                OnPropertyChanged(nameof(UseUpstreamProxy));
+                UpdateUpstreamProxyButtonState();
+                AddLogMessage("✓ Upstream proxy disabled");
+            }
+            catch (Exception ex)
+            {
+                AddLogMessage($"WARNING: Exception disabling upstream proxy: {ex.Message}");
+            }
+        }
+
+        private void ToggleUpstreamProxy()
+        {
+            if (UseUpstreamProxy)
+            {
+                // Clear validation message when disabling
+                UpstreamProxyValidationMessage = string.Empty;
+                IsUpstreamProxyValidationVisible = false;
+                DisableUpstreamProxy();
+            }
+            else
+            {
+                // Validate configuration before enabling
+                if (!ValidateUpstreamProxyConfiguration())
+                {
+                    // Validation failed, button state remains unchanged
+                    return;
+                }
+                // Clear validation message on successful enable
+                UpstreamProxyValidationMessage = string.Empty;
+                IsUpstreamProxyValidationVisible = false;
+                EnableUpstreamProxy();
+            }
+        }
+
+        private void UpdateUpstreamProxyButtonState()
+        {
+            if (UseUpstreamProxy)
+            {
+                UpstreamProxyButtonText = "Stop Upstream Proxy";
+                UpstreamProxyButtonColor = "#DC3545"; // Red for stop
+            }
+            else
+            {
+                UpstreamProxyButtonText = "Start Upstream Proxy";
+                UpstreamProxyButtonColor = "#28A745"; // Green for start
+            }
+        }
+
+        private async Task ApplyUpstreamProxyConfigurationAsync()
+        {
+            try
+            {
+                if (_nativeLibrary == null)
+                {
+                    AddLogMessage("WARNING: Native library not initialized");
+                    return;
+                }
+
+                // Apply upstream proxy configuration
+                if (!int.TryParse(UpstreamProxyPort, out int port))
+                {
+                    AddLogMessage("ERROR: Invalid upstream proxy port during reapplication");
+                    return;
+                }
+
+                int proxyType = UpstreamProxyType == "SOCKS5" ? 2 : 1; // 1=HTTP, 2=SOCKS5
+
+                bool success = _nativeLibrary.ConfigureUpstreamProxy(
+                    proxyType,
+                    UpstreamProxyHost,
+                    port,
+                    UpstreamProxyAuthentication ? UpstreamProxyUsername ?? string.Empty : string.Empty,
+                    UpstreamProxyAuthentication ? UpstreamProxyPassword ?? string.Empty : string.Empty
+                );
+
+                if (success)
+                {
+                    _nativeLibrary.SetUpstreamProxyEnabled(true);
+                    AddLogMessage("✓ Upstream proxy configuration reapplied after proxy restart");
+                }
+                else
+                {
+                    AddLogMessage("ERROR: Failed to reapply upstream proxy configuration after restart");
+                    UseUpstreamProxy = false;
+                }
+            }
+            catch (Exception ex)
+            {
+                AddLogMessage($"ERROR: Exception reapplying upstream proxy configuration: {ex.Message}");
+                UseUpstreamProxy = false;
+            }
+        }
+
         // Export Certificate Dialog Properties
         [ObservableProperty]
         private bool _isExportDialogVisible = false;
@@ -506,6 +862,11 @@ namespace InterceptSuite.ViewModels
         /// Toggle proxy command
         /// </summary>
         public ICommand ToggleProxyCommand { get; }
+
+        /// <summary>
+        /// Toggle upstream proxy command
+        /// </summary>
+        public ICommand ToggleUpstreamProxyCommand { get; }
 
         /// <summary>
         /// Refresh interfaces command
@@ -1100,6 +1461,46 @@ namespace InterceptSuite.ViewModels
                 ListenPort = config.port.ToString();
                 VerboseMode = config.verbose_mode;
 
+                // Load upstream proxy configuration
+                try
+                {
+                    var upstreamStatus = _nativeLibrary.GetUpstreamProxyStatus();
+                    if (upstreamStatus.HasValue)
+                    {
+                        var upstream = upstreamStatus.Value;
+                        UseUpstreamProxy = upstream.enabled;
+                        UpstreamProxyHost = upstream.host ?? "127.0.0.1";
+                        UpstreamProxyPort = upstream.port.ToString();
+                        UpstreamProxyType = upstream.type == 2 ? "SOCKS5" : "HTTP"; // 1=HTTP, 2=SOCKS5
+                        UpstreamProxyAuthentication = upstream.use_auth;
+                        UpstreamProxyUsername = upstream.username ?? string.Empty;
+                        UpstreamProxyPassword = string.Empty; // Password not retrieved for security
+                    }
+                    else
+                    {
+                        // Set defaults if status is null
+                        UseUpstreamProxy = false;
+                        UpstreamProxyHost = "127.0.0.1";
+                        UpstreamProxyPort = "8080";
+                        UpstreamProxyType = "HTTP";
+                        UpstreamProxyAuthentication = false;
+                        UpstreamProxyUsername = string.Empty;
+                        UpstreamProxyPassword = string.Empty;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    AddLogMessage($"Warning: Could not load upstream proxy configuration: {ex.Message}");
+                    // Use defaults for upstream proxy
+                    UseUpstreamProxy = false;
+                    UpstreamProxyHost = "127.0.0.1";
+                    UpstreamProxyPort = "8080";
+                    UpstreamProxyType = "HTTP";
+                    UpstreamProxyAuthentication = false;
+                    UpstreamProxyUsername = string.Empty;
+                    UpstreamProxyPassword = string.Empty;
+                }
+
                 IsProxyConfigLoaded = true;
 
                 // Update proxy running state
@@ -1118,6 +1519,15 @@ namespace InterceptSuite.ViewModels
         {
             ListenPort = "4444";
             VerboseMode = true;
+
+            // Set default upstream proxy values
+            UseUpstreamProxy = false;
+            UpstreamProxyType = "HTTP";
+            UpstreamProxyHost = "127.0.0.1";
+            UpstreamProxyPort = "8080";
+            UpstreamProxyAuthentication = false;
+            UpstreamProxyUsername = string.Empty;
+            UpstreamProxyPassword = string.Empty;
 
             IsProxyConfigLoaded = false;
             AddLogMessage("Using default proxy configuration");
@@ -1171,10 +1581,75 @@ namespace InterceptSuite.ViewModels
                 // Call the native set_config function
                 bool success = _nativeLibrary.SetConfig(bindAddr, port, VerboseMode);
 
+                // Configure upstream proxy settings
+                if (success)
+                {
+                    try
+                    {
+                        // Parse upstream proxy type
+                        int proxyType = UpstreamProxyType switch
+                        {
+                            "HTTP" => 1,
+                            "SOCKS5" => 2,
+                            _ => 0 // None
+                        };
+
+                        // Configure upstream proxy if enabled
+                        if (UseUpstreamProxy)
+                        {
+                            if (!int.TryParse(UpstreamProxyPort, out int upstreamPort) || upstreamPort <= 0 || upstreamPort > 65535)
+                            {
+                                AddLogMessage("ERROR: Invalid upstream proxy port number. Using default port 8080.");
+                                upstreamPort = 8080;
+                            }
+
+                            string username = UpstreamProxyAuthentication ? UpstreamProxyUsername : string.Empty;
+                            string password = UpstreamProxyAuthentication ? UpstreamProxyPassword : string.Empty;
+
+                            bool upstreamSuccess = _nativeLibrary.ConfigureUpstreamProxy(
+                                proxyType,
+                                UpstreamProxyHost,
+                                upstreamPort,
+                                username,
+                                password
+                            );
+
+                            if (upstreamSuccess)
+                            {
+                                AddLogMessage($"✓ Upstream proxy configured: {UpstreamProxyType} {UpstreamProxyHost}:{upstreamPort}");
+                            }
+                            else
+                            {
+                                AddLogMessage("⚠ WARNING: Failed to configure upstream proxy");
+                            }
+
+                            _nativeLibrary.SetUpstreamProxyEnabled(true);
+                        }
+                        else
+                        {
+                            _nativeLibrary.SetUpstreamProxyEnabled(false);
+                            AddLogMessage("Upstream proxy disabled");
+                        }
+                    }
+                    catch (Exception upstreamEx)
+                    {
+                        AddLogMessage($"Error configuring upstream proxy: {upstreamEx.Message}");
+                    }
+                }
+
                 if (success)
                 {
                     if (needsRestart)
                     {
+                        // Store current upstream proxy settings before restart
+                        var preserveUpstreamProxy = UseUpstreamProxy;
+                        var preserveUpstreamType = UpstreamProxyType;
+                        var preserveUpstreamHost = UpstreamProxyHost;
+                        var preserveUpstreamPort = UpstreamProxyPort;
+                        var preserveUpstreamAuth = UpstreamProxyAuthentication;
+                        var preserveUpstreamUsername = UpstreamProxyUsername;
+                        var preserveUpstreamPassword = UpstreamProxyPassword;
+
                         AddLogMessage("Restarting proxy to apply IP/port changes...");
                         ProxyStatusMessage = "Restarting proxy for new settings...";
 
@@ -1200,6 +1675,21 @@ namespace InterceptSuite.ViewModels
                                     IsProxyRunning = true;
                                     UpdateProxyButtonState();
                                     ProxyStatusMessage = $"✓ Proxy restarted: {startResult.message}";
+
+                                    // Restore upstream proxy settings after restart
+                                    UseUpstreamProxy = preserveUpstreamProxy;
+                                    UpstreamProxyType = preserveUpstreamType;
+                                    UpstreamProxyHost = preserveUpstreamHost;
+                                    UpstreamProxyPort = preserveUpstreamPort;
+                                    UpstreamProxyAuthentication = preserveUpstreamAuth;
+                                    UpstreamProxyUsername = preserveUpstreamUsername;
+                                    UpstreamProxyPassword = preserveUpstreamPassword;
+
+                                    // Reapply upstream proxy configuration if it was enabled
+                                    if (preserveUpstreamProxy)
+                                    {
+                                        await ApplyUpstreamProxyConfigurationAsync();
+                                    }
                                 }
                                 else
                                 {
@@ -1218,8 +1708,11 @@ namespace InterceptSuite.ViewModels
                             LoadProxyConfiguration();
                         }
                     }
-                    // Reload configuration to update UI with actual values from DLL
-                    LoadProxyConfiguration();
+                    else
+                    {
+                        // No restart needed, just reload configuration
+                        LoadProxyConfiguration();
+                    }
                 }
                 else
                 {

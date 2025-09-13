@@ -116,6 +116,33 @@ INTERCEPT_API intercept_bool_t export_certificate(const char* output_directory, 
 /* Certificate regeneration function */
 INTERCEPT_API intercept_bool_t regenerate_ca_certificate_wrapper(void);
 
+/* Upstream proxy configuration functions */
+INTERCEPT_API void set_upstream_proxy_enabled(int enabled);
+INTERCEPT_API void set_upstream_proxy_type(int type); /* 0=None, 1=HTTP, 2=SOCKS5 */
+INTERCEPT_API void set_upstream_proxy_host(const char* host);
+INTERCEPT_API void set_upstream_proxy_port(int port);
+INTERCEPT_API void set_upstream_proxy_auth(const char* username, const char* password);
+INTERCEPT_API void disable_upstream_proxy_auth(void);
+INTERCEPT_API int configure_upstream_proxy(int type, const char* host, int port, const char* username, const char* password);
+
+/* Upstream proxy status */
+typedef struct {
+    int enabled;              /* Upstream proxy enabled (1) or disabled (0) */
+    int type;                 /* Proxy type: None (0), HTTP (1), SOCKS5 (2) */
+    char host[256];           /* Proxy host */
+    int port;                 /* Proxy port */
+    int use_auth;             /* Authentication enabled (1) or disabled (0) */
+    char username[128];       /* Username (if auth enabled) */
+} upstream_proxy_status_t;
+
+INTERCEPT_API upstream_proxy_status_t get_upstream_proxy_status(void);
+
+/* Upstream proxy UDP support (SOCKS5 only) */
+INTERCEPT_API int setup_upstream_proxy_udp(int* control_sock_out, char* relay_ip_out, int* relay_port_out);
+INTERCEPT_API int send_udp_via_upstream_proxy(int udp_sock, const char* relay_ip, int relay_port,
+                                             const char* target_host, int target_port,
+                                             const unsigned char* data, int data_len);
+
 #ifdef __cplusplus
 }
 #endif

@@ -31,6 +31,26 @@ namespace InterceptSuite.NativeInterop
         public string message;
     }
 
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
+    public struct UpstreamProxyStatus
+    {
+        [MarshalAs(UnmanagedType.Bool)]
+        public bool enabled;
+
+        public int type; // 0=None, 1=HTTP, 2=SOCKS5
+
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)]
+        public string host;
+
+        public int port;
+
+        [MarshalAs(UnmanagedType.Bool)]
+        public bool use_auth;
+
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
+        public string username;
+    }
+
     public class NativeLibrary
     {
         private static NativeLibrary? _instance;
@@ -118,6 +138,31 @@ namespace InterceptSuite.NativeInterop
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate void SetInterceptCallbackDelegate(InterceptCallbackDelegate callback);
 
+        // Upstream proxy function delegates
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate void SetUpstreamProxyEnabledDelegate(int enabled);
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate void SetUpstreamProxyTypeDelegate(int type);
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate void SetUpstreamProxyHostDelegate(string host);
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate void SetUpstreamProxyPortDelegate(int port);
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate void SetUpstreamProxyAuthDelegate(string username, string password);
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate void DisableUpstreamProxyAuthDelegate();
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate int ConfigureUpstreamProxyDelegate(int type, string host, int port, string username, string password);
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate UpstreamProxyStatus GetUpstreamProxyStatusDelegate();
+
         // Function pointers
         private StartProxyDelegate? _startProxy;
         private StopProxyDelegate? _stopProxy;
@@ -133,6 +178,16 @@ namespace InterceptSuite.NativeInterop
         private SetInterceptEnabledDelegate? _setInterceptEnabled;
         private SetInterceptDirectionDelegate? _setInterceptDirection;
         private RespondToInterceptDelegate? _respondToIntercept;
+
+        // Upstream proxy function pointers
+        private SetUpstreamProxyEnabledDelegate? _setUpstreamProxyEnabled;
+        private SetUpstreamProxyTypeDelegate? _setUpstreamProxyType;
+        private SetUpstreamProxyHostDelegate? _setUpstreamProxyHost;
+        private SetUpstreamProxyPortDelegate? _setUpstreamProxyPort;
+        private SetUpstreamProxyAuthDelegate? _setUpstreamProxyAuth;
+        private DisableUpstreamProxyAuthDelegate? _disableUpstreamProxyAuth;
+        private ConfigureUpstreamProxyDelegate? _configureUpstreamProxy;
+        private GetUpstreamProxyStatusDelegate? _getUpstreamProxyStatus;
 
         // Private constructor (singleton pattern)
         private NativeLibrary()
@@ -386,6 +441,55 @@ namespace InterceptSuite.NativeInterop
                 else
                 {
                     LogReceived?.Invoke(this, "WARNING: respond_to_intercept function not found in library");
+                }
+
+                // Get function pointers for upstream proxy functions
+                IntPtr setUpstreamProxyEnabledPtr = GetNativeProcAddress(_libraryHandle, "set_upstream_proxy_enabled");
+                if (setUpstreamProxyEnabledPtr != IntPtr.Zero)
+                {
+                    _setUpstreamProxyEnabled = Marshal.GetDelegateForFunctionPointer<SetUpstreamProxyEnabledDelegate>(setUpstreamProxyEnabledPtr);
+                }
+
+                IntPtr setUpstreamProxyTypePtr = GetNativeProcAddress(_libraryHandle, "set_upstream_proxy_type");
+                if (setUpstreamProxyTypePtr != IntPtr.Zero)
+                {
+                    _setUpstreamProxyType = Marshal.GetDelegateForFunctionPointer<SetUpstreamProxyTypeDelegate>(setUpstreamProxyTypePtr);
+                }
+
+                IntPtr setUpstreamProxyHostPtr = GetNativeProcAddress(_libraryHandle, "set_upstream_proxy_host");
+                if (setUpstreamProxyHostPtr != IntPtr.Zero)
+                {
+                    _setUpstreamProxyHost = Marshal.GetDelegateForFunctionPointer<SetUpstreamProxyHostDelegate>(setUpstreamProxyHostPtr);
+                }
+
+                IntPtr setUpstreamProxyPortPtr = GetNativeProcAddress(_libraryHandle, "set_upstream_proxy_port");
+                if (setUpstreamProxyPortPtr != IntPtr.Zero)
+                {
+                    _setUpstreamProxyPort = Marshal.GetDelegateForFunctionPointer<SetUpstreamProxyPortDelegate>(setUpstreamProxyPortPtr);
+                }
+
+                IntPtr setUpstreamProxyAuthPtr = GetNativeProcAddress(_libraryHandle, "set_upstream_proxy_auth");
+                if (setUpstreamProxyAuthPtr != IntPtr.Zero)
+                {
+                    _setUpstreamProxyAuth = Marshal.GetDelegateForFunctionPointer<SetUpstreamProxyAuthDelegate>(setUpstreamProxyAuthPtr);
+                }
+
+                IntPtr disableUpstreamProxyAuthPtr = GetNativeProcAddress(_libraryHandle, "disable_upstream_proxy_auth");
+                if (disableUpstreamProxyAuthPtr != IntPtr.Zero)
+                {
+                    _disableUpstreamProxyAuth = Marshal.GetDelegateForFunctionPointer<DisableUpstreamProxyAuthDelegate>(disableUpstreamProxyAuthPtr);
+                }
+
+                IntPtr configureUpstreamProxyPtr = GetNativeProcAddress(_libraryHandle, "configure_upstream_proxy");
+                if (configureUpstreamProxyPtr != IntPtr.Zero)
+                {
+                    _configureUpstreamProxy = Marshal.GetDelegateForFunctionPointer<ConfigureUpstreamProxyDelegate>(configureUpstreamProxyPtr);
+                }
+
+                IntPtr getUpstreamProxyStatusPtr = GetNativeProcAddress(_libraryHandle, "get_upstream_proxy_status");
+                if (getUpstreamProxyStatusPtr != IntPtr.Zero)
+                {
+                    _getUpstreamProxyStatus = Marshal.GetDelegateForFunctionPointer<GetUpstreamProxyStatusDelegate>(getUpstreamProxyStatusPtr);
                 }
 
                 // Library initialization completed silently - only log errors
@@ -986,6 +1090,190 @@ namespace InterceptSuite.NativeInterop
             catch (Exception ex)
             {
                 LogReceived?.Invoke(this, $"Error responding to intercept: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Enable or disable upstream proxy usage
+        /// </summary>
+        /// <param name="enabled">True to enable, false to disable</param>
+        public void SetUpstreamProxyEnabled(bool enabled)
+        {
+            if (_setUpstreamProxyEnabled == null)
+            {
+                LogReceived?.Invoke(this, "WARNING: set_upstream_proxy_enabled function not available");
+                return;
+            }
+
+            try
+            {
+                _setUpstreamProxyEnabled(enabled ? 1 : 0);
+            }
+            catch (Exception ex)
+            {
+                LogReceived?.Invoke(this, $"Error setting upstream proxy enabled: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Set upstream proxy type
+        /// </summary>
+        /// <param name="type">Proxy type: 0=None, 1=HTTP, 2=SOCKS5</param>
+        public void SetUpstreamProxyType(int type)
+        {
+            if (_setUpstreamProxyType == null)
+            {
+                LogReceived?.Invoke(this, "WARNING: set_upstream_proxy_type function not available");
+                return;
+            }
+
+            try
+            {
+                _setUpstreamProxyType(type);
+            }
+            catch (Exception ex)
+            {
+                LogReceived?.Invoke(this, $"Error setting upstream proxy type: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Set upstream proxy host
+        /// </summary>
+        /// <param name="host">Proxy host address</param>
+        public void SetUpstreamProxyHost(string host)
+        {
+            if (_setUpstreamProxyHost == null)
+            {
+                LogReceived?.Invoke(this, "WARNING: set_upstream_proxy_host function not available");
+                return;
+            }
+
+            try
+            {
+                _setUpstreamProxyHost(host);
+            }
+            catch (Exception ex)
+            {
+                LogReceived?.Invoke(this, $"Error setting upstream proxy host: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Set upstream proxy port
+        /// </summary>
+        /// <param name="port">Proxy port number</param>
+        public void SetUpstreamProxyPort(int port)
+        {
+            if (_setUpstreamProxyPort == null)
+            {
+                LogReceived?.Invoke(this, "WARNING: set_upstream_proxy_port function not available");
+                return;
+            }
+
+            try
+            {
+                _setUpstreamProxyPort(port);
+            }
+            catch (Exception ex)
+            {
+                LogReceived?.Invoke(this, $"Error setting upstream proxy port: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Set upstream proxy authentication
+        /// </summary>
+        /// <param name="username">Username for authentication</param>
+        /// <param name="password">Password for authentication</param>
+        public void SetUpstreamProxyAuth(string username, string password)
+        {
+            if (_setUpstreamProxyAuth == null)
+            {
+                LogReceived?.Invoke(this, "WARNING: set_upstream_proxy_auth function not available");
+                return;
+            }
+
+            try
+            {
+                _setUpstreamProxyAuth(username, password);
+            }
+            catch (Exception ex)
+            {
+                LogReceived?.Invoke(this, $"Error setting upstream proxy auth: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Disable upstream proxy authentication
+        /// </summary>
+        public void DisableUpstreamProxyAuth()
+        {
+            if (_disableUpstreamProxyAuth == null)
+            {
+                LogReceived?.Invoke(this, "WARNING: disable_upstream_proxy_auth function not available");
+                return;
+            }
+
+            try
+            {
+                _disableUpstreamProxyAuth();
+            }
+            catch (Exception ex)
+            {
+                LogReceived?.Invoke(this, $"Error disabling upstream proxy auth: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Configure upstream proxy with all settings at once
+        /// </summary>
+        /// <param name="type">Proxy type: 0=None, 1=HTTP, 2=SOCKS5</param>
+        /// <param name="host">Proxy host address</param>
+        /// <param name="port">Proxy port number</param>
+        /// <param name="username">Username for authentication (empty string if no auth)</param>
+        /// <param name="password">Password for authentication (empty string if no auth)</param>
+        /// <returns>True if successful</returns>
+        public bool ConfigureUpstreamProxy(int type, string host, int port, string username, string password)
+        {
+            if (_configureUpstreamProxy == null)
+            {
+                LogReceived?.Invoke(this, "WARNING: configure_upstream_proxy function not available");
+                return false;
+            }
+
+            try
+            {
+                int result = _configureUpstreamProxy(type, host, port, username, password);
+                return result == 1;
+            }
+            catch (Exception ex)
+            {
+                LogReceived?.Invoke(this, $"Error configuring upstream proxy: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Get upstream proxy status and configuration
+        /// </summary>
+        /// <returns>Upstream proxy status structure</returns>
+        public UpstreamProxyStatus? GetUpstreamProxyStatus()
+        {
+            if (_getUpstreamProxyStatus == null)
+            {
+                LogReceived?.Invoke(this, "WARNING: get_upstream_proxy_status function not available");
+                return null;
+            }
+
+            try
+            {
+                return _getUpstreamProxyStatus();
+            }
+            catch (Exception ex)
+            {
+                LogReceived?.Invoke(this, $"Error getting upstream proxy status: {ex.Message}");
+                return null;
             }
         }
 

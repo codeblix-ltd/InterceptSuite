@@ -10,6 +10,7 @@
 #include "../platform/platform.h"
 #include "../tls/proxy/tls_proxy.h"
 #include "../tls/proxy/tls_proxy_dll.h"
+#include "upstream_proxy.h"
 
 #ifdef __cplusplus
 extern "C" {

@@ -60,6 +60,9 @@ int is_port_available(const char* bind_addr, int port) {
 INTERCEPT_API void init_proxy_components(void) {
   /* Initialize packet ID mutex in proxy manager */
   INIT_MUTEX(g_packet_id_mutex);
+
+  /* Initialize upstream proxy configuration */
+  init_upstream_proxy_config();
 }
 
 INTERCEPT_API proxy_start_result_t start_proxy(void) {
