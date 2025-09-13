@@ -43,6 +43,8 @@ jobs:
       if: matrix.platform == 'macos'
       run: |
         brew update
+        # Uninstall any existing cmake to avoid tap conflicts
+        brew uninstall cmake || true
         brew install openssl cmake
 
     - name: Setup vcpkg (Windows)
