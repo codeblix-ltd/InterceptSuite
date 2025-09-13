@@ -451,7 +451,7 @@ void forward_data(SSL * src, SSL * dst,
         if (config.verbose) {
           char status_msg[256];
           snprintf(status_msg, sizeof(status_msg), "Starting TCP data forwarding: %s -> %s:%d", src_ip, dst_ip, dst_port);
-          log_message(status_msg);
+          log_message("%s", status_msg);
         }
 
         while (1) {
@@ -712,7 +712,7 @@ void forward_data(SSL * src, SSL * dst,
             if (config.verbose) {
               char status_msg[256];
               snprintf(status_msg, sizeof(status_msg), "Warning: SSL connection not in OK state (with detection)");
-              log_message(status_msg);
+              log_message("%s", status_msg);
             }
           }
 
@@ -731,7 +731,7 @@ void forward_data(SSL * src, SSL * dst,
             if (config.verbose) {
               char status_msg[256];
               snprintf(status_msg, sizeof(status_msg), "Socket error detected in detection: %d", socket_error);
-              log_message(status_msg);
+              log_message("%s", status_msg);
             }
             return;
           }
@@ -740,7 +740,7 @@ void forward_data(SSL * src, SSL * dst,
           if (config.verbose) {
             char status_msg[256];
             snprintf(status_msg, sizeof(status_msg), "Starting data forwarding with detection: %s -> %s:%d", src_ip, dst_ip, dst_port);
-            log_message(status_msg);
+            log_message("%s", status_msg);
           }
 
           while (1) {
@@ -765,7 +765,7 @@ void forward_data(SSL * src, SSL * dst,
                 if (config.verbose) {
                   char status_msg[256];
                   snprintf(status_msg, sizeof(status_msg), "Connection idle timeout (with detection)");
-                  log_message(status_msg);
+                  log_message("%s", status_msg);
                 }
                 break;
               }
@@ -790,7 +790,7 @@ void forward_data(SSL * src, SSL * dst,
                 if (config.verbose) {
                   char status_msg[256];
                   snprintf(status_msg, sizeof(status_msg), "Connection closed by peer (with detection)");
-                  log_message(status_msg);
+                  log_message("%s", status_msg);
                 }
               } else if (error == SSL_ERROR_SYSCALL) {
                 unsigned long ssl_err = ERR_peek_error();
@@ -799,13 +799,13 @@ void forward_data(SSL * src, SSL * dst,
                   if (config.verbose) {
                     char status_msg[256];
                     snprintf(status_msg, sizeof(status_msg), "Connection closed abruptly (with detection)");
-                    log_message(status_msg);
+                    log_message("%s", status_msg);
                   }
                 } else {
                   // Actual system error
                   char error_msg[256];
                   snprintf(error_msg, sizeof(error_msg), "SSL_read system error in detection: %d", error);
-                  log_message(error_msg);
+                  log_message("%s", error_msg);
                   print_openssl_error();
                 }
               } else if (error == SSL_ERROR_SSL &&
@@ -814,7 +814,7 @@ void forward_data(SSL * src, SSL * dst,
                 if (config.verbose) {
                   char status_msg[256];
                   snprintf(status_msg, sizeof(status_msg), "Connection closed by peer with unexpected EOF (with detection)");
-                  log_message(status_msg);
+                  log_message("%s", status_msg);
                 }
                 ERR_clear_error(); // Clear the error queue
               } else if (error == SSL_ERROR_WANT_READ || error == SSL_ERROR_WANT_WRITE) {
