@@ -23,7 +23,7 @@ extern "C" {
 /* Upstream proxy types */
 typedef enum {
     UPSTREAM_PROXY_NONE = 0,
-    UPSTREAM_PROXY_HTTP = 1,    /* HTTP CONNECT proxy - HTTP/HTTPS/WebSocket only */
+    UPSTREAM_PROXY_HTTP = 1,    /* HTTP CONNECT proxy - All traffic */
     UPSTREAM_PROXY_SOCKS5 = 2   /* SOCKS5 proxy - All TCP/UDP traffic */
 } upstream_proxy_type_t;
 
@@ -69,9 +69,6 @@ int send_udp_through_socks5(socket_t udp_sock, const struct sockaddr_in* relay_a
                            const unsigned char* data, int data_len);
 int should_use_upstream_proxy_udp(const char* target_host, int target_port);
 
-/* Utility functions */
-int is_http_traffic(int target_port);
-int is_websocket_traffic(const char* target_host, int target_port);
 void init_upstream_proxy_config(void);
 
 #ifdef __cplusplus

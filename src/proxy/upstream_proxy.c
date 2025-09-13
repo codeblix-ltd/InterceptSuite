@@ -114,43 +114,8 @@ INTERCEPT_API int configure_upstream_proxy(upstream_proxy_type_t type, const cha
 
 /* Check if we should use upstream proxy for a given target */
 int should_use_upstream_proxy(const char* target_host, int target_port) {
-    if (!g_upstream_proxy_config.enabled) {
-        return 0;
-    }
-
-    switch (g_upstream_proxy_config.type) {
-        case UPSTREAM_PROXY_HTTP:
-            /* HTTP proxy only handles HTTP/HTTPS/WebSocket traffic
-            HTTP Proxy Doesnt Support NON HTTP traffic,
-            Even if HTTP upstream proxy set, non HTTP/Web traffic will connect to server directly
-            Only HTTP/s/WebSocket goes to upstream proxy  - Needs to be handle with VPN use CASE - can cause error with VPN Server setup
-            */
-            return is_http_traffic(target_port) || is_websocket_traffic(target_host, target_port);
-
-        case UPSTREAM_PROXY_SOCKS5:
-            /* SOCKS5 handles all TCP traffic */
-            return 1;
-
-        default:
-            return 0;
-    }
-}
-
-/* Check if traffic is HTTP-like (HTTP/HTTPS)
-Need  to update approach to detect web traffic http and web socket
-TBD - Remove port based detection and change to data ??
-
-*/
-
-int is_http_traffic(int target_port) {
-    return (target_port == 80 || target_port == 443 || target_port == 8080 ||
-            target_port == 8443 || target_port == 3128);
-}
-
-/* Check if traffic might be WebSocket */
-int is_websocket_traffic(const char* target_host, int target_port) {
-    /* WebSocket typically runs on HTTP/HTTPS ports or common WebSocket ports */
-    return is_http_traffic(target_port) || target_port == 3000 || target_port == 8000;
+    /* Simply return whether upstream proxy is enabled - send ALL traffic through it */
+    return g_upstream_proxy_config.enabled;
 }
 
 /* Main connection function - routes through appropriate proxy */
