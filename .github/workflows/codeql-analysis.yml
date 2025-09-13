@@ -34,7 +34,7 @@ jobs:
         queries: security-extended,security-and-quality
 
     # For C/C++ analysis - CodeQL can analyze without full build
-    - name: Install basic C/C++ dependencies  
+    - name: Install basic C/C++ dependencies
       if: matrix.language == 'cpp'
       run: |
         sudo apt-get update
@@ -42,7 +42,7 @@ jobs:
 
     # No build step needed for C/C++ - CodeQL analyzes source code directly
 
-    # For C# analysis  
+    # For C# analysis
     - name: Setup .NET
       if: matrix.language == 'csharp'
       uses: actions/setup-dotnet@v4
