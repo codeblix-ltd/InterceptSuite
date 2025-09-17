@@ -15,7 +15,6 @@
 extern "C" {
 #endif
 
-/* Maximum lengths for upstream proxy configuration */
 #define UPSTREAM_PROXY_MAX_HOST 256
 #define UPSTREAM_PROXY_MAX_USERNAME 128
 #define UPSTREAM_PROXY_MAX_PASSWORD 128
@@ -27,7 +26,6 @@ typedef enum {
     UPSTREAM_PROXY_SOCKS5 = 2   /* SOCKS5 proxy - All TCP/UDP traffic */
 } upstream_proxy_type_t;
 
-/* Upstream proxy configuration */
 typedef struct {
     int enabled;                                           /* 0 = disabled, 1 = enabled */
     upstream_proxy_type_t type;                           /* Proxy type */
@@ -38,31 +36,25 @@ typedef struct {
     int use_auth;                                         /* 0 = no auth, 1 = use username/password */
 } upstream_proxy_config_t;
 
-/* Global upstream proxy configuration */
 extern upstream_proxy_config_t g_upstream_proxy_config;
 
-/* API Functions for configuration */
 INTERCEPT_API void set_upstream_proxy_enabled(int enabled);
-INTERCEPT_API void set_upstream_proxy_type(upstream_proxy_type_t type);
+INTERCEPT_API void set_upstream_proxy_type(int type); /* 0=None, 1=HTTP, 2=SOCKS5 */
 INTERCEPT_API void set_upstream_proxy_host(const char* host);
 INTERCEPT_API void set_upstream_proxy_port(int port);
 INTERCEPT_API void set_upstream_proxy_auth(const char* username, const char* password);
 INTERCEPT_API void disable_upstream_proxy_auth(void);
 INTERCEPT_API upstream_proxy_config_t* get_upstream_proxy_config(void);
 
-/* Convenience function to set all upstream proxy settings at once */
-INTERCEPT_API int configure_upstream_proxy(upstream_proxy_type_t type, const char* host, int port,
+INTERCEPT_API int configure_upstream_proxy(int type, const char* host, int port,
                                           const char* username, const char* password);
 
-/* Connection functions */
 socket_t connect_through_upstream_proxy(const char* target_host, int target_port);
 int should_use_upstream_proxy(const char* target_host, int target_port);
 
-/* Protocol-specific connection functions */
 socket_t connect_through_http_proxy(const char* target_host, int target_port);
 socket_t connect_through_socks5_proxy(const char* target_host, int target_port);
 
-/* UDP support for SOCKS5 */
 int setup_socks5_udp_associate(socket_t* control_sock, struct sockaddr_in* udp_relay_addr);
 int send_udp_through_socks5(socket_t udp_sock, const struct sockaddr_in* relay_addr,
                            const char* target_host, int target_port,
@@ -75,4 +67,4 @@ void init_upstream_proxy_config(void);
 }
 #endif
 
-#endif /* UPSTREAM_PROXY_H */
+#endif

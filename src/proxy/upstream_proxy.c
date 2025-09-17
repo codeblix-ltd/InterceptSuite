@@ -48,8 +48,18 @@ INTERCEPT_API void set_upstream_proxy_enabled(int enabled) {
     }
 }
 
-INTERCEPT_API void set_upstream_proxy_type(upstream_proxy_type_t type) {
-    g_upstream_proxy_config.type = type;
+INTERCEPT_API void set_upstream_proxy_type(int type) {
+    /* Convert int to enum and validate */
+    if (type >= UPSTREAM_PROXY_NONE && type <= UPSTREAM_PROXY_SOCKS5) {
+        g_upstream_proxy_config.type = (upstream_proxy_type_t)type;
+    } else {
+        g_upstream_proxy_config.type = UPSTREAM_PROXY_NONE;
+        if (config.verbose) {
+            log_message("Invalid upstream proxy type %d, defaulting to NONE", type);
+        }
+        return;
+    }
+
     if (config.verbose) {
         const char* type_str = (type == UPSTREAM_PROXY_HTTP) ? "HTTP CONNECT" :
                               (type == UPSTREAM_PROXY_SOCKS5) ? "SOCKS5" : "NONE";
@@ -99,7 +109,7 @@ INTERCEPT_API upstream_proxy_config_t* get_upstream_proxy_config(void) {
     return &g_upstream_proxy_config;
 }
 
-INTERCEPT_API int configure_upstream_proxy(upstream_proxy_type_t type, const char* host, int port,
+INTERCEPT_API int configure_upstream_proxy(int type, const char* host, int port,
                                           const char* username, const char* password) {
     if (!host || port <= 0 || port > 65535) {
         return 0; /* Invalid parameters */
@@ -118,8 +128,9 @@ INTERCEPT_API int configure_upstream_proxy(upstream_proxy_type_t type, const cha
     set_upstream_proxy_enabled(1);
 
     if (config.verbose) {
-        log_message("Upstream proxy configured: %s://%s:%d",
-                   (type == UPSTREAM_PROXY_HTTP) ? "http" : "socks5", host, port);
+        const char* type_str = (type == UPSTREAM_PROXY_HTTP) ? "http" :
+                              (type == UPSTREAM_PROXY_SOCKS5) ? "socks5" : "none";
+        log_message("Upstream proxy configured: %s://%s:%d", type_str, host, port);
     }
 
     return 1; /* Success */
