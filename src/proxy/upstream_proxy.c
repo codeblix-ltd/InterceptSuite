@@ -7,6 +7,8 @@
 #include "upstream_proxy.h"
 #include "../utils/utils.h"
 #include <ctype.h>
+#include <openssl/evp.h>
+#include <openssl/buffer.h>
 
 #ifdef INTERCEPT_WINDOWS
 #include <ws2tcpip.h>
@@ -17,6 +19,17 @@
 
 /* Global upstream proxy configuration */
 upstream_proxy_config_t g_upstream_proxy_config = {0};
+
+static int base64_encode(const char* input, int input_len, char* output, int output_size) {
+    int encoded_len = EVP_EncodeBlock((unsigned char*)output, (const unsigned char*)input, input_len);
+
+    if (encoded_len < 0 || encoded_len >= output_size) {
+        return 0; /* Error or buffer too small */
+    }
+
+    output[encoded_len] = '\0';
+    return 1; /* Success */
+}
 
 /* Initialize upstream proxy configuration with defaults */
 void init_upstream_proxy_config(void) {
@@ -112,13 +125,12 @@ INTERCEPT_API int configure_upstream_proxy(upstream_proxy_type_t type, const cha
     return 1; /* Success */
 }
 
-/* Check if we should use upstream proxy for a given target */
 int should_use_upstream_proxy(const char* target_host, int target_port) {
-    /* Simply return whether upstream proxy is enabled - send ALL traffic through it */
     return g_upstream_proxy_config.enabled;
 }
 
 /* Main connection function - routes through appropriate proxy */
+// Need to figure out the possible ways for early HTTP Detection
 socket_t connect_through_upstream_proxy(const char* target_host, int target_port) {
     if (!should_use_upstream_proxy(target_host, target_port)) {
         return INVALID_SOCKET;
@@ -144,14 +156,12 @@ socket_t connect_through_http_proxy(const char* target_host, int target_port) {
     char response[1024];
     int bytes_sent, bytes_received;
 
-    /* Create socket to proxy */
     proxy_sock = socket(AF_INET, SOCK_STREAM, 0);
     if (proxy_sock == INVALID_SOCKET) {
         log_message("Failed to create socket for HTTP proxy connection");
         return INVALID_SOCKET;
     }
 
-    /* Connect to proxy server */
     memset(&proxy_addr, 0, sizeof(proxy_addr));
     proxy_addr.sin_family = AF_INET;
     proxy_addr.sin_port = htons(g_upstream_proxy_config.port);
@@ -171,15 +181,26 @@ socket_t connect_through_http_proxy(const char* target_host, int target_port) {
         return INVALID_SOCKET;
     }
 
-    /* Send CONNECT request */
     if (g_upstream_proxy_config.use_auth) {
-        /* TODO: Implement HTTP Basic Authentication */
+        char auth_string[512];
+        char encoded_auth[768]; /* Base64 encoding can be up to 4 times larger, need to validatee the size limit*/
+
+        snprintf(auth_string, sizeof(auth_string), "%s:%s",
+                g_upstream_proxy_config.username, g_upstream_proxy_config.password);
+
+        if (!base64_encode(auth_string, (int)strlen(auth_string), encoded_auth, sizeof(encoded_auth))) {
+            log_message("Failed to encode authentication credentials");
+            close_socket(proxy_sock);
+            return INVALID_SOCKET;
+        }
+
         snprintf(request, sizeof(request),
                 "CONNECT %s:%d HTTP/1.1\r\n"
                 "Host: %s:%d\r\n"
+                "Proxy-Authorization: Basic %s\r\n"
                 "Proxy-Connection: keep-alive\r\n"
                 "\r\n",
-                target_host, target_port, target_host, target_port);
+                target_host, target_port, target_host, target_port, encoded_auth);
     } else {
         snprintf(request, sizeof(request),
                 "CONNECT %s:%d HTTP/1.1\r\n"
@@ -196,7 +217,6 @@ socket_t connect_through_http_proxy(const char* target_host, int target_port) {
         return INVALID_SOCKET;
     }
 
-    /* Read response */
     bytes_received = recv(proxy_sock, response, sizeof(response) - 1, 0);
     if (bytes_received <= 0) {
         log_message("Failed to receive response from HTTP proxy");
@@ -206,7 +226,6 @@ socket_t connect_through_http_proxy(const char* target_host, int target_port) {
 
     response[bytes_received] = '\0';
 
-    /* Check if CONNECT succeeded */
     if (strstr(response, "200") == NULL) {
         log_message("HTTP proxy CONNECT failed: %s", response);
         close_socket(proxy_sock);
@@ -220,7 +239,6 @@ socket_t connect_through_http_proxy(const char* target_host, int target_port) {
     return proxy_sock;
 }
 
-/* SOCKS5 proxy implementation */
 socket_t connect_through_socks5_proxy(const char* target_host, int target_port) {
     socket_t proxy_sock = INVALID_SOCKET;
     struct sockaddr_in proxy_addr;
@@ -278,7 +296,6 @@ socket_t connect_through_socks5_proxy(const char* target_host, int target_port) 
 
     /* Handle authentication if required */
     if (buffer[1] == 0x02 && g_upstream_proxy_config.use_auth) {
-        /* Username/password authentication */
         int username_len = (int)strlen(g_upstream_proxy_config.username);
         int password_len = (int)strlen(g_upstream_proxy_config.password);
 
@@ -340,13 +357,15 @@ socket_t connect_through_socks5_proxy(const char* target_host, int target_port) 
     return proxy_sock;
 }
 
-/* UDP support for SOCKS5 proxy */
+/* UDP support for SOCKS5 proxy  - Need to test via VPN Once implemented*/
 int should_use_upstream_proxy_udp(const char* target_host, int target_port) {
     if (!g_upstream_proxy_config.enabled) {
         return 0;
     }
 
-    /* Only SOCKS5 supports UDP */
+    /* Only SOCKS5 supports UDP   - Won't work if UpStream Socks5 Proxy doesn't support UDP Associate
+    Need to figure out Ways to detect and exclude it directly or via User upstream Config
+    */
     return (g_upstream_proxy_config.type == UPSTREAM_PROXY_SOCKS5);
 }
 
