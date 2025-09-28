@@ -13,23 +13,48 @@ env:
 
 jobs:
   build-windows-release:
-    runs-on: self-hosted
+    # Use a GitHub-hosted runner instead of a self-hosted one
+    runs-on: windows-latest
 
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
 
     # =====================================================================
-    # STEP 1: Build C Library (.dll)
+    # STEP 1: Setup vcpkg and Build C Library (.dll)
     # =====================================================================
+    
+    - name: Cache vcpkg
+      uses: actions/cache@v4
+      with:
+        path: |
+          ${{ github.workspace }}/vcpkg
+          !${{ github.workspace }}/vcpkg/buildtrees
+          !${{ github.workspace }}/vcpkg/packages
+          !${{ github.workspace }}/vcpkg/downloads
+        key: vcpkg-windows-${{ hashFiles('vcpkg.json') }}-v2
+
+    - name: Setup vcpkg
+      uses: actions/checkout@v4
+      with:
+        repository: microsoft/vcpkg
+        path: vcpkg
+        fetch-depth: 0
+
+    - name: Bootstrap vcpkg
+      run: |
+        cd vcpkg
+        ./bootstrap-vcpkg.bat -disableMetrics
+        git pull origin master
+      shell: cmd
 
     - name: Build C Library (.dll)
       shell: pwsh
       run: |
         Write-Host "=== Building InterceptSuite C Library for Windows ===" -ForegroundColor Green
 
-        # Build the library using existing vcpkg installation
-        .\build_windows.ps1 -VcpkgRoot "D:\vcpkg"
+        # Build the library using the vcpkg we just set up
+        .\build_windows.ps1 -VcpkgRoot "${{ github.workspace }}\vcpkg"
 
         Write-Host "=== Verifying DLL build ===" -ForegroundColor Green
         $dllPath = "build\Release\Intercept.dll"
@@ -42,76 +67,35 @@ jobs:
         }
 
     # =====================================================================
-    # STEP 2: Sign C Library DLL
+    # STEP 2: Setup .NET
     # =====================================================================
 
-    - name: Sign C Library DLL
-      shell: pwsh
-      run: |
-        Write-Host "=== Signing C Library DLL ===" -ForegroundColor Green
-
-        $dllPath = "build\Release\Intercept.dll"
-        Write-Host "Signing $dllPath..." -ForegroundColor Yellow
-        & signtool.exe sign /tr http://timestamp.sectigo.com /td sha256 /fd sha256 /sha1 6ffca813ad52ab0142cc2c4b48d1ae2a45c279b8 $dllPath
-
-        if ($LASTEXITCODE -eq 0) {
-          Write-Host "✅ DLL signed successfully" -ForegroundColor Green
-        } else {
-          Write-Error "❌ DLL signing failed"
-          exit 1
-        }
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '9.0.x'
 
     # =====================================================================
-    # STEP 3: Build .NET Application and Create Installer
+    # STEP 3: Build .NET Application and Create Unsigned Installer
     # =====================================================================
 
     - name: Build .NET Application and Create Installer
       shell: pwsh
       run: |
-        Write-Host "=== Building .NET InterceptSuite Application ===" -ForegroundColor Green
+        Write-Host "=== Building .NET InterceptSuite Application and Installer (Unsigned) ===" -ForegroundColor Green
 
-        # Navigate to the installer directory and run the build script
+        # Navigate to the installer directory and run the build scripts
+        # All signing steps have been removed from this block
         Set-Location "GUI\InterceptSuite\Installer\Windows"
         .\build-application.ps1
-
-        Write-Host "=== Signing Published Application EXE ===" -ForegroundColor Green
-
-        # Find the published EXE file
-        $publishedExe = Get-ChildItem -Path "..\..\bin\Release\net9.0\win-x64\publish" -Filter "*.exe" -Recurse | Where-Object { $_.Name -like "*InterceptSuite*" } | Select-Object -First 1
-
-        if ($publishedExe) {
-          Write-Host "Signing $($publishedExe.FullName)..." -ForegroundColor Yellow
-          & signtool.exe sign /tr http://timestamp.sectigo.com /td sha256 /fd sha256 /sha1 6ffca813ad52ab0142cc2c4b48d1ae2a45c279b8 $publishedExe.FullName
-
-          if ($LASTEXITCODE -eq 0) {
-            Write-Host "✅ Application EXE signed successfully" -ForegroundColor Green
-          } else {
-            Write-Error "❌ Application EXE signing failed"
-            exit 1
-          }
-        } else {
-          Write-Host "⚠️ No application EXE found to sign in publish directory" -ForegroundColor Yellow
-        }
-
         .\build-installers.ps1
 
-        Write-Host "=== Signing Installer EXE ===" -ForegroundColor Green
-
-        # Find the installer EXE file in dist directory
+        Write-Host "=== Verifying Installer Build ===" -ForegroundColor Green
         $installerExe = Get-ChildItem -Path "..\dist" -Filter "*.exe" -Recurse | Select-Object -First 1
-
         if ($installerExe) {
-          Write-Host "Signing $($installerExe.FullName)..." -ForegroundColor Yellow
-          & signtool.exe sign /tr http://timestamp.sectigo.com /td sha256 /fd sha256 /sha1 6ffca813ad52ab0142cc2c4b48d1ae2a45c279b8 $installerExe.FullName
-
-          if ($LASTEXITCODE -eq 0) {
-            Write-Host "✅ Installer EXE signed successfully" -ForegroundColor Green
-          } else {
-            Write-Error "❌ Installer EXE signing failed"
-            exit 1
-          }
+          Write-Host "✅ Installer EXE created successfully at $($installerExe.FullName)" -ForegroundColor Green
         } else {
-          Write-Error "❌ No installer EXE found to sign in dist directory"
+          Write-Error "❌ No installer EXE found in dist directory after build"
           exit 1
         }
 
@@ -163,4 +147,4 @@ jobs:
       shell: pwsh
       run: |
         Write-Host "✅ Windows build completed successfully!" -ForegroundColor Green
-        Write-Host "📦 EXE installer created and uploaded to release" -ForegroundColor Cyan
+        Write-Host "📦 Unsigned EXE installer created and uploaded" -ForegroundColor Cyan
