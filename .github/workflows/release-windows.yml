@@ -13,7 +13,6 @@ env:
 
 jobs:
   build-windows-release:
-    # Use a GitHub-hosted runner instead of a self-hosted one
     runs-on: windows-latest
 
     steps:
@@ -23,7 +22,7 @@ jobs:
     # =====================================================================
     # STEP 1: Setup vcpkg and Build C Library (.dll)
     # =====================================================================
-    
+
     - name: Cache vcpkg
       uses: actions/cache@v4
       with:
@@ -52,10 +51,7 @@ jobs:
       shell: pwsh
       run: |
         Write-Host "=== Building InterceptSuite C Library for Windows ===" -ForegroundColor Green
-
-        # Build the library using the vcpkg we just set up
         .\build_windows.ps1 -VcpkgRoot "${{ github.workspace }}\vcpkg"
-
         Write-Host "=== Verifying DLL build ===" -ForegroundColor Green
         $dllPath = "build\Release\Intercept.dll"
         if (Test-Path $dllPath) {
@@ -67,13 +63,17 @@ jobs:
         }
 
     # =====================================================================
-    # STEP 2: Setup .NET
+    # STEP 2: Setup .NET and NSIS
     # =====================================================================
 
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '9.0.x'
+
+    - name: Install NSIS
+      run: choco install nsis
+      shell: powershell
 
     # =====================================================================
     # STEP 3: Build .NET Application and Create Unsigned Installer
@@ -83,13 +83,9 @@ jobs:
       shell: pwsh
       run: |
         Write-Host "=== Building .NET InterceptSuite Application and Installer (Unsigned) ===" -ForegroundColor Green
-
-        # Navigate to the installer directory and run the build scripts
-        # All signing steps have been removed from this block
         Set-Location "GUI\InterceptSuite\Installer\Windows"
         .\build-application.ps1
         .\build-installers.ps1
-
         Write-Host "=== Verifying Installer Build ===" -ForegroundColor Green
         $installerExe = Get-ChildItem -Path "..\dist" -Filter "*.exe" -Recurse | Select-Object -First 1
         if ($installerExe) {
@@ -108,16 +104,13 @@ jobs:
       run: |
         Write-Host "=== Preparing release artifacts ===" -ForegroundColor Green
         New-Item -ItemType Directory -Path "release-artifacts" -Force
-
-        # Copy EXE installer from dist directory
-        if (Test-Path "GUI\InterceptSuite\Installer\dist") {
-          $exeFiles = Get-ChildItem -Path "GUI\InterceptSuite\Installer\dist" -Filter "*.exe" -Recurse
-          foreach ($exe in $exeFiles) {
-            Copy-Item $exe.FullName "release-artifacts\$($exe.Name)"
-            Write-Host "✅ EXE installer copied: $($exe.Name)" -ForegroundColor Green
-          }
-        } else {
-          Write-Host "❌ Installer dist directory not found!" -ForegroundColor Red
+        $exeFiles = Get-ChildItem -Path "GUI\InterceptSuite\Installer\dist" -Filter "*.exe" -Recurse
+        foreach ($exe in $exeFiles) {
+          Copy-Item $exe.FullName "release-artifacts\$($exe.Name)"
+          Write-Host "✅ EXE installer copied: $($exe.Name)" -ForegroundColor Green
+        }
+        if ($exeFiles.Count -eq 0) {
+          Write-Host "❌ Installer dist directory was empty!" -ForegroundColor Red
           exit 1
         }
 
